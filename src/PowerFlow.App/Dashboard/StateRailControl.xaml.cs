@@ -16,6 +16,6 @@ public sealed partial class StateRailControl : UserControl
         SaverDot.Opacity = snapshot.State == PowerState.PowerSaver ? 1 : 0.18;
         BalancedDot.Opacity = snapshot.State == PowerState.Balanced ? 1 : 0.18;
         PerformanceDot.Opacity = snapshot.State == PowerState.HighPerformance ? 1 : 0.18;
-        PerformanceSub.Text = snapshot.IsLatched ? $"LOCKED · {snapshot.LatchType ?? "policy"}" : "game / manual latch";
+        PerformanceSub.Text = snapshot.State == PowerState.HighPerformance && snapshot.IsLatched ? $"LOCKED - {snapshot.LatchType ?? "policy"}" : "game / manual lock";
     }
 }

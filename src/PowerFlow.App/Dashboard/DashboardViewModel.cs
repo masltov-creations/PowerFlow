@@ -19,6 +19,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
 
     public string StateLabel => _snapshot switch
     {
+        { IsLatched: true, LatchType: "Manual", State: PowerState.PowerSaver } => "POWER SAVER LOCKED",
+        { IsLatched: true, LatchType: "Manual", State: PowerState.Balanced } => "BALANCED LOCKED",
         { IsLatched: true, State: PowerState.HighPerformance } => "PERFORMANCE LOCKED",
         { State: PowerState.PowerSaver } => "POWER SAVER",
         { State: PowerState.Balanced } => "BALANCED",

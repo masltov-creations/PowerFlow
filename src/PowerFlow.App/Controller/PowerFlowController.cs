@@ -15,6 +15,7 @@ public sealed class PowerFlowController : IAsyncDisposable
     private readonly IControllerTickSourceFactory _tickFactory;
     private readonly IControllerDelay _delay;
     private readonly IControllerClock _clock;
+    private readonly IActivePowerPlanObserver? _planObserver;
     private readonly PowerPolicyEngine _engine;
     private readonly object _queueLock = new();
     private readonly object _backgroundLock = new();
@@ -35,7 +36,8 @@ public sealed class PowerFlowController : IAsyncDisposable
         IGameLifecycleMonitor games,
         IControllerTickSourceFactory tickFactory,
         IControllerDelay delay,
-        IControllerClock clock)
+        IControllerClock clock,
+        IActivePowerPlanObserver? planObserver = null)
     {
         _config = config;
         _plans = plans;
@@ -44,6 +46,7 @@ public sealed class PowerFlowController : IAsyncDisposable
         _tickFactory = tickFactory;
         _delay = delay;
         _clock = clock;
+        _planObserver = planObserver;
         _engine = new PowerPolicyEngine(new PolicyConfig(
             config.RestingState,
             config.CpuPromotionThresholdPercent,
@@ -76,6 +79,12 @@ public sealed class PowerFlowController : IAsyncDisposable
         _engine.SynchronizeObservedState(_currentState);
         Publish(_currentState, $"Observed active Windows plan: {active.Name}", false, null, 0, null, null);
 
+        if (_planObserver is not null)
+        {
+            _planObserver.ActivePlanChanged += OnActivePlanChanged;
+            _planObserver.Start();
+        }
+
         _games.UpdateRules(_config.AppRules);
         _games.Start();
         await DrainAsync();
@@ -98,6 +107,11 @@ public sealed class PowerFlowController : IAsyncDisposable
         _games.GameDetected -= OnGameDetected;
         _games.GameProcessAdded -= OnGameProcessAdded;
         _games.GameLatchReleased -= OnGameLatchReleased;
+        if (_planObserver is not null)
+        {
+            _planObserver.ActivePlanChanged -= OnActivePlanChanged;
+            _planObserver.Stop();
+        }
         await DrainAsync();
 
         Task[] background;
@@ -114,33 +128,14 @@ public sealed class PowerFlowController : IAsyncDisposable
 
     public Task SetManualStateAsync(PowerState state) => EnqueueAsync(async () =>
     {
-        if (state == PowerState.HighPerformance)
-        {
-            StopSampling();
-            CancelCooldown();
-            var decision = _engine.Evaluate(new ManualPerformanceRequested(_clock.UtcNow));
-            await ApplyDecisionAsync(decision, "Manual override");
-            return;
-        }
-
-        if (_games.IsLatched)
-        {
-            Publish(_currentState, "Performance locked - Game; downgrade unavailable until the game exits", true, "Game", Snapshot.CpuPercent, Snapshot.TriggerApplication, null);
-            return;
-        }
-
-        if (Snapshot.LatchType == "Manual")
-        {
-            var released = _engine.Evaluate(new ManualPerformanceReleased(_clock.UtcNow));
-            await ApplyDecisionAsync(released, "Manual override released");
-        }
-        await ActivateDirectAsync(state, $"Manual {state}", null, false);
-        if (!_games.IsLatched) StartSampling();
+        StopSampling();
+        CancelCooldown();
+        var decision = _engine.Evaluate(new ManualStateRequested(_clock.UtcNow, state));
+        await ApplyDecisionAsync(decision, "Manual override");
     });
-
     public Task ReleaseManualLatchAsync() => EnqueueAsync(async () =>
     {
-        var decision = _engine.Evaluate(new ManualPerformanceReleased(_clock.UtcNow));
+        var decision = _engine.Evaluate(new ManualStateReleased(_clock.UtcNow));
         await ApplyDecisionAsync(decision, "Manual override released");
         if (!_games.IsLatched) StartSampling();
     });
@@ -163,6 +158,29 @@ public sealed class PowerFlowController : IAsyncDisposable
 
     public ValueTask DisposeAsync() => new(StopAsync());
 
+    private void OnActivePlanChanged(object? sender, ActivePowerPlanChangedEventArgs e)
+    {
+        _ = EnqueueAsync(async () =>
+        {
+            var observed = MapPlan(e.SchemeId);
+            if (observed is not PowerState state || state == _currentState) return;
+
+            StopSampling();
+            CancelCooldown();
+            var from = _currentState;
+            _currentState = state;
+            AddHistory(from, state, "External Windows power plan change", true);
+            var decision = _engine.Evaluate(new ManualStateRequested(_clock.UtcNow, state));
+
+            if (decision.Target == state)
+            {
+                Publish(state, $"Windows Power Options selected {state} - Manual lock", true, "Manual", Snapshot.CpuPercent, "Windows Power Options", null);
+                return;
+            }
+
+            await ApplyDecisionAsync(decision, "Windows Power Options");
+        });
+    }
     private void OnGameDetected(object? sender, GameDetectedEventArgs e)
     {
         _activeGameKey = GameKey(e.Process);

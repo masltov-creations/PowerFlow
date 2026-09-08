@@ -52,7 +52,7 @@ public partial class App : Application
             IPowerPlanController planController = _previewMode
                 ? new PreviewPowerPlanController(new WindowsPowerPlanController())
                 : new WindowsPowerPlanController();
-            _controller = new PowerFlowController(_config, planController, new SystemTimesActivitySource(), _games, new PeriodicControllerTickSourceFactory(), new SystemControllerDelay(), new SystemControllerClock());
+            _controller = new PowerFlowController(_config, planController, new SystemTimesActivitySource(), _games, new PeriodicControllerTickSourceFactory(), new SystemControllerDelay(), new SystemControllerClock(), new WindowsPowerPlanObserver());
             _controller.SnapshotChanged += OnSnapshotChanged;
             await _controller.StartAsync();
             if (LaunchIntent.ShouldCreateTray(launchArgs))

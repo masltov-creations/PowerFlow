@@ -5,7 +5,7 @@ public sealed class PowerPolicyEngine
     private readonly PolicyConfig _config;
     private readonly HashSet<string> _games = new(StringComparer.OrdinalIgnoreCase);
     private PowerState _state;
-    private bool _manualLatch;
+    private PowerState? _manualState;
     private string? _explicitBalancedRule;
     private DateTimeOffset? _highDemandSince;
     private DateTimeOffset? _quietSince;
@@ -39,31 +39,52 @@ public sealed class PowerPolicyEngine
 
         switch (evt)
         {
-            case ManualPerformanceRequested:
-                _manualLatch = true;
+            case ManualStateRequested manual:
+                _manualState = manual.State;
                 _coolingDown = false;
-                _state = PowerState.HighPerformance;
-                _reason = "Performance locked - Manual";
+                _highDemandSince = null;
+                _quietSince = null;
+                if (_games.Count == 0 || manual.State == PowerState.HighPerformance)
+                {
+                    _state = manual.State;
+                    _reason = ManualReason(manual.State);
+                }
                 break;
 
+            case ManualPerformanceRequested:
+                _manualState = PowerState.HighPerformance;
+                _coolingDown = false;
+                _highDemandSince = null;
+                _quietSince = null;
+                _state = PowerState.HighPerformance;
+                _reason = ManualReason(PowerState.HighPerformance);
+                break;
+
+            case ManualStateReleased:
             case ManualPerformanceReleased:
-                _manualLatch = false;
+                _manualState = null;
                 if (_games.Count > 0)
                 {
                     _state = PowerState.HighPerformance;
                     _reason = "Performance locked - Game";
                 }
-                else
+                else if (_state == PowerState.HighPerformance)
                 {
                     _coolingDown = false;
                     _state = PowerState.Balanced;
-                    _reason = "Manual performance latch released";
+                    _reason = "Manual lock released - Balanced";
+                }
+                else
+                {
+                    _coolingDown = false;
+                    _highDemandSince = null;
+                    _quietSince = null;
+                    _reason = "Manual lock released - automatic policy resumed";
                 }
                 break;
-
             case GameStarted game:
                 _games.Add(game.ProcessKey);
-                if (!_manualLatch)
+                if (_manualState != PowerState.HighPerformance)
                 {
                     _coolingDown = false;
                     _state = PowerState.HighPerformance;
@@ -73,10 +94,11 @@ public sealed class PowerPolicyEngine
 
             case GameExited game:
                 _games.Remove(game.ProcessKey);
-                if (_manualLatch)
+                if (_games.Count == 0 && game.AllTrackedGameProcessesExited && _manualState is PowerState manualState)
                 {
-                    _state = PowerState.HighPerformance;
-                    _reason = "Performance locked - Manual";
+                    _coolingDown = false;
+                    _state = manualState;
+                    _reason = ManualReason(manualState);
                 }
                 else if (_games.Count > 0 || !game.AllTrackedGameProcessesExited)
                 {
@@ -91,7 +113,7 @@ public sealed class PowerPolicyEngine
                 }
                 break;
 
-            case CooldownExpired when _coolingDown && !_manualLatch && _games.Count == 0:
+            case CooldownExpired when _coolingDown && _manualState is null && _games.Count == 0:
                 _coolingDown = false;
                 _state = PowerState.Balanced;
                 _quietSince = null;
@@ -100,7 +122,7 @@ public sealed class PowerPolicyEngine
 
             case ExplicitBalancedActivated balanced:
                 _explicitBalancedRule = balanced.RuleName;
-                if (!_manualLatch && _games.Count == 0 && !_coolingDown)
+                if (_manualState is null && _games.Count == 0 && !_coolingDown)
                 {
                     _state = PowerState.Balanced;
                     _reason = $"Balanced rule - {balanced.RuleName}";
@@ -118,23 +140,22 @@ public sealed class PowerPolicyEngine
                 break;
         }
 
-        if (_manualLatch)
+        if (_games.Count > 0)
         {
             _state = PowerState.HighPerformance;
-            _reason = "Performance locked - Manual";
+            _reason = _manualState == PowerState.HighPerformance ? ManualReason(PowerState.HighPerformance) : "Performance locked - Game";
         }
-        else if (_games.Count > 0)
+        else if (_manualState is PowerState manualState)
         {
-            _state = PowerState.HighPerformance;
-            _reason = "Performance locked - Game";
+            _state = manualState;
+            _reason = ManualReason(manualState);
         }
-
-        return new PolicyDecision(_state, before != _state, _reason, _manualLatch || _games.Count > 0, evt.At);
+        return new PolicyDecision(_state, before != _state, _reason, _manualState is not null || _games.Count > 0, evt.At);
     }
 
     private void EvaluateCpu(CpuSample cpu)
     {
-        if (_manualLatch || _games.Count > 0 || _coolingDown)
+        if (_manualState is not null || _games.Count > 0 || _coolingDown)
             return;
 
         if (_explicitBalancedRule is not null)
@@ -192,4 +213,11 @@ public sealed class PowerPolicyEngine
             }
         }
     }
-}
+
+    private static string ManualReason(PowerState state) => state switch
+    {
+        PowerState.PowerSaver => "Power Saver locked - Manual",
+        PowerState.Balanced => "Balanced locked - Manual",
+        PowerState.HighPerformance => "Performance locked - Manual",
+        _ => $"{state} locked - Manual"
+    };}

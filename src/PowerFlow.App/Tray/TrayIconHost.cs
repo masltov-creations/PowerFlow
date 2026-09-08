@@ -130,9 +130,9 @@ public sealed class TrayIconHost : IDisposable
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString | Check(model.PowerSaverChecked), TrayMenuCommands.PowerSaver, "Power Saver");
             AppendMenu(menu, MfString | Check(model.BalancedChecked), TrayMenuCommands.Balanced, "Balanced");
-            AppendMenu(menu, MfString | Check(model.HighPerformanceChecked), TrayMenuCommands.HighPerformance, "High Performance (Latch)");
+            AppendMenu(menu, MfString | Check(model.HighPerformanceChecked), TrayMenuCommands.HighPerformance, "High Performance (Lock)");
             var releaseFlags = MfString | (model.ReleaseLatchEnabled ? 0u : MfDisabled | MfGrayed);
-            AppendMenu(menu, releaseFlags, TrayMenuCommands.ReleaseLatch, "Release Performance Latch");
+            AppendMenu(menu, releaseFlags, TrayMenuCommands.ReleaseLatch, "Release Manual Lock");
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, TrayMenuCommands.Settings, "Settings");
             AppendMenu(menu, MfSeparator, 0, null);
@@ -257,4 +257,3 @@ public sealed class TrayIconHost : IDisposable
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern IntPtr LoadIcon(IntPtr instance, IntPtr iconName);
 }
-

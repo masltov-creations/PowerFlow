@@ -87,22 +87,21 @@ public sealed partial class TelemetryGraphControl : UserControl
 
         if (visibleSamples.Length > 0)
         {
-            var cpu = new Polyline { Stroke = cpuBrush, StrokeThickness = 2.2, StrokeLineJoin = PenLineJoin.Round };
-            var power = new Polyline { Stroke = powerBrush, StrokeThickness = 1.9, StrokeLineJoin = PenLineJoin.Round, Opacity = 0.9 };
-            foreach (var sample in visibleSamples)
-            {
-                var x = left + TelemetryPlotProjection.NormalizedX(sample.At, latest, _windowSeconds) * plotWidth;
-                cpu.Points.Add(new Point(x, CpuY(sample.CpuPercent, top, plotHeight)));
-                if (sample.PackageWatts is double watts)
-                {
-                    var y = top + plotHeight - Math.Clamp(watts / powerMax, 0, 1) * plotHeight;
-                    power.Points.Add(new Point(x, y));
-                }
-            }
-            PlotCanvas.Children.Add(cpu);
-            if (power.Points.Count > 0) PlotCanvas.Children.Add(power);
-        }
+            var cpuPoints = visibleSamples
+                .Select(sample => new PlotPoint(
+                    left + TelemetryPlotProjection.NormalizedX(sample.At, latest, _windowSeconds) * plotWidth,
+                    CpuY(sample.CpuPercent, top, plotHeight)))
+                .ToArray();
+            var powerPoints = visibleSamples
+                .Where(sample => sample.PackageWatts.HasValue)
+                .Select(sample => new PlotPoint(
+                    left + TelemetryPlotProjection.NormalizedX(sample.At, latest, _windowSeconds) * plotWidth,
+                    top + plotHeight - Math.Clamp(sample.PackageWatts!.Value / powerMax, 0, 1) * plotHeight))
+                .ToArray();
 
+            AddSmoothSeries(cpuPoints, cpuBrush, CreateAreaBrush(84, 224, 207, 48), 2.35, top + plotHeight);
+            AddSmoothSeries(powerPoints, powerBrush, CreateAreaBrush(125, 168, 255, 32), 2.0, top + plotHeight);
+        }
         AddLegend(left + 7, top + 5, "CPU %", cpuBrush);
         AddLegend(left + 66, top + 5, "PACKAGE W", powerBrush);
     }
@@ -146,6 +145,94 @@ public sealed partial class TelemetryGraphControl : UserControl
         }
     }
 
+    private void AddSmoothSeries(IReadOnlyList<PlotPoint> points, SolidColorBrush stroke, Brush areaFill, double thickness, double baseline)
+    {
+        if (points.Count == 0) return;
+        if (points.Count > 1)
+        {
+            var area = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Data = BuildSplineGeometry(points, closeToBaseline: true, baseline),
+                Fill = areaFill,
+                StrokeThickness = 0,
+                IsHitTestVisible = false
+            };
+            PlotCanvas.Children.Add(area);
+
+            var glow = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Data = BuildSplineGeometry(points, closeToBaseline: false, baseline),
+                Stroke = stroke,
+                StrokeThickness = thickness + 6,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Opacity = 0.10,
+                IsHitTestVisible = false
+            };
+            PlotCanvas.Children.Add(glow);
+
+            var line = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Data = BuildSplineGeometry(points, closeToBaseline: false, baseline),
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                IsHitTestVisible = false
+            };
+            PlotCanvas.Children.Add(line);
+        }
+        AddLiveMarker(points[^1], stroke);
+    }
+
+    private static PathGeometry BuildSplineGeometry(IReadOnlyList<PlotPoint> points, bool closeToBaseline, double baseline)
+    {
+        var figure = new PathFigure
+        {
+            StartPoint = new Point(points[0].X, points[0].Y),
+            IsClosed = closeToBaseline,
+            IsFilled = closeToBaseline
+        };
+        foreach (var segment in SmoothGraphProjection.CreateSegments(points))
+        {
+            figure.Segments.Add(new BezierSegment
+            {
+                Point1 = new Point(segment.Control1.X, segment.Control1.Y),
+                Point2 = new Point(segment.Control2.X, segment.Control2.Y),
+                Point3 = new Point(segment.End.X, segment.End.Y)
+            });
+        }
+        if (closeToBaseline)
+        {
+            figure.Segments.Add(new LineSegment { Point = new Point(points[^1].X, baseline) });
+            figure.Segments.Add(new LineSegment { Point = new Point(points[0].X, baseline) });
+        }
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
+    }
+
+    private void AddLiveMarker(PlotPoint point, Brush brush)
+    {
+        var halo = new Ellipse { Width = 14, Height = 14, Fill = brush, Opacity = 0.12, IsHitTestVisible = false };
+        Canvas.SetLeft(halo, point.X - 7);
+        Canvas.SetTop(halo, point.Y - 7);
+        PlotCanvas.Children.Add(halo);
+        var dot = new Ellipse { Width = 5, Height = 5, Fill = brush, Opacity = 0.95, IsHitTestVisible = false };
+        Canvas.SetLeft(dot, point.X - 2.5);
+        Canvas.SetTop(dot, point.Y - 2.5);
+        PlotCanvas.Children.Add(dot);
+    }
+
+    private static LinearGradientBrush CreateAreaBrush(byte r, byte g, byte b, byte topAlpha)
+    {
+        var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        brush.GradientStops.Add(new GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb(topAlpha, r, g, b), Offset = 0 });
+        brush.GradientStops.Add(new GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb(3, r, g, b), Offset = 1 });
+        return brush;
+    }
     private void AddThreshold(double percent, string label, Brush brush, double left, double top, double plotWidth, double plotHeight, bool labelBelow)
     {
         var y = CpuY(percent, top, plotHeight);

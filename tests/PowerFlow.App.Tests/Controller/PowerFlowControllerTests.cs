@@ -132,9 +132,69 @@ public sealed class PowerFlowControllerTests
         Assert.DoesNotContain(PowerPlanIds.PowerSaver, f.Plans.Activations.Skip(1));
         Assert.DoesNotContain(PowerPlanIds.Balanced, f.Plans.Activations.Skip(1));
         await f.Controller.StopAsync();
-    }    private sealed class Fixture
+    }
+
+    [Theory]
+    [InlineData(PowerState.PowerSaver, "Manual")]
+    [InlineData(PowerState.Balanced, "Manual")]
+    public async Task ManualLowPowerState_IsLatchedUntilExplicitRelease(PowerState requested, string expectedLatchType)
     {
-        public Fixture(Guid active)
+        var initial = requested == PowerState.PowerSaver ? PowerPlanIds.Balanced : PowerPlanIds.PowerSaver;
+        var f = new Fixture(initial);
+        await f.Controller.StartAsync();
+
+        await f.Controller.SetManualStateAsync(requested);
+
+        Assert.Equal(requested, f.Controller.Snapshot.State);
+        Assert.True(f.Controller.Snapshot.IsLatched);
+        Assert.Equal(expectedLatchType, f.Controller.Snapshot.LatchType);
+        Assert.False(f.Controller.SamplingEnabled);
+
+        await f.Controller.ReleaseManualLatchAsync();
+
+        Assert.Equal(requested, f.Controller.Snapshot.State);
+        Assert.False(f.Controller.Snapshot.IsLatched);
+        Assert.True(f.Controller.SamplingEnabled);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task ExternalWindowsPlanChange_IsReflectedAndBecomesManualLock()
+    {
+        var f = new Fixture(PowerPlanIds.Balanced, observePlans: true);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Plans.Active = PowerPlanIds.PowerSaver;
+        f.Observer!.Raise(PowerPlanIds.PowerSaver);
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        Assert.True(f.Controller.Snapshot.IsLatched);
+        Assert.Equal("Manual", f.Controller.Snapshot.LatchType);
+        Assert.Contains("Windows", f.Controller.Snapshot.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(f.Controller.SamplingEnabled);
+        Assert.Empty(f.Plans.Activations);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task PlanNotificationForCurrentState_DoesNotInventManualLock()
+    {
+        var f = new Fixture(PowerPlanIds.PowerSaver, observePlans: true);
+        await f.Controller.StartAsync();
+
+        f.Observer!.Raise(PowerPlanIds.PowerSaver);
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        Assert.False(f.Controller.Snapshot.IsLatched);
+        Assert.True(f.Controller.SamplingEnabled);
+        await f.Controller.StopAsync();
+    }
+    private sealed class Fixture
+    {
+        public Fixture(Guid active, bool observePlans = false)
         {
             Plans = new FakePlans(active);
             Activity = new FakeActivity();
@@ -143,7 +203,8 @@ public sealed class PowerFlowControllerTests
             Delay = new FakeDelay();
             Clock = new FakeClock(T0);
             Config = PowerFlowConfig.Default;
-            Controller = new PowerFlowController(Config, Plans, Activity, Games, TickFactory, Delay, Clock);
+            Observer = observePlans ? new FakePlanObserver() : null;
+            Controller = new PowerFlowController(Config, Plans, Activity, Games, TickFactory, Delay, Clock, Observer);
         }
         public PowerFlowConfig Config { get; }
         public FakePlans Plans { get; }
@@ -153,6 +214,7 @@ public sealed class PowerFlowControllerTests
         public FakeDelay Delay { get; }
         public FakeClock Clock { get; }
         public PowerFlowController Controller { get; }
+        public FakePlanObserver? Observer { get; }
     }
 
     private sealed class FakePlans(Guid active) : IPowerPlanController
@@ -222,5 +284,13 @@ public sealed class PowerFlowControllerTests
     {
         public DateTimeOffset UtcNow { get; set; } = now;
     }
-}
 
+    private sealed class FakePlanObserver : IActivePowerPlanObserver
+    {
+        public event EventHandler<ActivePowerPlanChangedEventArgs>? ActivePlanChanged;
+        public bool Started { get; private set; }
+        public void Start() => Started = true;
+        public void Stop() => Started = false;
+        public void Dispose() => Stop();
+        public void Raise(Guid schemeId) => ActivePlanChanged?.Invoke(this, new ActivePowerPlanChangedEventArgs(schemeId));
+    }}

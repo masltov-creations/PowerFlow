@@ -53,13 +53,30 @@ public static class DecisionMeterProjection
     {
         if (snapshot.IsLatched)
         {
-            var trigger = string.IsNullOrWhiteSpace(snapshot.TriggerApplication) ? snapshot.LatchType ?? "latch" : snapshot.TriggerApplication;
+            var trigger = string.IsNullOrWhiteSpace(snapshot.TriggerApplication) ? snapshot.LatchType ?? "lock" : snapshot.TriggerApplication;
+            if (string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
+            {
+                var state = snapshot.State switch
+                {
+                    PowerState.PowerSaver => "Power Saver",
+                    PowerState.Balanced => "Balanced",
+                    PowerState.HighPerformance => "High Performance",
+                    _ => snapshot.State.ToString()
+                };
+                return new DecisionMeterState(
+                    "MANUAL LOCK",
+                    snapshot.State == PowerState.HighPerformance ? 100 : snapshot.CpuPercent,
+                    config.QuietThresholdPercent,
+                    config.CpuPromotionThresholdPercent,
+                    $"{state} is manually locked by {trigger}; automatic CPU policy is paused until you release the lock.");
+            }
+
             return new DecisionMeterState(
                 "PERFORMANCE LATCH",
                 100,
                 config.QuietThresholdPercent,
                 config.CpuPromotionThresholdPercent,
-                $"Performance is locked by {trigger}; utilization is ignored until the latch releases.");
+                $"Performance is locked by {trigger}; utilization is ignored until the game exits.");
         }
 
         return new DecisionMeterState(
@@ -99,5 +116,32 @@ public static class TelemetryPlotProjection
         var start = latest.AddSeconds(-seconds);
         if (transition.At < start || transition.At > latest) return null;
         return NormalizedX(transition.At, latest, seconds);
+    }
+}
+public readonly record struct PlotPoint(double X, double Y);
+public readonly record struct SmoothCurveSegment(PlotPoint Control1, PlotPoint Control2, PlotPoint End);
+
+public static class SmoothGraphProjection
+{
+    public static IReadOnlyList<SmoothCurveSegment> CreateSegments(IReadOnlyList<PlotPoint> points)
+    {
+        if (points.Count < 2) return Array.Empty<SmoothCurveSegment>();
+        var result = new List<SmoothCurveSegment>(points.Count - 1);
+        const double factor = 1d / 6d;
+        for (var i = 0; i < points.Count - 1; i++)
+        {
+            var p0 = i == 0 ? points[i] : points[i - 1];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = i + 2 < points.Count ? points[i + 2] : p2;
+            var c1 = new PlotPoint(
+                Math.Clamp(p1.X + (p2.X - p0.X) * factor, p1.X, p2.X),
+                p1.Y + (p2.Y - p0.Y) * factor);
+            var c2 = new PlotPoint(
+                Math.Clamp(p2.X - (p3.X - p1.X) * factor, p1.X, p2.X),
+                p2.Y - (p3.Y - p1.Y) * factor);
+            result.Add(new SmoothCurveSegment(c1, c2, p2));
+        }
+        return result;
     }
 }

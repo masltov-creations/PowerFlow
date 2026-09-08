@@ -15,15 +15,18 @@ public static class TrayMenuCommands
 
     public static TrayMenuModel Build(ControllerSnapshot snapshot)
     {
+        var stateLabel = snapshot.State switch
+        {
+            PowerState.PowerSaver => "Power Saver",
+            PowerState.Balanced => "Balanced",
+            PowerState.HighPerformance => "High Performance",
+            _ => snapshot.State.ToString()
+        };
         var status = snapshot.IsLatched
-            ? $"Performance Locked · {snapshot.LatchType ?? "Unknown"}"
-            : snapshot.State switch
-            {
-                PowerState.PowerSaver => "Power Saver",
-                PowerState.Balanced => "Balanced",
-                PowerState.HighPerformance => "High Performance",
-                _ => snapshot.State.ToString()
-            };
+            ? snapshot.State == PowerState.HighPerformance
+                ? $"Performance Locked · {snapshot.LatchType ?? "Unknown"}"
+                : $"{stateLabel} Locked - {snapshot.LatchType ?? "Unknown"}"
+            : stateLabel;
 
         return new TrayMenuModel(
             status,
@@ -40,4 +43,3 @@ public sealed record TrayMenuModel(
     bool BalancedChecked,
     bool HighPerformanceChecked,
     bool ReleaseLatchEnabled);
-
