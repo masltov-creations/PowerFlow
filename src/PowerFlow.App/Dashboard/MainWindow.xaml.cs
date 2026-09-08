@@ -15,7 +15,6 @@ public sealed partial class MainWindow : Window
     private readonly DashboardTelemetrySession _telemetrySession;
     private readonly DispatcherQueue _dispatcher;
     private PowerFlowConfig _config;
-    private bool _reducedMotion;
     private bool _sessionStarted;
     private bool _closed;
 
@@ -24,23 +23,23 @@ public sealed partial class MainWindow : Window
     public MainWindow(PowerFlowController controller, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false)
     {
         InitializeComponent();
-        Title = previewMode ? "PowerFlow — Preview" : "PowerFlow";
+        Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
         PreviewModeBadge.Visibility = previewMode ? Visibility.Visible : Visibility.Collapsed;
         _controller = controller;
         _config = config;
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _telemetrySession = new DashboardTelemetrySession(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
-        _reducedMotion = ResolveReducedMotion(config);
+        ViewModel.Configure(config);
         Root.DataContext = ViewModel;
         ViewModel.Update(controller.Snapshot, null);
-        FlowField.ApplySnapshot(controller.Snapshot, _reducedMotion);
+        ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync);
         controller.SnapshotChanged += OnSnapshotChanged;
         _telemetrySession.TelemetryChanged += OnTelemetryChanged;
         Closed += OnClosed;
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1180, 760));
+        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1320, 840));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
     }
@@ -52,34 +51,40 @@ public sealed partial class MainWindow : Window
             _sessionStarted = true;
             await _telemetrySession.StartAsync();
         }
-        if (showSettings) SelectSection("settings");
-        else SelectSection("flow");
+        SelectSection(showSettings ? "settings" : "flow");
         Activate();
     }
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() =>
     {
         ViewModel.Update(snapshot, _telemetrySession.Latest);
-        FlowField.ApplySnapshot(snapshot, _reducedMotion);
+        ApplyVisualState(snapshot);
     });
 
-    private void OnTelemetryChanged(object? sender, DashboardTelemetry telemetry) => _dispatcher.TryEnqueue(() => ViewModel.Update(_controller.Snapshot, telemetry));
+    private void OnTelemetryChanged(object? sender, DashboardTelemetry telemetry) => _dispatcher.TryEnqueue(() =>
+    {
+        var snapshot = _controller.Snapshot;
+        ViewModel.Update(snapshot, telemetry);
+        TelemetryGraph.Apply(ViewModel.Samples, _config);
+        DecisionPressure.Apply(_config, snapshot);
+    });
+
+    private void ApplyVisualState(ControllerSnapshot snapshot)
+    {
+        StateRail.Apply(snapshot);
+        RuleFlow.Apply(_config, snapshot);
+        DecisionPressure.Apply(_config, snapshot);
+        TelemetryGraph.Apply(ViewModel.Samples, _config);
+    }
 
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);
         _config = config;
-        _reducedMotion = ResolveReducedMotion(config);
-        FlowField.ApplySnapshot(_controller.Snapshot, _reducedMotion);
+        ViewModel.Configure(config);
+        ApplyVisualState(_controller.Snapshot);
         RulesPanel.RefreshConfig(config);
         SettingsPanel.RefreshConfig(config);
-    }
-
-    private static bool ResolveReducedMotion(PowerFlowConfig config)
-    {
-        if (config.ReducedMotionOverride is bool forced) return forced;
-        try { return !new global::Windows.UI.ViewManagement.UISettings().AnimationsEnabled; }
-        catch { return false; }
     }
 
     private void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
