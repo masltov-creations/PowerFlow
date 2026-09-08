@@ -12,21 +12,21 @@ public sealed class DashboardInformationArchitectureTests
     private static readonly DateTimeOffset T0 = new(2026, 9, 8, 20, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void ViewModel_ExposesSixtySecondCpuPowerHistoryAndConfiguredThresholds()
+    public void ViewModel_ExposesTwoMinuteCpuPowerHistoryAndConfiguredThresholds()
     {
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlowConfig.Default);
 
-        for (var i = 0; i < 65; i++)
+        for (var i = 0; i < 125; i++)
         {
             var at = T0.AddSeconds(i);
             var snapshot = Snapshot(PowerState.Balanced, 20 + (i % 15), at);
             vm.Update(snapshot, new DashboardTelemetry(45 + i * 0.25, 3900 + i, at));
         }
 
-        Assert.Equal(60, vm.Samples.Count);
+        Assert.Equal(120, vm.Samples.Count);
         Assert.Equal(T0.AddSeconds(5), vm.Samples[0].At);
-        Assert.Equal(T0.AddSeconds(64), vm.Samples[^1].At);
+        Assert.Equal(T0.AddSeconds(124), vm.Samples[^1].At);
         Assert.Equal(35, vm.PromotionThresholdPercent);
         Assert.Equal(12, vm.QuietThresholdPercent);
         Assert.Equal("CPU > 35% for 4s", vm.PromotionRuleLabel);

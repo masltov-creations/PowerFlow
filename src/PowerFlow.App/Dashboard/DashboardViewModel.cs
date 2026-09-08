@@ -69,7 +69,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             {
                 _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State));
                 _lastSampleAt = telemetry.At;
-                while (_samples.Count > 60) _samples.RemoveAt(0);
+                while (_samples.Count > 120) _samples.RemoveAt(0);
             }
         }
         RaiseAll();

@@ -14,12 +14,10 @@ public sealed partial class RulesPage : Page
     public RulesPage() => InitializeComponent();
 
     public void Initialize(PowerFlowConfig config, Func<PowerFlowConfig, Task> apply) { _apply = apply; RefreshConfig(config); }
-    public void RefreshConfig(PowerFlowConfig config) { _config = config; RulesList.ItemsSource = config.AppRules.ToArray(); }
+    public void RefreshConfig(PowerFlowConfig config) { _config = config; RulesRepeater.ItemsSource = config.AppRules.ToArray(); }
 
     private async void OnRememberGame(object sender, RoutedEventArgs e) => await RememberForegroundAsync(AppRuleMode.Performance);
     private async void OnRememberBalanced(object sender, RoutedEventArgs e) => await RememberForegroundAsync(AppRuleMode.Balanced);
-    private async void OnSetPerformance(object sender, RoutedEventArgs e) => await ChangeSelectedModeAsync(AppRuleMode.Performance);
-    private async void OnSetBalanced(object sender, RoutedEventArgs e) => await ChangeSelectedModeAsync(AppRuleMode.Balanced);
 
     private async Task RememberForegroundAsync(AppRuleMode mode)
     {
@@ -32,20 +30,22 @@ public sealed partial class RulesPage : Page
         StatusText.Text = $"Saved {Path.GetFileName(path)} as {mode}.";
     }
 
-    private async Task ChangeSelectedModeAsync(AppRuleMode mode)
+    private async void OnSetPerformanceFromCard(object sender, RoutedEventArgs e) => await ChangeRuleFromCardAsync(sender, AppRuleMode.Performance);
+    private async void OnSetBalancedFromCard(object sender, RoutedEventArgs e) => await ChangeRuleFromCardAsync(sender, AppRuleMode.Balanced);
+    private async void OnRemoveFromCard(object sender, RoutedEventArgs e)
     {
-        if (RulesList.SelectedItem is not AppRule selected) { StatusText.Text = "Select a rule first."; return; }
-        var rules = _config.AppRules.Select(x => string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase) ? x with { Mode = mode } : x).ToArray();
-        await ApplyAsync(_config with { AppRules = rules });
-        StatusText.Text = $"{selected.DisplayName ?? Path.GetFileName(selected.ExecutablePath)} → {mode}.";
-    }
-
-    private async void OnRemoveSelected(object sender, RoutedEventArgs e)
-    {
-        if (RulesList.SelectedItem is not AppRule selected) { StatusText.Text = "Select a rule first."; return; }
+        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
         var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase)).ToArray();
         await ApplyAsync(_config with { AppRules = rules });
         StatusText.Text = "Rule removed.";
+    }
+
+    private async Task ChangeRuleFromCardAsync(object sender, AppRuleMode mode)
+    {
+        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
+        var rules = _config.AppRules.Select(x => string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase) ? x with { Mode = mode } : x).ToArray();
+        await ApplyAsync(_config with { AppRules = rules });
+        StatusText.Text = $"{selected.DisplayName ?? Path.GetFileName(selected.ExecutablePath)} → {mode}.";
     }
 
     private async Task ApplyAsync(PowerFlowConfig updated)

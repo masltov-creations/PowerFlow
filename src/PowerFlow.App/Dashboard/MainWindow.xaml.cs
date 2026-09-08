@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private PowerFlowConfig _config;
     private bool _sessionStarted;
     private bool _closed;
+    private double _graphWindowSeconds = 60;
 
     public DashboardViewModel ViewModel { get; } = new();
 
@@ -39,7 +40,7 @@ public sealed partial class MainWindow : Window
         controller.SnapshotChanged += OnSnapshotChanged;
         _telemetrySession.TelemetryChanged += OnTelemetryChanged;
         Closed += OnClosed;
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1320, 840));
+        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
     }
@@ -65,7 +66,7 @@ public sealed partial class MainWindow : Window
     {
         var snapshot = _controller.Snapshot;
         ViewModel.Update(snapshot, telemetry);
-        TelemetryGraph.Apply(ViewModel.Samples, _config);
+        TelemetryGraph.Apply(ViewModel.Samples, _config, _controller.Snapshot.History, _graphWindowSeconds);
         DecisionPressure.Apply(_config, snapshot);
     });
 
@@ -74,9 +75,25 @@ public sealed partial class MainWindow : Window
         StateRail.Apply(snapshot);
         RuleFlow.Apply(_config, snapshot);
         DecisionPressure.Apply(_config, snapshot);
-        TelemetryGraph.Apply(ViewModel.Samples, _config);
+        TelemetryGraph.Apply(ViewModel.Samples, _config, _controller.Snapshot.History, _graphWindowSeconds);
     }
 
+
+    private void OnRange60(object sender, RoutedEventArgs e)
+    {
+        _graphWindowSeconds = 60;
+        Range60Button.IsChecked = true;
+        Range120Button.IsChecked = false;
+        ApplyVisualState(_controller.Snapshot);
+    }
+
+    private void OnRange120(object sender, RoutedEventArgs e)
+    {
+        _graphWindowSeconds = 120;
+        Range60Button.IsChecked = false;
+        Range120Button.IsChecked = true;
+        ApplyVisualState(_controller.Snapshot);
+    }
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);

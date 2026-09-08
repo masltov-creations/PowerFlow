@@ -72,11 +72,32 @@ public static class DecisionMeterProjection
 }
 public static class TelemetryPlotProjection
 {
-    private const double WindowSeconds = 59d;
+    public static double NormalizedX(DateTimeOffset at, DateTimeOffset latest) => NormalizedX(at, latest, 60);
 
-    public static double NormalizedX(DateTimeOffset at, DateTimeOffset latest)
+    public static double NormalizedX(DateTimeOffset at, DateTimeOffset latest, double windowSeconds)
     {
-        var windowStart = latest.AddSeconds(-WindowSeconds);
-        return Math.Clamp((at - windowStart).TotalSeconds / WindowSeconds, 0, 1);
+        var seconds = Math.Max(1, windowSeconds);
+        var windowStart = latest.AddSeconds(-seconds);
+        return Math.Clamp((at - windowStart).TotalSeconds / seconds, 0, 1);
+    }
+
+    public static DashboardSample? FindNearestSample(IReadOnlyList<DashboardSample> samples, double normalizedX, DateTimeOffset latest, double windowSeconds)
+    {
+        if (samples.Count == 0) return null;
+        var seconds = Math.Max(1, windowSeconds);
+        var target = latest.AddSeconds(-(1 - Math.Clamp(normalizedX, 0, 1)) * seconds);
+        var start = latest.AddSeconds(-seconds);
+        return samples
+            .Where(sample => sample.At >= start && sample.At <= latest)
+            .OrderBy(sample => Math.Abs((sample.At - target).TotalMilliseconds))
+            .FirstOrDefault();
+    }
+
+    public static double? NormalizedTransitionX(TransitionRecord transition, DateTimeOffset latest, double windowSeconds)
+    {
+        var seconds = Math.Max(1, windowSeconds);
+        var start = latest.AddSeconds(-seconds);
+        if (transition.At < start || transition.At > latest) return null;
+        return NormalizedX(transition.At, latest, seconds);
     }
 }
