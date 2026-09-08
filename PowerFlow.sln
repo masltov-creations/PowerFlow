@@ -11,6 +11,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{571C25EE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerFlow.Core.Tests", "tests\PowerFlow.Core.Tests\PowerFlow.Core.Tests.csproj", "{E4DBE809-E9F6-4444-AB3F-CE056D70429D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerFlow.Windows", "src\PowerFlow.Windows\PowerFlow.Windows.csproj", "{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerFlow.Windows.Tests", "tests\PowerFlow.Windows.Tests\PowerFlow.Windows.Tests.csproj", "{BFD277EF-857B-46EE-93A7-2897F36E6509}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +32,19 @@ Global
 		{E4DBE809-E9F6-4444-AB3F-CE056D70429D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E4DBE809-E9F6-4444-AB3F-CE056D70429D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E4DBE809-E9F6-4444-AB3F-CE056D70429D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BFD277EF-857B-46EE-93A7-2897F36E6509}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BFD277EF-857B-46EE-93A7-2897F36E6509}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BFD277EF-857B-46EE-93A7-2897F36E6509}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BFD277EF-857B-46EE-93A7-2897F36E6509}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{E883A74C-CB2D-4135-81C9-F79CD9009D04} = {FB2C24D1-953D-440F-B466-4C8F147A54FD}
 		{E4DBE809-E9F6-4444-AB3F-CE056D70429D} = {571C25EE-0D44-4571-B7F3-1C30B00CEDE4}
+		{F9AB33D0-559E-47FC-9059-3DFDDFC8AD2C} = {FB2C24D1-953D-440F-B466-4C8F147A54FD}
+		{BFD277EF-857B-46EE-93A7-2897F36E6509} = {571C25EE-0D44-4571-B7F3-1C30B00CEDE4}
 	EndGlobalSection
 EndGlobal
