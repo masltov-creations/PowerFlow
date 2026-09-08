@@ -73,6 +73,7 @@ public sealed class PowerFlowController : IAsyncDisposable
 
         var active = await _plans.GetActiveAsync(cancellationToken);
         _currentState = MapPlan(active.Id) ?? _config.RestingState;
+        _engine.SynchronizeObservedState(_currentState);
         Publish(_currentState, $"Observed active Windows plan: {active.Name}", false, null, 0, null, null);
 
         _games.UpdateRules(_config.AppRules);
@@ -198,12 +199,19 @@ public sealed class PowerFlowController : IAsyncDisposable
         _samplingCts?.Dispose();
         _samplingCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
         var token = _samplingCts.Token;
-        var task = Task.Run(async () =>
+        var ticks = _tickFactory.Create(TimeSpan.FromSeconds(2));
+        var task = RunSamplingAsync(ticks, token);
+        TrackBackground(task);
+    }
+
+
+    private async Task RunSamplingAsync(IControllerTickSource ticks, CancellationToken token)
+    {
+        try
         {
-            try
+            await using (ticks.ConfigureAwait(false))
             {
-                await using var ticks = _tickFactory.Create(TimeSpan.FromSeconds(2));
-                while (await ticks.WaitForNextTickAsync(token))
+                while (await ticks.WaitForNextTickAsync(token).ConfigureAwait(false))
                 {
                     var sample = _activity.Sample(_clock.UtcNow);
                     ActivitySampleCount++;
@@ -213,14 +221,12 @@ public sealed class PowerFlowController : IAsyncDisposable
                         if (Snapshot.IsLatched) return;
                         var decision = _engine.Evaluate(new CpuSample(sample.At, sample.CpuPercent));
                         await ApplyDecisionAsync(decision, null, sample.CpuPercent);
-                    });
+                    }).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-        }, CancellationToken.None);
-        TrackBackground(task);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
     }
-
     private void StopSampling()
     {
         var cts = _samplingCts;
@@ -297,6 +303,7 @@ public sealed class PowerFlowController : IAsyncDisposable
             }
             var from = _currentState;
             _currentState = target;
+            _engine.SynchronizeObservedState(target);
             AddHistory(from, target, reason, true);
         }
         Publish(_currentState, reason, latched, latched ? "Manual" : null, Snapshot.CpuPercent, trigger, null);
@@ -354,5 +361,3 @@ public sealed class PowerFlowController : IAsyncDisposable
     private static string GameKey(GameProcess process) => $"{process.ProcessId}:{process.StartTime.UtcTicks}";
     private static string LatchType(string reason) => reason.Contains("manual", StringComparison.OrdinalIgnoreCase) ? "Manual" : "Game";
 }
-
-

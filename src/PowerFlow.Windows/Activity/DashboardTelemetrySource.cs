@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace PowerFlow.Windows.Activity;
 
-public sealed class DashboardTelemetrySource : IDisposable
+public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
 {
     private readonly EnergyMeterReader _energy = new();
 

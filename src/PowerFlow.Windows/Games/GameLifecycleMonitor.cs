@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Management;
 using PowerFlow.Core.Rules;
 
 namespace PowerFlow.Windows.Games;
@@ -13,7 +12,7 @@ public sealed class GameLifecycleMonitor : IGameLifecycleMonitor
     private bool _started;
     private bool _waitingForLauncherChild;
 
-    public GameLifecycleMonitor() : this(new WmiProcessEventSource(), new ProcessHandleFactory()) { }
+    public GameLifecycleMonitor() : this(new ForegroundProcessEventSource(), new ProcessHandleFactory()) { }
 
     public GameLifecycleMonitor(IProcessEventSource source, IProcessHandleFactory handles)
     {
@@ -184,71 +183,5 @@ public sealed class GameLifecycleMonitor : IGameLifecycleMonitor
         public void Dispose() => _process.Dispose();
     }
 
-    private sealed class WmiProcessEventSource : IProcessEventSource
-    {
-        private ManagementEventWatcher? _watcher;
-        public event EventHandler<ProcessStartEvent>? ProcessStarted;
-        public bool IsRunning { get; private set; }
-
-        public IReadOnlyList<ProcessStartEvent> SnapshotExisting()
-        {
-            var result = new List<ProcessStartEvent>();
-            foreach (var process in System.Diagnostics.Process.GetProcesses())
-            {
-                using (process)
-                {
-                    try
-                    {
-                        var path = process.MainModule?.FileName ?? process.ProcessName;
-                        var started = new DateTimeOffset(process.StartTime.ToUniversalTime(), TimeSpan.Zero);
-                        result.Add(new ProcessStartEvent(process.Id, null, path, started));
-                    }
-                    catch { }
-                }
-            }
-            return result;
-        }
-        public void Start()
-        {
-            if (IsRunning) return;
-            _watcher = new ManagementEventWatcher(new WqlEventQuery("SELECT * FROM Win32_ProcessStartTrace"));
-            _watcher.EventArrived += OnArrived;
-            _watcher.Start();
-            IsRunning = true;
-        }
-
-        public void Stop()
-        {
-            if (!IsRunning) return;
-            try { _watcher?.Stop(); } catch { }
-            if (_watcher is not null) _watcher.EventArrived -= OnArrived;
-            _watcher?.Dispose();
-            _watcher = null;
-            IsRunning = false;
-        }
-
-        private void OnArrived(object sender, EventArrivedEventArgs e)
-        {
-            try
-            {
-                var pid = Convert.ToInt32(e.NewEvent.Properties["ProcessID"].Value);
-                var parent = Convert.ToInt32(e.NewEvent.Properties["ParentProcessID"].Value);
-                var name = Convert.ToString(e.NewEvent.Properties["ProcessName"].Value) ?? pid.ToString();
-                string path = name;
-                DateTimeOffset started = DateTimeOffset.UtcNow;
-                try
-                {
-                    using var p = System.Diagnostics.Process.GetProcessById(pid);
-                    path = p.MainModule?.FileName ?? name;
-                    started = new DateTimeOffset(p.StartTime.ToUniversalTime(), TimeSpan.Zero);
-                }
-                catch { }
-                ProcessStarted?.Invoke(this, new ProcessStartEvent(pid, parent, path, started));
-            }
-            catch { }
-        }
-
-        public void Dispose() => Stop();
-    }
 }
 

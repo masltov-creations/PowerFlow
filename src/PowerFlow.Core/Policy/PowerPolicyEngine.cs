@@ -19,6 +19,20 @@ public sealed class PowerPolicyEngine
         _reason = config.RestingState == PowerState.Balanced ? "Balanced resting state" : "Power Saver resting state";
     }
 
+    public void SynchronizeObservedState(PowerState state)
+    {
+        _state = state;
+        _highDemandSince = null;
+        _quietSince = null;
+        _coolingDown = false;
+        _reason = state switch
+        {
+            PowerState.PowerSaver => "Power Saver - observed Windows state",
+            PowerState.Balanced => "Balanced - observed Windows state",
+            PowerState.HighPerformance => "High Performance - observed Windows state",
+            _ => state.ToString()
+        };
+    }
     public PolicyDecision Evaluate(PolicyEvent evt)
     {
         var before = _state;

@@ -4,10 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Management" />
-  </ItemGroup>
-  <ItemGroup>
+<ItemGroup>
     <ProjectReference Include="..\PowerFlow.Core\PowerFlow.Core.csproj" />
   </ItemGroup>
 </Project>

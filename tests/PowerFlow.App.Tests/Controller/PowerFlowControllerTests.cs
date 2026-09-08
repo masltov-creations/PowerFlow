@@ -25,6 +25,22 @@ public sealed class PowerFlowControllerTests
     }
 
     [Fact]
+    public async Task StartupOnObservedBalanced_FirstQuietSampleDoesNotImmediatelyDemote()
+    {
+        var f = new Fixture(PowerPlanIds.Balanced);
+        await f.Controller.StartAsync();
+
+        f.TickFactory.Pulse();
+        for (var i = 0; i < 100 && f.Controller.ActivitySampleCount == 0; i++)
+            await Task.Delay(5);
+        await f.Controller.DrainAsync();
+
+        Assert.True(f.Controller.ActivitySampleCount > 0);
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        Assert.DoesNotContain(PowerPlanIds.PowerSaver, f.Plans.Activations);
+        await f.Controller.StopAsync();
+    }
+    [Fact]
     public async Task GameStart_StopsSamplingAndLocksHighPerformance()
     {
         var f = new Fixture(PowerPlanIds.PowerSaver);
@@ -164,7 +180,7 @@ public sealed class PowerFlowControllerTests
     private sealed class FakeGames : IGameLifecycleMonitor
     {
         public event EventHandler<GameDetectedEventArgs>? GameDetected;
-        public event EventHandler<GameDetectedEventArgs>? GameProcessAdded;
+        public event EventHandler<GameDetectedEventArgs>? GameProcessAdded { add { } remove { } }
         public event EventHandler? GameLatchReleased;
         public bool IsLatched { get; private set; }
         public int TrackedCount => IsLatched ? 1 : 0;
@@ -181,12 +197,16 @@ public sealed class PowerFlowControllerTests
     private sealed class FakeTickFactory : IControllerTickSourceFactory
     {
         public TimeSpan LastPeriod { get; private set; }
-        public IControllerTickSource Create(TimeSpan period) { LastPeriod = period; return new NeverTickSource(); }
+        public ManualTickSource? LastSource { get; private set; }
+        public IControllerTickSource Create(TimeSpan period) { LastPeriod = period; LastSource = new ManualTickSource(); return LastSource; }
+        public void Pulse() => LastSource?.Pulse();
     }
-    private sealed class NeverTickSource : IControllerTickSource
+    private sealed class ManualTickSource : IControllerTickSource
     {
-        public async ValueTask<bool> WaitForNextTickAsync(CancellationToken token) { await Task.Delay(Timeout.InfiniteTimeSpan, token); return false; }
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        private readonly SemaphoreSlim _signal = new(0);
+        public async ValueTask<bool> WaitForNextTickAsync(CancellationToken token) { await _signal.WaitAsync(token); return true; }
+        public void Pulse() => _signal.Release();
+        public ValueTask DisposeAsync() { _signal.Dispose(); return ValueTask.CompletedTask; }
     }
 
     private sealed class FakeDelay : IControllerDelay
