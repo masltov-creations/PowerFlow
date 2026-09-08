@@ -122,6 +122,12 @@ public sealed class PowerFlowController : IAsyncDisposable
             return;
         }
 
+        if (_games.IsLatched)
+        {
+            Publish(_currentState, "Performance locked - Game; downgrade unavailable until the game exits", true, "Game", Snapshot.CpuPercent, Snapshot.TriggerApplication, null);
+            return;
+        }
+
         if (Snapshot.LatchType == "Manual")
         {
             var released = _engine.Evaluate(new ManualPerformanceReleased(_clock.UtcNow));
@@ -348,4 +354,5 @@ public sealed class PowerFlowController : IAsyncDisposable
     private static string GameKey(GameProcess process) => $"{process.ProcessId}:{process.StartTime.UtcTicks}";
     private static string LatchType(string reason) => reason.Contains("manual", StringComparison.OrdinalIgnoreCase) ? "Manual" : "Game";
 }
+
 

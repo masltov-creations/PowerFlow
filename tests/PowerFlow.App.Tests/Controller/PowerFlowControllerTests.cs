@@ -97,7 +97,26 @@ public sealed class PowerFlowControllerTests
         await f.Controller.StopAsync();
     }
 
-    private sealed class Fixture
+
+    [Fact]
+    public async Task GameLatch_RejectsManualDowngradeUntilGameActuallyExits()
+    {
+        var f = new Fixture(PowerPlanIds.PowerSaver);
+        await f.Controller.StartAsync();
+        f.Games.RaiseGame(new GameProcess(42, "game.exe", null, T0, "test"));
+        await f.Controller.DrainAsync();
+
+        await f.Controller.SetManualStateAsync(PowerState.PowerSaver);
+        await f.Controller.SetManualStateAsync(PowerState.Balanced);
+
+        Assert.Equal(PowerState.HighPerformance, f.Controller.Snapshot.State);
+        Assert.True(f.Controller.Snapshot.IsLatched);
+        Assert.Equal("Game", f.Controller.Snapshot.LatchType);
+        Assert.Equal(PowerPlanIds.HighPerformance, f.Plans.Active);
+        Assert.DoesNotContain(PowerPlanIds.PowerSaver, f.Plans.Activations.Skip(1));
+        Assert.DoesNotContain(PowerPlanIds.Balanced, f.Plans.Activations.Skip(1));
+        await f.Controller.StopAsync();
+    }    private sealed class Fixture
     {
         public Fixture(Guid active)
         {
@@ -184,3 +203,4 @@ public sealed class PowerFlowControllerTests
         public DateTimeOffset UtcNow { get; set; } = now;
     }
 }
+
