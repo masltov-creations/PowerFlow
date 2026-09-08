@@ -8,7 +8,7 @@ namespace PowerFlow.App.Controller;
 
 public sealed class PowerFlowController : IAsyncDisposable
 {
-    private readonly PowerFlowConfig _config;
+    private PowerFlowConfig _config;
     private readonly IPowerPlanController _plans;
     private readonly IActivitySource _activity;
     private readonly IGameLifecycleMonitor _games;
@@ -126,6 +126,25 @@ public sealed class PowerFlowController : IAsyncDisposable
         _lifetimeCts = null;
     }
 
+    public Task UpdatePolicyConfigAsync(PowerFlowConfig config) => EnqueueAsync(() =>
+    {
+        _config = config;
+        _engine.Reconfigure(new PolicyConfig(
+            config.RestingState,
+            config.CpuPromotionThresholdPercent,
+            config.CpuPromotionWindow,
+            config.QuietThresholdPercent,
+            config.QuietWindow,
+            config.PostGameCooldown));
+        Publish(_currentState,
+            Snapshot.IsLatched ? Snapshot.Reason : "Policy updated live",
+            Snapshot.IsLatched,
+            Snapshot.LatchType,
+            Snapshot.CpuPercent,
+            Snapshot.TriggerApplication,
+            Snapshot.CooldownRemaining);
+        return Task.CompletedTask;
+    });
     public Task SetManualStateAsync(PowerState state) => EnqueueAsync(async () =>
     {
         StopSampling();

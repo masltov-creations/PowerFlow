@@ -111,6 +111,7 @@ public partial class App : Application
     {
         if (_configStore is null) return;
         if (!_previewMode) await _configStore.SaveAsync(updated);
+        if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
         _config = updated;
         _games?.UpdateRules(updated.AppRules);
         if (!_previewMode) _startupRegistration?.SetEnabled(updated.StartWithWindows);

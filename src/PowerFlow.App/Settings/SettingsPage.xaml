@@ -30,7 +30,7 @@
             <TextBox x:Name="BalancedPlanBox" Header="Balanced plan GUID" PlaceholderText="Windows default"/>
             <TextBox x:Name="PerformancePlanBox" Header="High Performance plan GUID" PlaceholderText="Windows default"/>
             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0"><Button Content="Save settings" Click="OnSave"/><TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Opacity="0.5"/></StackPanel>
-            <TextBlock Text="Threshold/timing/resting-state edits are stored atomically and take effect on the next controller start. Rules and startup preference are applied immediately." FontSize="12" Opacity="0.4" TextWrapping="Wrap" MaxWidth="720"/>
+            <TextBlock Text="Thresholds, timing, resting state, rules, and startup preference apply immediately. Plan mappings take effect on the next transition that uses them." FontSize="12" Opacity="0.4" TextWrapping="Wrap" MaxWidth="720"/>
         </StackPanel>
     </ScrollViewer>
 </Page>

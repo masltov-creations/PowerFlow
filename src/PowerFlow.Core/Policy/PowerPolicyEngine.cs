@@ -2,7 +2,7 @@ namespace PowerFlow.Core.Policy;
 
 public sealed class PowerPolicyEngine
 {
-    private readonly PolicyConfig _config;
+    private PolicyConfig _config;
     private readonly HashSet<string> _games = new(StringComparer.OrdinalIgnoreCase);
     private PowerState _state;
     private PowerState? _manualState;
@@ -19,6 +19,27 @@ public sealed class PowerPolicyEngine
         _reason = config.RestingState == PowerState.Balanced ? "Balanced resting state" : "Power Saver resting state";
     }
 
+    public void Reconfigure(PolicyConfig config)
+    {
+        _config = config;
+        _highDemandSince = null;
+        _quietSince = null;
+
+        if (_games.Count > 0)
+        {
+            _state = PowerState.HighPerformance;
+            _reason = "Performance locked - Game";
+        }
+        else if (_manualState is PowerState manual)
+        {
+            _state = manual;
+            _reason = $"{DisplayState(manual)} locked - Manual";
+        }
+        else
+        {
+            _reason = $"{DisplayState(_state)} - policy updated";
+        }
+    }
     public void SynchronizeObservedState(PowerState state)
     {
         _state = state;
@@ -220,4 +241,11 @@ public sealed class PowerPolicyEngine
         PowerState.Balanced => "Balanced locked - Manual",
         PowerState.HighPerformance => "Performance locked - Manual",
         _ => $"{state} locked - Manual"
-    };}
+    };    private static string DisplayState(PowerState state) => state switch
+    {
+        PowerState.PowerSaver => "Power Saver",
+        PowerState.Balanced => "Balanced",
+        PowerState.HighPerformance => "High Performance",
+        _ => state.ToString()
+    };
+}

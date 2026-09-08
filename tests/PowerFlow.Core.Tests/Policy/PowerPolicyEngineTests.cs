@@ -133,6 +133,28 @@ public sealed class PowerPolicyEngineTests
         var result = engine.Evaluate(new CpuSample(T0.AddMinutes(2), 0));
         Assert.Equal(PowerState.Balanced, result.Target);
     }
-}
+
+    [Fact]
+    public void Reconfigure_UsesNewThresholdImmediatelyWithoutDroppingManualState()
+    {
+        var engine = NewEngine();
+        engine.Reconfigure(new PolicyConfig(
+            PowerState.PowerSaver,
+            CpuPromotionThresholdPercent: 10,
+            CpuPromotionWindow: TimeSpan.Zero,
+            QuietThresholdPercent: 4,
+            QuietWindow: TimeSpan.FromSeconds(8),
+            PostGameCooldown: TimeSpan.FromSeconds(8)));
+
+        var promoted = engine.Evaluate(new CpuSample(T0.AddSeconds(1), 20));
+        Assert.Equal(PowerState.Balanced, promoted.Target);
+
+        engine.Evaluate(new ManualStateRequested(T0.AddSeconds(2), PowerState.PowerSaver));
+        engine.Reconfigure(new PolicyConfig(
+            PowerState.PowerSaver, 5, TimeSpan.Zero, 2, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(8)));
+        var locked = engine.Evaluate(new CpuSample(T0.AddMinutes(1), 99));
+        Assert.Equal(PowerState.PowerSaver, locked.Target);
+        Assert.True(locked.IsLatched);
+    }}
 
 

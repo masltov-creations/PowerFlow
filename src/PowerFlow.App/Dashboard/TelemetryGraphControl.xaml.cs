@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -16,9 +17,18 @@ public sealed partial class TelemetryGraphControl : UserControl
     private IReadOnlyList<TransitionRecord> _history = Array.Empty<TransitionRecord>();
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private double _windowSeconds = 60;
-    private Line? _hoverLine;
+    private double? _hoverNormalized;
+    private bool _thresholdDragging;
+    private double _plotLeft = 42;
+    private double _plotTop = 19;
+    private double _plotWidth = 1;
+    private double _plotHeight = 1;
+    private double _powerMax = 100;
+    private DateTimeOffset _latest;
 
-    public TelemetryGraphControl() => InitializeComponent();
+    public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsPreviewed;
+    public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsCommitted;
+public TelemetryGraphControl() => InitializeComponent();
 
     public void Apply(IReadOnlyList<DashboardSample> samples, PowerFlowConfig config, IReadOnlyList<TransitionRecord>? history = null, double windowSeconds = 60)
     {
@@ -38,21 +48,21 @@ public sealed partial class TelemetryGraphControl : UserControl
         if (width < 180 || height < 120) return;
 
         PlotCanvas.Children.Clear();
-        _hoverLine = null;
-        HoverCard.Visibility = Visibility.Collapsed;
         const double left = 42;
         const double right = 48;
         const double top = 19;
         const double bottom = 26;
         var plotWidth = Math.Max(1, width - left - right);
         var plotHeight = Math.Max(1, height - top - bottom);
+        _plotLeft = left;
+        _plotTop = top;
+        _plotWidth = plotWidth;
+        _plotHeight = plotHeight;
 
         var gridBrush = Brush(255, 255, 255, 18);
         var labelBrush = Brush(255, 255, 255, 100);
         var cpuBrush = Brush(84, 224, 207, 235);
         var powerBrush = Brush(125, 168, 255, 230);
-        var promoteBrush = Brush(220, 140, 255, 205);
-        var quietBrush = Brush(84, 224, 207, 155);
         var transitionBrush = Brush(255, 255, 255, 72);
 
         foreach (var percent in new[] { 0d, 25d, 50d, 75d, 100d })
@@ -62,14 +72,13 @@ public sealed partial class TelemetryGraphControl : UserControl
             AddText($"{percent:0}%", 4, y - 7, 9, labelBrush);
         }
 
-        AddThreshold(_config.CpuPromotionThresholdPercent, $"PROMOTE {_config.CpuPromotionThresholdPercent:0.#}%", promoteBrush, left, top, plotWidth, plotHeight, false);
-        AddThreshold(_config.QuietThresholdPercent, $"QUIET {_config.QuietThresholdPercent:0.#}%", quietBrush, left, top, plotWidth, plotHeight, true);
-
         var latest = _samples.Count > 0 ? _samples[^1].At : DateTimeOffset.UtcNow;
         var windowStart = latest.AddSeconds(-_windowSeconds);
         var visibleSamples = _samples.Where(sample => sample.At >= windowStart && sample.At <= latest).ToArray();
         var powerValues = visibleSamples.Where(s => s.PackageWatts.HasValue).Select(s => s.PackageWatts!.Value).ToArray();
         var powerMax = powerValues.Length == 0 ? 100d : Math.Max(100d, Math.Ceiling(powerValues.Max() / 25d) * 25d);
+        _powerMax = powerMax;
+        _latest = latest;
         AddText($"{powerMax:0} W", width - right + 6, top - 6, 9, labelBrush);
         AddText("0 W", width - right + 6, top + plotHeight - 6, 9, labelBrush);
         AddText($"-{_windowSeconds:0}s", left, height - 20, 9, labelBrush);
@@ -104,47 +113,134 @@ public sealed partial class TelemetryGraphControl : UserControl
         }
         AddLegend(left + 7, top + 5, "CPU %", cpuBrush);
         AddLegend(left + 66, top + 5, "PACKAGE W", powerBrush);
+        UpdateThresholdOverlay();
+        if (_hoverNormalized is double hover && !_thresholdDragging) UpdateHover(hover);
     }
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_samples.Count == 0) return;
-        const double left = 42;
-        const double right = 48;
-        var width = PlotCanvas.ActualWidth;
-        var plotWidth = width - left - right;
-        if (plotWidth <= 0) return;
-        var point = e.GetCurrentPoint(PlotCanvas).Position;
-        var normalized = (point.X - left) / plotWidth;
-        if (normalized < 0 || normalized > 1) { OnPointerExited(sender, e); return; }
-        var latest = _samples[^1].At;
-        var sample = TelemetryPlotProjection.FindNearestSample(_samples, normalized, latest, _windowSeconds);
-        if (sample is null) return;
-        var x = left + TelemetryPlotProjection.NormalizedX(sample.At, latest, _windowSeconds) * plotWidth;
-        if (_hoverLine is null)
+        if (_thresholdDragging) return;
+        var point = e.GetCurrentPoint(InteractionCanvas).Position;
+        if (_samples.Count == 0 || point.X < _plotLeft || point.X > _plotLeft + _plotWidth || point.Y < _plotTop || point.Y > _plotTop + _plotHeight)
         {
-            _hoverLine = new Line { Stroke = Brush(255, 255, 255, 110), StrokeThickness = 1, IsHitTestVisible = false };
-            PlotCanvas.Children.Add(_hoverLine);
+            HideHover();
+            return;
         }
-        _hoverLine.X1 = _hoverLine.X2 = x;
-        _hoverLine.Y1 = 18;
-        _hoverLine.Y2 = Math.Max(18, PlotCanvas.ActualHeight - 26);
-        var watts = sample.PackageWatts is double w ? $"{w:0.0} W" : "— W";
-        var ghz = sample.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "— GHz";
-        HoverText.Text = $"{sample.At:HH:mm:ss}   CPU {sample.CpuPercent:0.0}%   {watts}   {ghz}   {sample.State}";
-        HoverCard.Visibility = Visibility.Visible;
+        _hoverNormalized = Math.Clamp((point.X - _plotLeft) / _plotWidth, 0, 1);
+        UpdateHover(_hoverNormalized.Value);
     }
 
     private void OnPointerExited(object sender, PointerRoutedEventArgs e)
     {
-        HoverCard.Visibility = Visibility.Collapsed;
-        if (_hoverLine is not null)
-        {
-            PlotCanvas.Children.Remove(_hoverLine);
-            _hoverLine = null;
-        }
+        if (_thresholdDragging) return;
+        HideHover();
     }
 
+    private void OnPromoteDragStarted(object sender, DragStartedEventArgs e) => BeginThresholdDrag();
+    private void OnQuietDragStarted(object sender, DragStartedEventArgs e) => BeginThresholdDrag();
+
+    private void OnPromoteDragDelta(object sender, DragDeltaEventArgs e)
+    {
+        var requested = _config.CpuPromotionThresholdPercent - (e.VerticalChange / Math.Max(1, _plotHeight) * 100d);
+        requested = Math.Round(requested * 2d) / 2d;
+        _config = _config with { CpuPromotionThresholdPercent = ThresholdDragProjection.ClampPromotion(requested, _config.QuietThresholdPercent) };
+        PreviewThresholdChange();
+    }
+
+    private void OnQuietDragDelta(object sender, DragDeltaEventArgs e)
+    {
+        var requested = _config.QuietThresholdPercent - (e.VerticalChange / Math.Max(1, _plotHeight) * 100d);
+        requested = Math.Round(requested * 2d) / 2d;
+        _config = _config with { QuietThresholdPercent = ThresholdDragProjection.ClampQuiet(requested, _config.CpuPromotionThresholdPercent) };
+        PreviewThresholdChange();
+    }
+
+    private void OnPromoteDragCompleted(object sender, DragCompletedEventArgs e) => CompleteThresholdDrag();
+    private void OnQuietDragCompleted(object sender, DragCompletedEventArgs e) => CompleteThresholdDrag();
+
+    private void BeginThresholdDrag()
+    {
+        _thresholdDragging = true;
+        HideHover();
+    }
+
+    private void PreviewThresholdChange()
+    {
+        UpdateThresholdOverlay();
+        ThresholdsPreviewed?.Invoke(this, new ThresholdsChangedEventArgs(_config.QuietThresholdPercent, _config.CpuPromotionThresholdPercent));
+    }
+
+    private void CompleteThresholdDrag()
+    {
+        if (!_thresholdDragging) return;
+        _thresholdDragging = false;
+        ThresholdsCommitted?.Invoke(this, new ThresholdsChangedEventArgs(_config.QuietThresholdPercent, _config.CpuPromotionThresholdPercent));
+    }
+    private void UpdateThresholdOverlay()
+    {
+        var x1 = _plotLeft;
+        var x2 = _plotLeft + _plotWidth;
+        var promoteY = CpuY(_config.CpuPromotionThresholdPercent, _plotTop, _plotHeight);
+        var quietY = CpuY(_config.QuietThresholdPercent, _plotTop, _plotHeight);
+        SetRail(PromoteRail, PromoteHitRail, PromoteHandle, PromoteLabel, x1, x2, promoteY, $"PROMOTE {_config.CpuPromotionThresholdPercent:0.#}%", -15);
+        SetRail(QuietRail, QuietHitRail, QuietHandle, QuietLabel, x1, x2, quietY, $"QUIET {_config.QuietThresholdPercent:0.#}%", 2);
+        SetThumb(PromoteThumb, x1, x2, promoteY);
+        SetThumb(QuietThumb, x1, x2, quietY);
+    }
+
+    private static void SetThumb(Thumb thumb, double x1, double x2, double y)
+    {
+        thumb.Width = Math.Max(1, x2 - x1);
+        Canvas.SetLeft(thumb, x1);
+        Canvas.SetTop(thumb, y - 10);
+    }
+    private static void SetRail(Line rail, Line hitRail, Ellipse handle, TextBlock label, double x1, double x2, double y, string text, double labelOffset)
+    {
+        rail.X1 = hitRail.X1 = x1;
+        rail.X2 = hitRail.X2 = x2;
+        rail.Y1 = rail.Y2 = hitRail.Y1 = hitRail.Y2 = y;
+        Canvas.SetLeft(handle, x2 - 5.5);
+        Canvas.SetTop(handle, y - 5.5);
+        label.Text = text;
+        Canvas.SetLeft(label, Math.Max(x1, x2 - 82));
+        Canvas.SetTop(label, y + labelOffset);
+    }
+
+    private void UpdateHover(double normalized)
+    {
+        var value = TelemetryHoverProjection.Interpolate(_samples, normalized, _latest, _windowSeconds);
+        if (value is null) { HideHover(); return; }
+        var x = _plotLeft + normalized * _plotWidth;
+        HoverLine.X1 = HoverLine.X2 = x;
+        HoverLine.Y1 = _plotTop;
+        HoverLine.Y2 = _plotTop + _plotHeight;
+        HoverLine.Visibility = Visibility.Visible;
+        var cpuY = CpuY(value.CpuPercent, _plotTop, _plotHeight);
+        Canvas.SetLeft(CpuHoverDot, x - 4);
+        Canvas.SetTop(CpuHoverDot, cpuY - 4);
+        CpuHoverDot.Visibility = Visibility.Visible;
+        if (value.PackageWatts is double pw)
+        {
+            var powerY = _plotTop + _plotHeight - Math.Clamp(pw / _powerMax, 0, 1) * _plotHeight;
+            Canvas.SetLeft(PowerHoverDot, x - 4);
+            Canvas.SetTop(PowerHoverDot, powerY - 4);
+            PowerHoverDot.Visibility = Visibility.Visible;
+        }
+        else PowerHoverDot.Visibility = Visibility.Collapsed;
+        var watts = value.PackageWatts is double w ? $"{w:0.0} W" : "- W";
+        var ghz = value.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "- GHz";
+        HoverText.Text = $"{value.At:HH:mm:ss}   CPU {value.CpuPercent:0.0}%   {watts}   {ghz}   {value.State}";
+        HoverCard.Visibility = Visibility.Visible;
+    }
+
+    private void HideHover()
+    {
+        _hoverNormalized = null;
+        HoverLine.Visibility = Visibility.Collapsed;
+        CpuHoverDot.Visibility = Visibility.Collapsed;
+        PowerHoverDot.Visibility = Visibility.Collapsed;
+        HoverCard.Visibility = Visibility.Collapsed;
+    }
     private void AddSmoothSeries(IReadOnlyList<PlotPoint> points, SolidColorBrush stroke, Brush areaFill, double thickness, double baseline)
     {
         if (points.Count == 0) return;
@@ -233,14 +329,6 @@ public sealed partial class TelemetryGraphControl : UserControl
         brush.GradientStops.Add(new GradientStop { Color = Microsoft.UI.ColorHelper.FromArgb(3, r, g, b), Offset = 1 });
         return brush;
     }
-    private void AddThreshold(double percent, string label, Brush brush, double left, double top, double plotWidth, double plotHeight, bool labelBelow)
-    {
-        var y = CpuY(percent, top, plotHeight);
-        var line = AddLine(left, y, left + plotWidth, y, brush, 1.25);
-        line.StrokeDashArray = new DoubleCollection { 5, 4 };
-        AddText(label, left + plotWidth - 80, y + (labelBelow ? 2 : -15), 8, brush);
-    }
-
     private Line AddLine(double x1, double y1, double x2, double y2, Brush stroke, double thickness)
     {
         var line = new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = stroke, StrokeThickness = thickness };

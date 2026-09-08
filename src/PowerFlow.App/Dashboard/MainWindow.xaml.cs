@@ -39,6 +39,8 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync);
         controller.SnapshotChanged += OnSnapshotChanged;
         _telemetrySession.TelemetryChanged += OnTelemetryChanged;
+        TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
+        TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
         Closed += OnClosed;
         AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
@@ -94,6 +96,27 @@ public sealed partial class MainWindow : Window
         Range120Button.IsChecked = true;
         ApplyVisualState(_controller.Snapshot);
     }
+    private void OnThresholdsPreviewed(object? sender, ThresholdsChangedEventArgs e)
+    {
+        _config = _config with
+        {
+            QuietThresholdPercent = e.QuietPercent,
+            CpuPromotionThresholdPercent = e.PromotionPercent
+        };
+        ViewModel.Configure(_config);
+        RuleFlow.Apply(_config, _controller.Snapshot);
+        DecisionPressure.Apply(_config, _controller.Snapshot);
+    }
+
+    private async void OnThresholdsCommitted(object? sender, ThresholdsChangedEventArgs e)
+    {
+        var updated = _config with
+        {
+            QuietThresholdPercent = e.QuietPercent,
+            CpuPromotionThresholdPercent = e.PromotionPercent
+        };
+        await ApplyConfigFromPageAsync(updated);
+    }
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);
@@ -130,6 +153,8 @@ public sealed partial class MainWindow : Window
         _closed = true;
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _telemetrySession.TelemetryChanged -= OnTelemetryChanged;
+        TelemetryGraph.ThresholdsPreviewed -= OnThresholdsPreviewed;
+        TelemetryGraph.ThresholdsCommitted -= OnThresholdsCommitted;
         await _telemetrySession.DisposeAsync();
     }
 }

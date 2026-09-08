@@ -192,6 +192,25 @@ public sealed class PowerFlowControllerTests
         Assert.True(f.Controller.SamplingEnabled);
         await f.Controller.StopAsync();
     }
+    [Fact]
+    public async Task LivePolicyUpdate_ChangesThresholdUsedByRunningController()
+    {
+        var f = new Fixture(PowerPlanIds.PowerSaver);
+        await f.Controller.StartAsync();
+        await f.Controller.UpdatePolicyConfigAsync(f.Config with
+        {
+            CpuPromotionThresholdPercent = 1,
+            CpuPromotionWindow = TimeSpan.Zero
+        });
+
+        f.TickFactory.Pulse();
+        for (var i = 0; i < 100 && f.Controller.ActivitySampleCount == 0; i++) await Task.Delay(5);
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        Assert.Contains(PowerPlanIds.Balanced, f.Plans.Activations);
+        await f.Controller.StopAsync();
+    }
     private sealed class Fixture
     {
         public Fixture(Guid active, bool observePlans = false)
