@@ -26,8 +26,8 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     private const long WS_EX_NOACTIVATE = 0x08000000L;
     private const int SW_HIDE = 0;
     private const int SW_SHOWNOACTIVATE = 4;
-    private const int PopupWidth = 400;
-    private const int PopupHeight = 260;
+    private const int PopupWidth = 320;
+    private const int PopupHeight = 176;
 
     private readonly PowerFlowController _controller;
     private readonly TelemetryContinuityRecorder _recorder;
@@ -145,9 +145,7 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         _model = TrayMiniTrajectoryProjection.Create(_recorder.History, snapshot, _config, _recorder.LatestRichTelemetry);
         StateText.Text = _model.StateLabel;
         ModeBadge.Text = _model.ModeBadge;
-        CpuText.Text = _model.CpuLabel;
-        WattsText.Text = _model.WattsLabel;
-        FrequencyText.Text = _model.FrequencyLabel;
+        CompactTelemetryLine.Text = $"CPU {_model.CpuLabel}  |  {_model.WattsLabel}  |  AVG {_model.FrequencyLabel}";
         DirectionText.Text = _model.DirectionLabel;
         NextAction.Text = _model.NextAction;
 

@@ -34,7 +34,7 @@
 
         <Border Grid.Row="2" CornerRadius="12" Background="{ThemeResource PowerFlowPanelBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="7">
             <Grid>
-                <dash:TelemetryGraphControl x:Name="Graph" MinHeight="300"/>
+                <dash:TelemetryGraphControl x:Name="Graph"/>
                 <Border x:Name="HoverLens" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0" MaxWidth="315" Padding="11,8" CornerRadius="10" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
                     <StackPanel Spacing="2">
                         <TextBlock x:Name="LensTitle" FontSize="11" FontWeight="SemiBold" CharacterSpacing="50"/>

@@ -36,6 +36,14 @@ public sealed partial class TrajectoryControl : UserControl
         Graph.HoverChanged += OnGraphHoverChanged;
     }
 
+    public void SetPresentationMode(DashboardPresentationMode mode)
+    {
+        var compressed = mode == DashboardPresentationMode.Compressed;
+        Graph.MinHeight = compressed ? 170 : 320;
+        Root.RowSpacing = compressed ? 5 : 7;
+        HoverLens.MaxWidth = compressed ? 250 : 315;
+        DisclosurePanel.Padding = compressed ? new Thickness(9, 6, 9, 6) : new Thickness(11, 8, 11, 8);
+    }
     public event EventHandler? AutoRequested;
     public event EventHandler<TrajectoryManualStateEventArgs>? ManualStateRequested;
     public event EventHandler<TrajectoryRangeChangedEventArgs>? RangeChanged;

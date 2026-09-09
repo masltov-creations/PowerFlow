@@ -24,9 +24,9 @@ public sealed class TrayPopupAndPickerContractTests
         Assert.True(File.Exists(popupCodePath));
         var popup = File.ReadAllText(popupPath);
         var popupCode = File.ReadAllText(popupCodePath);
-        Assert.Contains("CPU", popup, StringComparison.Ordinal);
-        Assert.Contains("PACKAGE", popup, StringComparison.Ordinal);
-        Assert.Contains("GHz", popup, StringComparison.Ordinal);
+        Assert.Contains("CompactTelemetryLine", popup, StringComparison.Ordinal);
+        Assert.Contains("CPU {_model.CpuLabel}", popupCode, StringComparison.Ordinal);
+        Assert.Contains("AVG {_model.FrequencyLabel}", popupCode, StringComparison.Ordinal);
         Assert.Contains("NextAction", popup, StringComparison.Ordinal);
         Assert.Contains("TrayTrajectoryCanvas", popup, StringComparison.Ordinal);
         Assert.Contains("TrayNowLabel", popup, StringComparison.Ordinal);

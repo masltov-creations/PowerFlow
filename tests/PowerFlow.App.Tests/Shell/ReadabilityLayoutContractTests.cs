@@ -8,7 +8,7 @@ public sealed class ReadabilityLayoutContractTests
     public void MainWindow_DefaultsToReadableCompactSize()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("SizeInt32(960, 620)", code);
+        Assert.Contains("SizeInt32(CompressedWidth, CompressedHeight)", code);
         Assert.DoesNotContain("SizeInt32(900, 560)", code);
     }
 
