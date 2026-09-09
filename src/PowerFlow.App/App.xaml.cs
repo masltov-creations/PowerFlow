@@ -85,7 +85,7 @@ public partial class App : Application
             if (LaunchIntent.ShouldOpenDashboard(launchArgs)) Interlocked.Exchange(ref _dashboardOpenRequested, 1);
             if (LaunchIntent.ShouldOpenFullScreen(launchArgs)) Interlocked.Exchange(ref _dashboardFullScreenRequested, 1);
             Volatile.Write(ref _runtimeReady, 1);
-            if (LaunchIntent.ShouldOpenPopupPreview(launchArgs)) await ShowTrayHoverPreviewAsync();
+            if (LaunchIntent.ShouldOpenPopupPreview(launchArgs)) await ShowGlancePreviewAsync();
             await DrainDashboardOpenRequestAsync();
         }
         catch (Exception ex)
@@ -184,7 +184,7 @@ public partial class App : Application
         catch (Exception ex) { await WriteStartupFailureAsync(ex); }
     }
 
-    private async Task ShowTrayHoverPreviewAsync()
+    private async Task ShowGlancePreviewAsync()
         => await ShowShellFromTrayAsync(PowerFlowShellState.Glance, ShellActivationMode.TransientNoActivate, waitForTrayRect: true, animate: false);
 
     private async Task ShowShellFromTrayAsync(PowerFlowShellState state, ShellActivationMode activation, bool waitForTrayRect, bool animate)

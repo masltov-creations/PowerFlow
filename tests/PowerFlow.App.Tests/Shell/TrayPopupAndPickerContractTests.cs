@@ -1,4 +1,5 @@
 using Xunit;
+
 namespace PowerFlow.App.Tests.Shell;
 
 public sealed class TrayPopupAndPickerContractTests
@@ -14,25 +15,25 @@ public sealed class TrayPopupAndPickerContractTests
     }
 
     [Fact]
-    public void TrayHoverPopup_IsAThemedNonActivatingMiniDashboard()
+    public void TrayGlance_IsThemedNonActivatingDensityOfTheUnifiedShell()
     {
         var root = RepoRoot();
         var trayHost = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayIconHost.cs"));
-        var popupPath = Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml");
-        var popupCodePath = Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml.cs");
-        Assert.True(File.Exists(popupPath));
-        Assert.True(File.Exists(popupCodePath));
-        var popup = File.ReadAllText(popupPath);
-        var popupCode = File.ReadAllText(popupCodePath);
-        Assert.Contains("CompactTelemetryLine", popup, StringComparison.Ordinal);
-        Assert.Contains("CPU {_model.CpuLabel}", popupCode, StringComparison.Ordinal);
-        Assert.Contains("AVG {_model.FrequencyLabel}", popupCode, StringComparison.Ordinal);
-        Assert.Contains("NextAction", popup, StringComparison.Ordinal);
-        Assert.Contains("TrayTrajectoryCanvas", popup, StringComparison.Ordinal);
-        Assert.Contains("TrayNowLabel", popup, StringComparison.Ordinal);
-        Assert.Contains("WS_EX_NOACTIVATE", popupCode, StringComparison.Ordinal);        Assert.Contains("TelemetryContinuityRecorder", popupCode, StringComparison.Ordinal);
-        Assert.Contains("AcquireVisibility", popupCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("DashboardTelemetrySession", popupCode, StringComparison.Ordinal);
+        var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml.cs"));
+        var shell = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
+        var shellCode = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"ShellRoot\"", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CompactTelemetryStrip\"", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceTapTarget\"", shell, StringComparison.Ordinal);
+        Assert.Contains("dash:TrajectoryControl", shell, StringComparison.Ordinal);
+        Assert.Contains("WS_EX_NOACTIVATE", shellCode, StringComparison.Ordinal);
+        Assert.Contains("TelemetryContinuityRecorder", shellCode, StringComparison.Ordinal);
+        Assert.Contains("AcquireVisibility", shellCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("DashboardTelemetrySession", shellCode, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellState.Glance", app, StringComparison.Ordinal);
+        Assert.Contains("ShellActivationMode.TransientNoActivate", app, StringComparison.Ordinal);
+        Assert.Contains("ShowGlancePreviewAsync", app, StringComparison.Ordinal);
         Assert.Contains("WmMouseMove", trayHost, StringComparison.Ordinal);
         Assert.Contains("Shell_NotifyIconGetRect", trayHost, StringComparison.Ordinal);
     }
@@ -49,9 +50,10 @@ public sealed class TrayPopupAndPickerContractTests
         Assert.Contains("TryGetHoverAnchorRect", trayHost, StringComparison.Ordinal);
         Assert.Contains("_observedHoverRect", trayHost, StringComparison.Ordinal);
         Assert.Contains("TryGetHoverAnchorRect", app, StringComparison.Ordinal);
-        Assert.Contains("ShowTrayHoverPreviewAsync", app, StringComparison.Ordinal);
+        Assert.Contains("ShowGlancePreviewAsync", app, StringComparison.Ordinal);
         Assert.Contains("TryGetIconRect", app, StringComparison.Ordinal);
     }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

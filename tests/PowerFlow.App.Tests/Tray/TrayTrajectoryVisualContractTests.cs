@@ -5,22 +5,19 @@ namespace PowerFlow.App.Tests.Tray;
 public sealed class TrayTrajectoryVisualContractTests
 {
     [Fact]
-    public void TrayPopupIsLevelZeroTrajectoryRatherThanLocalSparklineCard()
+    public void GlanceIsLevelZeroOfTheSharedTrajectoryRatherThanASeparateSparklineWindow()
     {
         var root = RepoRoot();
-        var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml"));
-        var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml.cs"));
+        var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
+        var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
         var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml"));
 
-        Assert.Contains("TrayTrajectoryCanvas", xaml, StringComparison.Ordinal);
-        Assert.Contains("SaverNode", xaml, StringComparison.Ordinal);
-        Assert.Contains("BalancedNode", xaml, StringComparison.Ordinal);
-        Assert.Contains("PerformanceNode", xaml, StringComparison.Ordinal);
-        Assert.Contains("TrayNowLabel", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("LIVE WHILE OPEN", xaml, StringComparison.Ordinal);
-        Assert.Contains("TrayMiniTrajectoryProjection.Create", code, StringComparison.Ordinal);
+        Assert.Contains("dash:TrajectoryControl", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CompactTelemetryStrip\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceTapTarget\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TrajectoryProjection.Create", code, StringComparison.Ordinal);
         Assert.Contains("_recorder.History", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("private readonly List<(DateTimeOffset At, double Cpu)> _samples", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("TrayMiniTrajectoryProjection", code, StringComparison.Ordinal);
         Assert.DoesNotContain("DashboardTelemetrySession", code, StringComparison.Ordinal);
         Assert.Contains("AcquireVisibility", code, StringComparison.Ordinal);
         Assert.Contains("WS_EX_NOACTIVATE", code, StringComparison.Ordinal);

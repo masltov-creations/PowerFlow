@@ -9,25 +9,27 @@ public sealed class SafeThemeResourceContractTests
     {
         var root = RepoRoot();
         var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs"));
-        var tray = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml.cs"));
+        var graph = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs"));
 
         Assert.DoesNotContain("Root.Resources[", trajectory, StringComparison.Ordinal);
         Assert.DoesNotContain("Application.Current.Resources[", trajectory, StringComparison.Ordinal);
-        Assert.DoesNotContain("Root.Resources[", tray, StringComparison.Ordinal);
-        Assert.DoesNotContain("Application.Current.Resources[", tray, StringComparison.Ordinal);
+        Assert.DoesNotContain("Resources[", graph, StringComparison.Ordinal);
+        Assert.DoesNotContain("Application.Current.Resources[", graph, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void XamlProvidesNamedResolvedBrushSourcesForDynamicDrawing()
+    public void UnifiedShellUsesThemeResourcesAndNamedTrajectoryBrushSource()
     {
         var root = RepoRoot();
         var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
-        var tray = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml"));
+        var shell = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
+        var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml"));
 
         Assert.Contains("x:Name=\"StateBandBrushSource\"", trajectory, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"TrayCpuBrushSource\"", tray, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"TrayPowerBrushSource\"", tray, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"TrayTrackBrushSource\"", tray, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowSurfaceBrush", shell, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowCanvasBrush", app, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowCpuBrush", app, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowStateSaverBrush", app, StringComparison.Ordinal);
     }
 
     private static string RepoRoot()
