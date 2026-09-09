@@ -9,15 +9,16 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="4">
-                <ToggleButton x:Name="AutoNode" Content="AUTO" FontSize="12" Padding="12,5" Click="OnAutoNode" AutomationProperties.Name="Automatic power policy"/>
-                <ToggleButton x:Name="SaverNode" Content="SAVER" FontSize="12" Padding="12,5" Click="OnSaverNode" AutomationProperties.Name="Lock Power Saver"/>
-                <ToggleButton x:Name="BalancedNode" Content="BALANCED" FontSize="12" Padding="12,5" Click="OnBalancedNode" AutomationProperties.Name="Lock Balanced"/>
-                <ToggleButton x:Name="PerformanceNode" Content="PERFORMANCE" FontSize="12" Padding="12,5" Click="OnPerformanceNode" AutomationProperties.Name="Lock High Performance"/>
+                <ToggleButton x:Name="AutoNode" Content="AUTO" FontSize="12" Padding="12,5" Click="OnAutoNode" PointerEntered="OnAutoNodeEntered" PointerExited="OnLensTargetExited" AutomationProperties.Name="Automatic power policy"/>
+                <ToggleButton x:Name="SaverNode" Content="SAVER" FontSize="12" Padding="12,5" Click="OnSaverNode" PointerEntered="OnSaverNodeEntered" PointerExited="OnLensTargetExited" AutomationProperties.Name="Lock Power Saver"/>
+                <ToggleButton x:Name="BalancedNode" Content="BALANCED" FontSize="12" Padding="12,5" Click="OnBalancedNode" PointerEntered="OnBalancedNodeEntered" PointerExited="OnLensTargetExited" AutomationProperties.Name="Lock Balanced"/>
+                <ToggleButton x:Name="PerformanceNode" Content="PERFORMANCE" FontSize="12" Padding="12,5" Click="OnPerformanceNode" PointerEntered="OnPerformanceNodeEntered" PointerExited="OnLensTargetExited" AutomationProperties.Name="Lock High Performance"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
                 <ToggleButton x:Name="Range60Button" Content="60s" FontSize="11" Padding="8,3" IsChecked="True" Click="OnRange60"/>
@@ -25,23 +26,50 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Height="18">
-            <Border Background="{ThemeResource PowerFlowTrackBrush}" CornerRadius="5" Opacity="0.75"/>
-            <Canvas x:Name="StateBandCanvas" SizeChanged="OnStateBandSizeChanged" IsHitTestVisible="False"/>
-            <TextBlock x:Name="StateBandLabel" FontSize="11" Opacity="0.54" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        <Grid Grid.Row="1" Height="22">
+            <Border Background="{ThemeResource PowerFlowTrackBrush}" CornerRadius="6" Opacity="0.72"/>
+            <Canvas x:Name="StateBandCanvas" SizeChanged="OnStateBandSizeChanged"/>
+            <TextBlock x:Name="StateBandLabel" FontSize="11" Opacity="0.52" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>
         </Grid>
 
         <Border Grid.Row="2" CornerRadius="12" Background="{ThemeResource PowerFlowPanelBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="7">
-            <dash:TelemetryGraphControl x:Name="Graph" MinHeight="320"/>
+            <Grid>
+                <dash:TelemetryGraphControl x:Name="Graph" MinHeight="300"/>
+                <Border x:Name="HoverLens" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,10,0" MaxWidth="315" Padding="11,8" CornerRadius="10" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="LensTitle" FontSize="11" FontWeight="SemiBold" CharacterSpacing="50"/>
+                        <TextBlock x:Name="LensPrimary" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="LensSecondary" FontSize="12" Opacity="0.72"/>
+                        <TextBlock x:Name="LensDetail" FontSize="11" Opacity="0.54" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
 
-        <Grid Grid.Row="3" ColumnSpacing="10">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Border Padding="8,4" CornerRadius="9" Background="{ThemeResource PowerFlowSubtleBrush}">
+        <Border x:Name="DisclosurePanel" Grid.Row="3" Visibility="Collapsed" CornerRadius="10" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="11,8">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel MinWidth="150">
+                    <TextBlock x:Name="DisclosureTitle" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="DisclosurePrimary" FontSize="15" FontWeight="SemiBold"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="DisclosureSecondary" FontSize="12" Opacity="0.72"/>
+                    <TextBlock x:Name="DisclosureDetail" FontSize="12" Opacity="0.62" TextWrapping="Wrap"/>
+                </StackPanel>
+                <Button Grid.Column="2" Content="×" Click="OnDisclosureClose" FontSize="14" Padding="8,3" VerticalAlignment="Top" AutomationProperties.Name="Close expanded detail"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="4" ColumnSpacing="6">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button x:Name="NowButton" Padding="9,4" CornerRadius="9" Background="{ThemeResource PowerFlowSubtleBrush}" Click="OnNowClicked" PointerEntered="OnNowEntered" PointerExited="OnLensTargetExited">
                 <TextBlock x:Name="NowText" Text="NOW" FontSize="12" FontWeight="SemiBold"/>
-            </Border>
-            <TextBlock x:Name="NextActionText" Grid.Column="1" FontSize="12" Opacity="0.72" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <TextBlock x:Name="DirectionText" Grid.Column="2" FontSize="11" Opacity="0.48" VerticalAlignment="Center"/>
+            </Button>
+            <Button x:Name="QuietDisclosureButton" Grid.Column="1" Content="QUIET" Padding="8,4" FontSize="11" Click="OnQuietDisclosureClicked" PointerEntered="OnQuietEntered" PointerExited="OnLensTargetExited"/>
+            <Button x:Name="PromoteDisclosureButton" Grid.Column="2" Content="PROMOTE" Padding="8,4" FontSize="11" Click="OnPromoteDisclosureClicked" PointerEntered="OnPromoteEntered" PointerExited="OnLensTargetExited"/>
+            <TextBlock x:Name="NextActionText" Grid.Column="3" FontSize="12" Opacity="0.72" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            <TextBlock x:Name="DirectionText" Grid.Column="4" FontSize="11" Opacity="0.48" VerticalAlignment="Center"/>
         </Grid>
     </Grid>
 </UserControl>

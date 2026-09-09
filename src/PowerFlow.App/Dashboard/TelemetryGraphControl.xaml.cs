@@ -11,6 +11,11 @@ using Windows.Foundation;
 
 namespace PowerFlow.App.Dashboard;
 
+public sealed class GraphHoverChangedEventArgs(HoverTelemetry? telemetry) : EventArgs
+{
+    public HoverTelemetry? Telemetry { get; } = telemetry;
+}
+
 public sealed partial class TelemetryGraphControl : UserControl
 {
     private IReadOnlyList<DashboardSample> _samples = Array.Empty<DashboardSample>();
@@ -28,6 +33,7 @@ public sealed partial class TelemetryGraphControl : UserControl
 
     public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsPreviewed;
     public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsCommitted;
+    public event EventHandler<GraphHoverChangedEventArgs>? HoverChanged;
 public TelemetryGraphControl()
     {
         InitializeComponent();
@@ -236,6 +242,7 @@ public TelemetryGraphControl()
         var ghz = value.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "- GHz";
         HoverText.Text = $"{value.At:HH:mm:ss}   CPU {value.CpuPercent:0.0}%   {watts}   {ghz}   {value.State}";
         HoverCard.Visibility = Visibility.Visible;
+        HoverChanged?.Invoke(this, new GraphHoverChangedEventArgs(value));
     }
 
     private void HideHover()
@@ -245,6 +252,7 @@ public TelemetryGraphControl()
         CpuHoverDot.Visibility = Visibility.Collapsed;
         PowerHoverDot.Visibility = Visibility.Collapsed;
         HoverCard.Visibility = Visibility.Collapsed;
+        HoverChanged?.Invoke(this, new GraphHoverChangedEventArgs(null));
     }
     private void AddSmoothSeries(IReadOnlyList<PlotPoint> points, SolidColorBrush stroke, Brush areaFill, double thickness, double baseline)
     {
