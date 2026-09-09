@@ -255,7 +255,7 @@ public sealed partial class TrajectoryControl : UserControl
         if (_model is null || _model.Samples.Count == 0 || StateBandCanvas.ActualWidth <= 0) return;
         var latest = _model.Samples[^1].At;
         var start = latest.AddSeconds(-_windowSeconds);
-        var brush = Root.Resources["PowerFlowTrackBrush"] as Brush ?? Application.Current.Resources["PowerFlowTrackBrush"] as Brush;
+        var brush = StateBandBrushSource.Background;
         foreach (var segment in _model.StateSegments)
         {
             if (segment.To < start || segment.From > latest) continue;

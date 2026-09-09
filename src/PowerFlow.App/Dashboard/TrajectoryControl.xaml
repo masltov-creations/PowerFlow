@@ -27,7 +27,7 @@
         </Grid>
 
         <Grid Grid.Row="1" Height="22">
-            <Border Background="{ThemeResource PowerFlowTrackBrush}" CornerRadius="6" Opacity="0.72"/>
+            <Border x:Name="StateBandBrushSource" Background="{ThemeResource PowerFlowTrackBrush}" CornerRadius="6" Opacity="0.72"/>
             <Canvas x:Name="StateBandCanvas" SizeChanged="OnStateBandSizeChanged"/>
             <TextBlock x:Name="StateBandLabel" FontSize="11" Opacity="0.52" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>
         </Grid>

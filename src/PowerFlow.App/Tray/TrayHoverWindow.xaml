@@ -17,6 +17,15 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+            <Grid Visibility="Collapsed" IsHitTestVisible="False">
+                <Border x:Name="TrayCpuBrushSource" Background="{ThemeResource PowerFlowCpuBrush}"/>
+                <Border x:Name="TrayPowerBrushSource" Background="{ThemeResource PowerFlowPowerBrush}"/>
+                <Border x:Name="TrayNowBrushSource" Background="{ThemeResource PowerFlowNowBrush}"/>
+                <Border x:Name="TraySaverBrushSource" Background="{ThemeResource PowerFlowStateSaverBrush}"/>
+                <Border x:Name="TrayBalancedBrushSource" Background="{ThemeResource PowerFlowStateBalancedBrush}"/>
+                <Border x:Name="TrayPerformanceBrushSource" Background="{ThemeResource PowerFlowStatePerformanceBrush}"/>
+                <Border x:Name="TrayTrackBrushSource" Background="{ThemeResource PowerFlowTrackBrush}"/>
+            </Grid>
 
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

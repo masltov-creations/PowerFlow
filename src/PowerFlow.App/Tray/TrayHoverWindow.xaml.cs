@@ -196,9 +196,9 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         var samples = _model.Samples;
         var plotHeight = Math.Max(20, height - 13);
         var bandTop = Math.Max(0, height - 9);
-        var cpuBrush = BrushResource("PowerFlowCpuBrush");
-        var powerBrush = BrushResource("PowerFlowPowerBrush");
-        var nowBrush = BrushResource("PowerFlowNowBrush");
+        var cpuBrush = TrayCpuBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        var powerBrush = TrayPowerBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        var nowBrush = TrayNowBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
         if (samples.Count > 0)
         {
@@ -288,14 +288,11 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
 
     private Brush StateBrush(PowerState state) => state switch
     {
-        PowerState.PowerSaver => BrushResource("PowerFlowStateSaverBrush"),
-        PowerState.Balanced => BrushResource("PowerFlowStateBalancedBrush"),
-        PowerState.HighPerformance => BrushResource("PowerFlowStatePerformanceBrush"),
-        _ => BrushResource("PowerFlowTrackBrush")
+        PowerState.PowerSaver => TraySaverBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray),
+        PowerState.Balanced => TrayBalancedBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray),
+        PowerState.HighPerformance => TrayPerformanceBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray),
+        _ => TrayTrackBrushSource.Background ?? new SolidColorBrush(Microsoft.UI.Colors.Gray)
     };
-
-    private Brush BrushResource(string key) =>
-        Root.Resources[key] as Brush ?? Application.Current.Resources[key] as Brush ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
     private void OnRootTapped(object sender, TappedRoutedEventArgs e) => OpenDashboardRequested?.Invoke(this, EventArgs.Empty);
 
