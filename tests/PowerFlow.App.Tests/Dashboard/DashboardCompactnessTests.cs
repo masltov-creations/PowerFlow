@@ -10,14 +10,16 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class DashboardCompactnessTests
 {
     [Fact]
-    public void MainDashboard_DefaultWindowIsCompactAndDoesNotScroll()
+    public void MainDashboard_CompactStateIsCanonicalReadableAndDoesNotScroll()
     {
         var root = FindRepoRoot();
         var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
         var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
+        var geometry = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "ShellTransitionGeometry.cs"));
         var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
 
-        Assert.Contains("SizeInt32(CompressedWidth, CompressedHeight)", code, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellState.Compact", code, StringComparison.Ordinal);
+        Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
         Assert.DoesNotContain("<ScrollViewer", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("MinHeight=\"390\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TrajectoryControl", xaml, StringComparison.Ordinal);
@@ -57,7 +59,6 @@ public sealed class DashboardCompactnessTests
         };
 
         var picked = TelemetryPlotProjection.FindNearestSample(samples, 0.75, latest, 120);
-
         Assert.NotNull(picked);
         Assert.Equal(latest.AddSeconds(-30), picked!.At);
         Assert.Equal(50, picked.CpuPercent);
@@ -68,7 +69,6 @@ public sealed class DashboardCompactnessTests
     {
         var latest = new DateTimeOffset(2026, 9, 8, 20, 2, 0, TimeSpan.Zero);
         var transition = new TransitionRecord(latest.AddSeconds(-30), PowerState.PowerSaver, PowerState.Balanced, "CPU demand sustained", true);
-
         var marker = TelemetryPlotProjection.NormalizedTransitionX(transition, latest, 60);
 
         Assert.NotNull(marker);

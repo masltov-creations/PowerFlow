@@ -133,6 +133,7 @@ public sealed partial class MainWindow : Window
             _suppressResizeModeSync = false;
         }
 
+        var fromState = _shellVisible ? _shellState : PowerFlowShellState.Hidden;
         _shellState = state;
         _activationMode = activation;
         ApplyActivationMode(activation, state);
@@ -143,6 +144,7 @@ public sealed partial class MainWindow : Window
             start = ResolveTargetBounds(PowerFlowShellState.Hidden);
             AppWindow.MoveAndResize(start);
             ApplyShellLayout(state, start.Width, start.Height);
+            ApplyTransitionDetailProgress(fromState, state, 0);
             if (activation == ShellActivationMode.TransientNoActivate) ShowWindow(_hwnd, SwShowNoActivate);
             else Activate();
             _shellVisible = true;
@@ -152,21 +154,33 @@ public sealed partial class MainWindow : Window
             Activate();
         }
 
-        await AnimateShellBoundsAsync(start, target, state, animate);
+        await AnimateShellBoundsAsync(start, target, fromState, state, animate);
         ApplyShellLayout(state, target.Width, target.Height);
+        ResetTransitionDetailPresentation();
         if (activation == ShellActivationMode.PinnedActive) Activate();
     }
 
-    public Task HideShellAsync()
+    public async Task HideShellAsync()
     {
         _presentationTimer?.Stop();
         _presentationTimer = null;
-        if (_shellVisible) ShowWindow(_hwnd, SwHide);
+        if (!_shellVisible)
+        {
+            _shellState = PowerFlowShellState.Hidden;
+            ReleaseDashboardVisibility();
+            return;
+        }
+
+        var fromState = _shellState;
+        var start = CurrentBounds();
+        var target = ResolveTargetBounds(PowerFlowShellState.Hidden);
+        await AnimateShellBoundsAsync(start, target, fromState, PowerFlowShellState.Hidden, animate: true);
+        ShowWindow(_hwnd, SwHide);
         _shellVisible = false;
         _shellState = PowerFlowShellState.Hidden;
         GlanceTapTarget.Visibility = Visibility.Collapsed;
+        ResetTransitionDetailPresentation();
         ReleaseDashboardVisibility();
-        return Task.CompletedTask;
     }
 
     public TrayRect ShellBounds
@@ -306,21 +320,24 @@ public sealed partial class MainWindow : Window
         return new RectInt32(p.X, p.Y, Math.Max(1, s.Width), Math.Max(1, s.Height));
     }
 
-    private Task AnimateShellBoundsAsync(RectInt32 start, RectInt32 target, PowerFlowShellState state, bool animate)
+    private Task AnimateShellBoundsAsync(RectInt32 start, RectInt32 target, PowerFlowShellState fromState, PowerFlowShellState toState, bool animate)
     {
         _presentationTimer?.Stop();
         _presentationTimer = null;
-        if (!animate || !ShouldAnimatePresentation() || start.Equals(target))
+        var reducedMotion = !animate || !ShouldAnimatePresentation();
+        var duration = ShellMotionPolicy.Duration(fromState, toState, reducedMotion);
+        if (duration == TimeSpan.Zero || start.Equals(target))
         {
             _suppressResizeModeSync = true;
             AppWindow.MoveAndResize(target);
             _suppressResizeModeSync = false;
-            ApplyShellLayout(state, target.Width, target.Height);
+            ApplyShellLayout(toState, target.Width, target.Height);
+            ResetTransitionDetailPresentation();
             return Task.CompletedTask;
         }
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        const int frames = 12;
+        var frames = Math.Max(1, (int)Math.Round(duration.TotalMilliseconds / 16d));
         var frame = 0;
         var timer = _dispatcher.CreateTimer();
         _presentationTimer = timer;
@@ -334,18 +351,61 @@ public sealed partial class MainWindow : Window
         {
             frame++;
             var t = Math.Clamp(frame / (double)frames, 0, 1);
-            var eased = 1 - Math.Pow(1 - t, 3);
+            var eased = ShellMotionPolicy.Ease(fromState, toState, t);
+            var detail = ShellMotionPolicy.DetailProgress(fromState, toState, t);
             var rect = ShellTransitionGeometry.Interpolate(start, target, eased);
             AppWindow.MoveAndResize(rect);
-            ApplyShellLayout(state, rect.Width, rect.Height);
+            var layoutState = ShellMotionPolicy.IsGrowth(fromState, toState) || detail <= 0.001 ? toState : fromState;
+            ApplyShellLayout(layoutState, rect.Width, rect.Height);
+            ApplyTransitionDetailProgress(fromState, toState, detail);
             if (frame < frames) return;
             sender.Stop();
             sender.Tick -= Tick;
             AppWindow.MoveAndResize(target);
             _presentationTimer = null;
             _suppressResizeModeSync = false;
-            ApplyShellLayout(state, target.Width, target.Height);
+            ApplyShellLayout(toState, target.Width, target.Height);
+            ResetTransitionDetailPresentation();
             tcs.TrySetResult();
+        }
+    }
+
+    private void ApplyTransitionDetailProgress(PowerFlowShellState fromState, PowerFlowShellState toState, double progress)
+    {
+        var value = Math.Clamp(progress, 0d, 1d);
+        foreach (var element in TransitionDetailElements(fromState, toState))
+        {
+            element.Opacity = value;
+            var visual = ElementCompositionPreview.GetElementVisual(element);
+            visual.Offset = new Vector3(0, (float)((1d - value) * 7d), 0);
+        }
+    }
+
+    private IEnumerable<UIElement> TransitionDetailElements(PowerFlowShellState fromState, PowerFlowShellState toState)
+    {
+        var low = Math.Min(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
+        var high = Math.Max(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
+        if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Compact) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Compact))
+        {
+            yield return ModeSelectorHost;
+            yield return PresentationActions;
+        }
+        if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Expanded) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Expanded))
+        {
+            yield return NavigationRail;
+            yield return LiveStatsPanel;
+            yield return LowerContextGrid;
+            yield return TelemetryCard;
+            yield return ExpandedContextRail;
+        }
+    }
+
+    private void ResetTransitionDetailPresentation()
+    {
+        foreach (var element in new UIElement[] { ModeSelectorHost, PresentationActions, NavigationRail, LiveStatsPanel, LowerContextGrid, TelemetryCard, ExpandedContextRail })
+        {
+            element.Opacity = 1;
+            ElementCompositionPreview.GetElementVisual(element).Offset = Vector3.Zero;
         }
     }
 

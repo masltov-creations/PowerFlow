@@ -29,7 +29,9 @@ public sealed class DashboardClosePolicyTests
         var source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
         Assert.Contains("AppWindow.Closing += OnAppWindowClosing", source);
         Assert.Contains("args.Cancel = true", source);
-        Assert.Contains("AppWindow.Hide()", source);
+        Assert.Contains("HideShellAsync", source);
+        Assert.Contains("AnimateShellBoundsAsync", source);
+        Assert.Contains("PowerFlowShellState.Hidden", source);
         Assert.Contains("ReleaseDashboardVisibility", source);
         Assert.Contains("AcquireVisibility", source);
         Assert.Contains("CloseForShutdown", source);

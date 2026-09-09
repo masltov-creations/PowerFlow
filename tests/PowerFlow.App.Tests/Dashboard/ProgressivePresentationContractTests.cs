@@ -35,6 +35,10 @@ public sealed class ProgressivePresentationContractTests
         Assert.Contains("AnimateShellBoundsAsync", code, StringComparison.Ordinal);
         Assert.Contains("AppWindow.MoveAndResize", code, StringComparison.Ordinal);
         Assert.Contains("ReducedMotionOverride", code, StringComparison.Ordinal);
+        Assert.Contains("ShellMotionPolicy.Duration", code, StringComparison.Ordinal);
+        Assert.Contains("ShellMotionPolicy.DetailProgress", code, StringComparison.Ordinal);
+        Assert.Contains("ResolveTargetBounds(PowerFlowShellState.Hidden)", code, StringComparison.Ordinal);
+        Assert.Contains("await AnimateShellBoundsAsync", code, StringComparison.Ordinal);
     }
 
     [Fact]

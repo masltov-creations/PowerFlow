@@ -20,7 +20,6 @@ public sealed class ResponsiveRulesLayoutTests
     {
         var xaml = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");
         var code = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml.cs");
-
         Assert.Contains("x:Name=\"RulesRepeater\"", xaml);
         Assert.Contains("UniformGridLayout", xaml);
         Assert.Contains("MinItemWidth", xaml);
@@ -37,10 +36,12 @@ public sealed class ResponsiveRulesLayoutTests
     }
 
     [Fact]
-    public void Dashboard_DefaultWindowIsCompact()
+    public void Dashboard_CompactStateUsesCanonicalGeometry()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("SizeInt32(CompressedWidth, CompressedHeight)", code);
+        var geometry = Read("src", "PowerFlow.App", "Dashboard", "ShellTransitionGeometry.cs");
+        Assert.Contains("PowerFlowShellState.Compact", code);
+        Assert.Contains("(760, 440)", geometry);
         Assert.DoesNotContain("SizeInt32(1180, 760)", code);
     }
 
@@ -50,9 +51,7 @@ public sealed class ResponsiveRulesLayoutTests
     {
         var dir = AppContext.BaseDirectory;
         while (!File.Exists(Path.Combine(dir, "PowerFlow.sln")))
-        {
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException("PowerFlow repo root not found");
-        }
         return Path.Combine(new[] { dir }.Concat(parts).ToArray());
     }
 }
