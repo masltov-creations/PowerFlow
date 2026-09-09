@@ -1,21 +1,8 @@
 namespace PowerFlow.App.Dashboard;
 
-public sealed record PowerFlowShellLayoutProfile(
-    PowerFlowShellState State,
-    bool ShowNavigationRail,
-    bool ShowModeCards,
-    bool ShowGlanceTelemetry,
-    bool ShowCompactTelemetry,
-    bool ShowLiveStatsPanel,
-    bool ShowLowerContextPanels,
-    double GraphHeight,
-    double NavigationWidth,
-    double PanelGap,
-    double ContentPadding);
-
 public static class PowerFlowShellLayout
 {
-    public static PowerFlowShellLayoutProfile Resolve(int width, int height, PowerFlowShellState requestedState, string section)
+    public static ShellPresentationProfile Resolve(int width, int height, PowerFlowShellState requestedState, string section)
     {
         width = Math.Max(1, width);
         height = Math.Max(1, height);
@@ -27,36 +14,83 @@ public static class PowerFlowShellLayout
 
         return state switch
         {
-            PowerFlowShellState.Hidden => new(state, false, false, false, false, false, false, 0, 0, 0, 0),
-            PowerFlowShellState.Glance => new(state, false, false, true, false, false, false,
-                Math.Clamp(height - 110d, 48, 66), 0, 6, 10),
-            PowerFlowShellState.Compact => new(state, false, true, false, true, false, false,
-                Math.Clamp(height - 235d, 175, 235), 0, 10, 12),
-            PowerFlowShellState.FullScreen => Expanded(width, height, PowerFlowShellState.FullScreen, fullDensity: true),
-            _ => Expanded(width, height, PowerFlowShellState.Expanded, fullDensity: false)
+            PowerFlowShellState.Glance => new(
+                state,
+                NavigationPresentation.None,
+                HeaderPresentation.Minimal,
+                ModePresentation.CurrentChip,
+                StatsPresentation.Inline,
+                TrajectoryPresentation.Minimal,
+                ControlContextPresentation.CauseLine,
+                SecondaryPresentation.Hidden,
+                new ShellGeometry(0, 8, 6, 28, 30, 0.72, 24, 0)),
+
+            PowerFlowShellState.Compact => new(
+                state,
+                NavigationPresentation.Overlay,
+                HeaderPresentation.Compact,
+                ModePresentation.Segmented,
+                StatsPresentation.CompactRail,
+                TrajectoryPresentation.Compact,
+                ControlContextPresentation.Rail,
+                SecondaryPresentation.Hidden,
+                new ShellGeometry(0, 10, 8, 42, 48, 0.68, 62, 0)),
+
+            PowerFlowShellState.FullScreen => Expanded(width, height, state, fullDensity: true),
+            PowerFlowShellState.Expanded => Expanded(width, height, state, fullDensity: false),
+            _ => new(
+                PowerFlowShellState.Hidden,
+                NavigationPresentation.None,
+                HeaderPresentation.Minimal,
+                ModePresentation.CurrentChip,
+                StatsPresentation.Inline,
+                TrajectoryPresentation.Minimal,
+                ControlContextPresentation.CauseLine,
+                SecondaryPresentation.Hidden,
+                new ShellGeometry(0, 0, 0, 0, 0, 0.70, 0, 0))
         };
     }
 
-    private static PowerFlowShellLayoutProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
+    private static ShellPresentationProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
     {
-        var w = Math.Clamp((width - 900d) / 500d, 0, 1);
-        var h = Math.Clamp((height - 580d) / 360d, 0, 1);
-        var fluid = Math.Min(w, h);
-        var graph = Math.Clamp(height * (0.48 + 0.04 * fluid), 300, fullDensity ? 620 : 520);
-        var nav = 120 + 28 * w;
-        var gap = 12 + 8 * fluid;
+        var widthProgress = Math.Clamp((width - 900d) / 500d, 0, 1);
+        var heightProgress = Math.Clamp((height - 580d) / 360d, 0, 1);
+        var fluid = Math.Min(widthProgress, heightProgress);
+
+        var navigationWidth = 128 + 24 * widthProgress;
         var padding = 14 + 8 * fluid;
-        return new PowerFlowShellLayoutProfile(
+        var gap = 10 + 8 * fluid;
+        var headerHeight = 44 + 8 * fluid;
+        var modeBandHeight = 62 + 12 * fluid;
+        var graphFraction = Math.Clamp(0.68 + 0.04 * widthProgress, 0.68, 0.72);
+        var controlBandHeight = 92 + 30 * fluid;
+        var secondaryBandHeight = 104 + 34 * fluid;
+
+        if (fullDensity)
+        {
+            headerHeight += 4;
+            modeBandHeight += 4;
+            controlBandHeight += 10;
+            secondaryBandHeight += 14;
+        }
+
+        return new ShellPresentationProfile(
             state,
-            true,
-            true,
-            false,
-            false,
-            true,
-            true,
-            graph,
-            nav,
-            gap,
-            padding);
+            NavigationPresentation.Rail,
+            HeaderPresentation.System,
+            ModePresentation.Cards,
+            StatsPresentation.FullRail,
+            TrajectoryPresentation.Full,
+            ControlContextPresentation.Modules,
+            SecondaryPresentation.Full,
+            new ShellGeometry(
+                navigationWidth,
+                padding,
+                gap,
+                headerHeight,
+                modeBandHeight,
+                graphFraction,
+                controlBandHeight,
+                secondaryBandHeight));
     }
 }

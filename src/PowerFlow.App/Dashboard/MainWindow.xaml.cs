@@ -243,14 +243,20 @@ public sealed partial class MainWindow : Window
         var compact = state == PowerFlowShellState.Compact;
         var expanded = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen;
 
-        NavigationRail.IsPaneVisible = shell.ShowNavigationRail;
-        NavigationRail.IsPaneToggleButtonVisible = shell.ShowNavigationRail;
-        ModeSelectorHost.Visibility = shell.ShowModeCards ? Visibility.Visible : Visibility.Collapsed;
-        LiveStatsPanel.Visibility = shell.ShowLiveStatsPanel ? Visibility.Visible : Visibility.Collapsed;
-        LowerContextGrid.Visibility = shell.ShowLowerContextPanels ? Visibility.Visible : Visibility.Collapsed;
+        // Temporary semantic-to-current-XAML adapter. Task 4 replaces this with the reference cockpit composition.
+        var showNavigationRail = shell.Navigation == NavigationPresentation.Rail;
+        var showModeSurface = shell.Modes != ModePresentation.CurrentChip;
+        var showFullStats = shell.Stats == StatsPresentation.FullRail;
+        var showExpandedContext = shell.ControlContext == ControlContextPresentation.Modules || shell.Secondary == SecondaryPresentation.Full;
+
+        NavigationRail.IsPaneVisible = showNavigationRail;
+        NavigationRail.IsPaneToggleButtonVisible = showNavigationRail;
+        ModeSelectorHost.Visibility = showModeSurface ? Visibility.Visible : Visibility.Collapsed;
+        LiveStatsPanel.Visibility = showFullStats ? Visibility.Visible : Visibility.Collapsed;
+        LowerContextGrid.Visibility = showExpandedContext ? Visibility.Visible : Visibility.Collapsed;
         BrandTagline.Visibility = state == PowerFlowShellState.Glance ? Visibility.Collapsed : Visibility.Visible;
-        NavigationRail.PaneDisplayMode = shell.ShowNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
-        if (shell.ShowNavigationRail) NavigationRail.OpenPaneLength = shell.NavigationWidth;
+        NavigationRail.PaneDisplayMode = showNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
+        if (showNavigationRail) NavigationRail.OpenPaneLength = shell.Geometry.NavigationWidth;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
         PresentationActions.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         CompactTelemetryStrip.Visibility = glance || compact ? Visibility.Visible : Visibility.Collapsed;
@@ -268,17 +274,17 @@ public sealed partial class MainWindow : Window
 
         StateLabelText.FontSize = glance ? 16 : compact ? 18 : 21;
         ReasonText.MaxWidth = glance ? 160 : compact ? 280 : Math.Clamp(width * 0.32, 360, 620);
-        DashboardPanel.Padding = new Thickness(shell.ContentPadding);
-        DashboardPanel.RowSpacing = shell.PanelGap;
-        HeaderGrid.ColumnSpacing = shell.PanelGap;
-        ExpandedContextGrid.ColumnSpacing = shell.PanelGap;
+        DashboardPanel.Padding = new Thickness(shell.Geometry.ContentPadding);
+        DashboardPanel.RowSpacing = shell.Geometry.Gap;
+        HeaderGrid.ColumnSpacing = shell.Geometry.Gap;
+        ExpandedContextGrid.ColumnSpacing = shell.Geometry.Gap;
 
         DashboardLayoutProfile legacy;
         if (glance)
         {
             legacy = new DashboardLayoutProfile(DashboardPresentationMode.Compressed, true, false, false, false,
-                16, 13, 6, 4, 6, 160, shell.GraphHeight, 3, 180, 8);
-            Trajectory.Height = shell.GraphHeight;
+                16, 13, 6, 4, 6, 160, Math.Clamp(height - 110d, 48, 66), 3, 180, 8);
+            Trajectory.Height = Math.Clamp(height - 110d, 48, 66);
             Trajectory.MinHeight = 0;
         }
         else
