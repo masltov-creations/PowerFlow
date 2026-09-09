@@ -4,7 +4,9 @@
 
 PowerFlow is a tiny, tray-first Windows power-plan traffic cop. **Saver sips. Balanced cruises. Performance gets the green light.** Games can hold Performance until they actually leave, while ordinary desktop use settles back down without turning your power plan into a metronome.
 
-![PowerFlow compressed dashboard](docs/assets/powerflow-compressed.png)
+![PowerFlow tray hover](docs/assets/powerflow-popup.png)
+
+*Tiny when it should be tiny. The tray hover is the glanceable instrument, not a dashboard wearing a fake moustache.*
 
 > [!WARNING]
 > **Vibe Coding Alert:** AI was absolutely in the loop. The power-plan decisions are not powered by vibes. The current build has deterministic policy tests, a red-to-green regression proof for the last WinUI crash, a clean Release build, native plan-switch verification, and a live tray/dashboard acceptance run. Vibes proposed. Tests disposed.
@@ -25,18 +27,22 @@ PowerFlow lives in the tray. The full dashboard only appears when invited.
 
 The dashboard is trajectory-first: recent behavior, **NOW**, policy pressure, thresholds, and actual state transitions share one compact field. Hover gives local detail. Click expands context in place. Rules and settings stay out of the way until you ask for them.
 
-### Three levels, one instrument
+### Four levels, one instrument
 
-- **Hover glance - 320 x 176.** Tiny, non-activating, and just enough: state, one telemetry line, trajectory, next action.
-- **Compressed - 760 x 440.** The default working instrument. Same trajectory and policy anchors, readable rather than miniaturized.
-- **Expanded - 1120 x 720.** The same instrument grows into a full cockpit with richer context, Rules, and Settings. No surprise card-wall sequel.
+PowerFlow no longer treats responsive design as “pick one of two rectangles and hope.” The same trajectory/state/policy instrument continuously reflows as real window space changes:
 
-![PowerFlow expanded cockpit](docs/assets/powerflow-expanded.png)
+- **Hover glance — 320 × 176.** Non-activating and deliberately tiny: state, one telemetry line, mini trajectory, next action.
+- **Compressed — 760 × 440.** The default working instrument. Compact telemetry replaces the larger metric card; secondary context stays out of the way.
+- **Expanded — fluid, with 1120 × 720 as the canonical working size.** Padding, graph height, reason width, typography, hover-lens width, and context spacing grow continuously with the actual window. Dragging from 980 × 620 through 1320 × 820 is not a binary layout swap.
+- **Full screen — a real WinUI full-screen presenter.** The same instrument grows to full-density context rather than stretching empty chrome. On the acceptance machine it occupies 1920 × 1080.
 
-_Screenshots are captured directly from the PowerFlow window handle, not from screen coordinates._
+![PowerFlow compressed dashboard](docs/assets/powerflow-compressed.png)
 
-Compressed and expanded modes evolve through a short bounded resize/content transition. Reduced Motion turns the flourish off without changing the information hierarchy. Manual resizing maps onto the same two dashboard modes.
+![PowerFlow full-screen cockpit](docs/assets/powerflow-fullscreen.png)
 
+_Screenshots are captured with `PrintWindow` from PID-owned PowerFlow HWNDs. No desktop-coordinate crop cosplay._
+
+The **EXPAND → FULL SCREEN → RESTORE** path uses the same responsive layout engine throughout. Manual resizing also feeds the same engine on every size change. Reduced Motion removes the flourish, not the information hierarchy.
 Telemetry also survives a closed dashboard without becoming its own space heater:
 
 - visible dashboard or tray instrument: **1 second** rich telemetry cadence;
@@ -104,12 +110,15 @@ The UI exposes resting state, CPU promotion/quiet thresholds and hold times, gam
 
 The September 9, 2026 candidate passed:
 
-- **169/169 automated tests** across Core, Windows, and App;
+- **179/179 automated tests** across Core, Windows, and App;
 - Release build with **0 warnings / 0 errors**;
 - WinUI dynamic-theme crash regression proven **red -> green** against the pre-fix commit;
 - real production `WindowsPowerPlanController` switch **Power Saver -> Balanced -> Power Saver**, with Windows confirming each active GUID;
 - hidden startup with **no dashboard window**;
-- dashboard opens compressed at **760 x 440**, evolves to **1120 x 720** expanded, and collapses cleanly back to **760 x 440**;
+- live responsive matrix verified at **760 × 440, 980 × 620, 1120 × 720, 1320 × 820, and 1600 × 900**;
+- real full-screen presenter verified at **1920 × 1080**;
+- real tray-hover popup verified at **320 × 176**;
+- popup, compressed, and full-screen release images captured directly from PowerFlow-owned HWNDs;
 - **0 new PowerFlow crash events** during the live acceptance run;
 - exactly **one** background PowerFlow process afterward.
 
