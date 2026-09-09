@@ -12,7 +12,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Grid ColumnSpacing="8">
+        <Grid x:Name="LegacyModeNodeStrip" Visibility="Collapsed" ColumnSpacing="8">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <ToggleButton x:Name="AutoNode" Content="AUTO" FontSize="12" Padding="12,5" Click="OnAutoNode" PointerEntered="OnAutoNodeEntered" PointerExited="OnLensTargetExited" AutomationProperties.Name="Automatic power policy"/>

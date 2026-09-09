@@ -29,6 +29,25 @@ public sealed class DashboardViewModelTests
     }
 
     [Fact]
+    public void RecentEventLines_ProjectRealTransitionHistoryCompactly()
+    {
+        var vm = new DashboardViewModel();
+        var at = new DateTimeOffset(2026, 9, 9, 14, 3, 0, TimeSpan.Zero);
+        var history = new[]
+        {
+            new TransitionRecord(at.AddMinutes(-2), PowerState.Balanced, PowerState.PowerSaver, "System quiet", true),
+            new TransitionRecord(at, PowerState.PowerSaver, PowerState.Balanced, "CPU demand sustained", true)
+        };
+        var snapshot = new ControllerSnapshot(PowerState.Balanced, "CPU demand sustained", false, null, 42, 0.6, null, null, at, history, 1, 1);
+
+        vm.Update(snapshot, null);
+
+        Assert.Equal(2, vm.RecentEventLines.Count);
+        Assert.Contains("14:03", vm.RecentEventLines[0], StringComparison.Ordinal);
+        Assert.Contains("Balanced", vm.RecentEventLines[0], StringComparison.Ordinal);
+        Assert.Contains("CPU demand sustained", vm.RecentEventLines[0], StringComparison.Ordinal);
+    }
+    [Fact]
     public void GameLatchProjectsNonDemotingLockedState()
     {
         var vm = new DashboardViewModel();

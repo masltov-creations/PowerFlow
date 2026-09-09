@@ -5,11 +5,13 @@ namespace PowerFlow.App.Tests.Shell;
 public sealed class ReadabilityLayoutContractTests
 {
     [Fact]
-    public void MainWindow_DefaultsToReadableCompactSize()
+    public void Shell_PreservesReadableCanonicalCompactSize()
     {
+        var geometry = Read("src", "PowerFlow.App", "Dashboard", "ShellTransitionGeometry.cs");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("SizeInt32(CompressedWidth, CompressedHeight)", code);
-        Assert.DoesNotContain("SizeInt32(900, 560)", code);
+        Assert.Contains("PowerFlowShellState.Compact", geometry, StringComparison.Ordinal);
+        Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellState.Glance", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -37,22 +39,27 @@ public sealed class ReadabilityLayoutContractTests
         var settings = Read("src", "PowerFlow.App", "Settings", "SettingsPage.xaml");
         Assert.Contains("ScrollViewer", rules);
         Assert.Contains("ScrollViewer", settings);
-        Assert.DoesNotContain("FontSize=\"8\"", rules);
-        Assert.DoesNotContain("FontSize=\"9\"", rules);
-        Assert.DoesNotContain("FontSize=\"10\"", rules);
-        Assert.DoesNotContain("FontSize=\"8\"", settings);
-        Assert.DoesNotContain("FontSize=\"9\"", settings);
-        Assert.DoesNotContain("FontSize=\"10\"", settings);
+        foreach (var size in new[] { "8", "9", "10" })
+        {
+            Assert.DoesNotContain($"FontSize=\"{size}\"", rules);
+            Assert.DoesNotContain($"FontSize=\"{size}\"", settings);
+        }
     }
 
     [Fact]
     public void TelemetryGraph_ProgrammaticLabelsAreReadable()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs");
+        Assert.DoesNotContain("FontSize = 8", code);
         Assert.DoesNotContain("FontSize = 9", code);
-        Assert.DoesNotContain(", 9, labelBrush", code);
+        Assert.DoesNotContain("FontSize = 10", code);
+        Assert.DoesNotContain(", 8,", code);
+        Assert.DoesNotContain(", 9,", code);
+        Assert.DoesNotContain(", 10,", code);
     }
+
     private static string Read(params string[] parts) => File.ReadAllText(RepoFile(parts));
+
     private static string RepoFile(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;
@@ -61,5 +68,3 @@ public sealed class ReadabilityLayoutContractTests
         return Path.Combine(new[] { dir }.Concat(parts).ToArray());
     }
 }
-
-

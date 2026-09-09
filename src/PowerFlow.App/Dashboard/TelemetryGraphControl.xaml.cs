@@ -102,7 +102,7 @@ public TelemetryGraphControl()
             var x = left + nx * plotWidth;
             var line = AddLine(x, top, x, top + plotHeight, transitionBrush, 1);
             line.StrokeDashArray = new DoubleCollection { 2, 4 };
-            AddText(ShortState(transition.To), Math.Min(x + 3, left + plotWidth - 42), top + 2, 8, transitionBrush);
+            AddText(ShortState(transition.To), Math.Min(x + 3, left + plotWidth - 52), top + 2, 11, transitionBrush);
         }
 
         if (visibleSamples.Length > 0)
@@ -363,7 +363,7 @@ public TelemetryGraphControl()
         Canvas.SetLeft(dot, x);
         Canvas.SetTop(dot, y + 4);
         PlotCanvas.Children.Add(dot);
-        AddText(text, x + 9, y, 9, brush);
+        AddText(text, x + 9, y, 11, brush);
     }
 
     private static string ShortState(PowerState state) => state switch

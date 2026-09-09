@@ -38,6 +38,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public string FrequencyLabel => _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
     public double FlowProgress => Math.Clamp(_snapshot?.ThresholdProgress ?? 0, 0, 1);
     public IReadOnlyList<TransitionRecord> History => _history;
+    public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
     public IReadOnlyList<DashboardSample> Samples => _samples;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
@@ -107,6 +108,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(FrequencyLabel));
         OnPropertyChanged(nameof(FlowProgress));
         if (historyChanged) OnPropertyChanged(nameof(History));
+        if (historyChanged) OnPropertyChanged(nameof(RecentEventLines));
         OnPropertyChanged(nameof(Samples));
         OnPropertyChanged(nameof(PromotionThresholdPercent));
         OnPropertyChanged(nameof(QuietThresholdPercent));
@@ -118,4 +120,14 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    private static string FormatTransition(TransitionRecord transition)
+        => $"{transition.At:HH:mm}  {StateName(transition.To)} — {transition.Reason}";
+
+    private static string StateName(PowerState state) => state switch
+    {
+        PowerState.PowerSaver => "Power Saver",
+        PowerState.Balanced => "Balanced",
+        PowerState.HighPerformance => "Performance",
+        _ => state.ToString()
+    };
 }

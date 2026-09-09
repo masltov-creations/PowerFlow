@@ -229,10 +229,14 @@ public sealed partial class MainWindow : Window
         var compact = state == PowerFlowShellState.Compact;
         var expanded = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen;
 
-        Navigation.IsPaneVisible = shell.ShowNavigationRail;
-        Navigation.IsPaneToggleButtonVisible = shell.ShowNavigationRail;
-        Navigation.PaneDisplayMode = shell.ShowNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
-        if (shell.ShowNavigationRail) Navigation.OpenPaneLength = shell.NavigationWidth;
+        NavigationRail.IsPaneVisible = shell.ShowNavigationRail;
+        NavigationRail.IsPaneToggleButtonVisible = shell.ShowNavigationRail;
+        ModeSelectorHost.Visibility = shell.ShowModeCards ? Visibility.Visible : Visibility.Collapsed;
+        LiveStatsPanel.Visibility = shell.ShowLiveStatsPanel ? Visibility.Visible : Visibility.Collapsed;
+        LowerContextGrid.Visibility = shell.ShowLowerContextPanels ? Visibility.Visible : Visibility.Collapsed;
+        BrandTagline.Visibility = state == PowerFlowShellState.Glance ? Visibility.Collapsed : Visibility.Visible;
+        NavigationRail.PaneDisplayMode = shell.ShowNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
+        if (shell.ShowNavigationRail) NavigationRail.OpenPaneLength = shell.NavigationWidth;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
         PresentationActions.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         CompactTelemetryStrip.Visibility = glance || compact ? Visibility.Visible : Visibility.Collapsed;
@@ -397,10 +401,47 @@ public sealed partial class MainWindow : Window
 
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
+        UpdateModeSelector(snapshot);
         var model = TrajectoryProjection.Create(_recorder.History, snapshot, _config);
         Trajectory.Apply(model, ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
     }
 
+    private async void OnAutoModeClicked(object sender, RoutedEventArgs e)
+    {
+        if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
+            await _controller.ReleaseManualLatchAsync();
+        ApplyVisualState(_controller.Snapshot);
+    }
+
+    private async void OnSaverModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.PowerSaver);
+    private async void OnBalancedModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.Balanced);
+    private async void OnPerformanceModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.HighPerformance);
+
+    private async void OnOpenRulesClicked(object sender, RoutedEventArgs e)
+    {
+        SelectSection("rules");
+        await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
+    }
+
+    private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e)
+    {
+        SelectSection("settings");
+        await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
+    }
+
+    private void UpdateModeSelector(ControllerSnapshot snapshot)
+    {
+        var manual = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        var game = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase);
+        AutoModeButton.IsChecked = !manual;
+        SaverModeButton.IsChecked = snapshot.State == PowerState.PowerSaver;
+        BalancedModeButton.IsChecked = snapshot.State == PowerState.Balanced;
+        PerformanceModeButton.IsChecked = snapshot.State == PowerState.HighPerformance;
+        SaverModeButton.IsEnabled = !game;
+        BalancedModeButton.IsEnabled = !game;
+        PerformanceModeButton.IsEnabled = !game;
+        AutoModeDetail.Text = manual ? "Release manual lock" : game ? "Game latch active" : "Rules · Apps · Smart";
+    }
     private async void OnTrajectoryAutoRequested(object? sender, EventArgs e)
     {
         if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
@@ -470,11 +511,11 @@ public sealed partial class MainWindow : Window
     }
     private void SelectSection(string tag)
     {
-        foreach (var item in Navigation.MenuItems.OfType<NavigationViewItem>())
+        foreach (var item in NavigationRail.MenuItems.OfType<NavigationViewItem>())
         {
             if (string.Equals(item.Tag as string, tag, StringComparison.OrdinalIgnoreCase))
             {
-                Navigation.SelectedItem = item;
+                NavigationRail.SelectedItem = item;
                 return;
             }
         }
