@@ -1,355 +1,583 @@
-# PowerFlow Morphing Shell Design
+# PowerFlow Reference-Faithful Morphing Cockpit Design
 
 **Date:** 2026-09-09
-**Status:** Approved for implementation
+**Status:** Approved experiment; written-spec review pending
 **Reference:** User-supplied PowerFlow dashboard image in the 2026-09-09 SysOps conversation.
+**Supersedes:** The earlier 2026-09-09 morphing-shell design where the reference image was reduced to a graph-first dashboard with generic lower cards.
 
-## Goal
+## 1. Goal
 
-Make PowerFlow feel like one polished, physical instrument that originates at the Windows tray and grows in place from a tiny glance into a compact dashboard and then an expanded cockpit. The expanded visual language should closely follow the supplied reference: deep navy glass, luminous cyan/teal accents, restrained purple/orange state color, strong hierarchy, rounded panels, clean data visualization, and a premium native-Windows feel.
+PowerFlow must feel like one polished operational cockpit that originates at the Windows tray and grows in place through **Glance → Compact → Expanded → Full Screen**.
 
-This is an implementation change to the real WinUI app, not a generated mockup.
+The reference image is the information-architecture target, not merely a color palette. Expanded must visibly read like the supplied cockpit: strong left-to-right hierarchy, semantic power-mode controls, a dominant history/trajectory visualization, a real live-stats rail, explicit control cause/lock/rule context, secondary operational panels, and persistent system/status framing.
 
-## Product Principle
+Compact and Glance are not smaller unrelated dashboards. They are progressively compressed presentations of the same cockpit and must preserve PowerFlow's five essential answers:
 
-There is one PowerFlow object, not a popup plus a dashboard.
+1. **What power state am I in?**
+2. **What is the machine doing now?**
+3. **How did it get here / where is it trending?**
+4. **What is controlling the state right now?**
+5. **What happens next?**
 
-The user should be able to understand every size change spatially: the same state, telemetry, trajectory, and controls either move, unfold, condense, or gain detail. A view must never appear to be replaced by an unrelated view merely because the window crossed a breakpoint.
+If a smaller state drops one of those five answers, the design has failed regardless of whether it fits.
 
-## Shell States
+## 2. Why the Current Experiment Failed
 
-### Hidden
+The first morphing-shell implementation got the window lifecycle mostly right but weakened the actual dashboard architecture.
 
-No visible PowerFlow window. The tray icon remains the durable origin.
+The current `PowerFlowShellLayoutProfile` reduces the presentation to visibility booleans such as `ShowNavigationRail`, `ShowModeCards`, `ShowLiveStatsPanel`, and `ShowLowerContextPanels`. In Compact, live stats and lower context disappear. That is not progressive disclosure; it is information loss.
 
-### Glance
+The current Expanded XAML also flattens the reference into:
 
-Canonical size: **320 x 176**.
+- a three-item navigation rail;
+- a brand card;
+- four power-mode cards;
+- one large trajectory panel;
+- one generic stats/context panel;
+- three equally weighted lower cards.
 
-Purpose: instant state and trend inspection. The shell is anchored immediately above the real tray icon. Hover may reveal it without activation. A single tray click pins/activates this exact same shell.
+That misses the reference's stronger operational hierarchy: system identity/status, explicit lock/control state, a richer live-stat region, distinct control-context modules, meaningful secondary panels, and a more deliberate cockpit grid.
 
-Visible content:
+The corrected experiment keeps the successful **single-window / same-HWND** direction but replaces the deficient information architecture and shell layout model.
 
-- PowerFlow mark/name;
-- current power state and concise reason;
-- three compact telemetry values using only real available telemetry;
-- the shared trajectory graph in minimal density;
-- one clear affordance to open/grow PowerFlow.
+## 3. Product Principle: One Cockpit, Multiple Densities
 
-No navigation rail, rules panel, settings panel, or card wall.
+PowerFlow has one conceptual dashboard and one set of primary controls. Window growth changes **presentation density, placement, and detail**, not product meaning.
+
+Primary anchors must remain recognizable across all sizes:
+
+- **Power state / mode control**
+- **Live stats**
+- **Trajectory/history**
+- **Control context** (Auto, manual lock, game/app rule, trigger, cooldown)
+- **Next action / policy direction**
+
+Secondary modules may appear only when space allows, but their important meaning must already be represented by a primary anchor.
+
+The implementation must not use a wall of unrelated cards to fill space. Relative visual weight communicates importance.
+
+## 4. Canonical Shell States
+
+### 4.1 Hidden
+
+No visible PowerFlow window. The tray icon is the durable physical origin.
+
+### 4.2 Glance — 320 × 176
+
+**Purpose:** answer the five essentials in roughly one eye movement.
+
+The shell grows from the real tray-icon rectangle and looks like a tightly cropped piece of the cockpit, not a separately designed popup.
+
+Visible hierarchy:
+
+1. compact brand/state line;
+2. current mode plus Auto/lock status;
+3. three truthful live values;
+4. minimal shared trajectory/history visualization;
+5. one compact cause/next line.
+
+Example semantic structure:
+
+`BALANCED · AUTO`
+`CPU 12%   PKG 44 W   AVG 2.1 GHz`
+`[trajectory]`
+`Quiet for 4.2s → Saver`
+
+The exact values vary with state and availability. No navigation, settings form, or lower-card wall appears here.
+
+### 4.3 Compact — 760 × 440
+
+**Purpose:** normal daily working dashboard.
+
+Compact preserves all five essentials and introduces direct control without making the user open Expanded.
+
+Composition:
+
+- slim PowerFlow/device/status header;
+- semantic four-mode selector in **segmented** density;
+- trajectory/history as the main visual object, approximately two-thirds of the main row;
+- condensed live-stats rail, approximately one-third of the main row;
+- a single **control-context rail** underneath containing current control source, lock/rule state, policy progress/cooldown, and next action;
+- compact affordances for Rules, Settings, and Expand that do not consume a permanent navigation rail.
+
+The current Compact behavior that hides live stats and lower context is explicitly forbidden.
+
+### 4.4 Expanded — canonical 1280 × 800
+
+**Purpose:** closely reproduce the reference cockpit's information architecture using truthful PowerFlow data.
+
+Expanded composition, top to bottom:
+
+#### A. Left navigation rail
+
+A persistent reference-style rail appears only at Expanded density and above. It contains real PowerFlow destinations only. Unsupported destinations are not shown merely to copy a screenshot.
+
+Minimum real destinations:
+
+- Dashboard
+- Rules / Apps
+- Settings
+
+If a true Profiles concept is implemented later, it may occupy its own destination. Until then, no dead navigation item is permitted.
+
+The rail also provides stable brand/system context so the main surface does not need an oversized standalone brand card.
+
+#### B. System header
+
+A slim horizontal header provides:
+
+- PowerFlow identity;
+- machine identity when available from a real provider;
+- health/active status;
+- preview/read-only status when relevant;
+- Compact / Full Screen presentation actions.
+
+It should resemble an application cockpit header, not a floating promotional banner.
+
+#### C. Power-mode band
+
+Four semantic controls occupy a strong horizontal band:
+
+- Power Saver — green
+- Balanced — blue/cyan
+- Performance — orange
+- Auto — purple
+
+Each control has a stable identity and a presentation that scales by density. At Expanded it is a card with icon, name, concise description, and selected/lock semantics. The current state must be unmistakable without relying only on border color.
+
+Manual/game latch state is not a fifth power plan. It is a **control-state overlay** on the current mode and also appears in Control Context.
+
+#### D. Primary analytical row
+
+The primary row uses the reference's asymmetric hierarchy:
+
+- **left ~68–72%:** trajectory/history;
+- **right ~28–32%:** Live Stats.
+
+The graph remains the largest individual analytical object but is no longer the entire design thesis.
+
+The Live Stats rail is a first-class region, not generic explanatory text. It uses real telemetry and compact gauges/numerical treatments appropriate to each signal.
+
+#### E. Control-context band
+
+A deliberate three-part operational band follows the primary row. Its conceptual roles mirror the supplied reference:
+
+1. **Control / Manual Lock** — whether Auto, manual latch, or game latch owns the current state and how to release/change it.
+2. **Active Rule / Cause** — triggering application/rule and the reason PowerFlow made or is holding the decision.
+3. **Power Flow / Next** — threshold progress, cooldown/hold state, and likely next transition.
+
+These are distinct questions and must not be flattened into three copies of the same generic card styling.
+
+#### F. Secondary operational row
+
+A lower row provides useful reference-style operational context where truthful data exists:
+
+- **Recent Events** — recent state transitions with time and reason;
+- **Active Sources / Consumers** — only if real data supports the label;
+- **Quick Actions** — Rules, Settings, and context-appropriate actions.
+
+Until per-process power is actually measured, the UI must not claim `Top Power Consumers` in watts. A truthful alternative such as **Active Sources** may show rule/trigger/app activity. If no useful source list exists, the region may use another real operational projection rather than fake data.
+
+#### G. Status footer / framing
+
+Expanded may use a subtle footer/status treatment for controller health, Auto/manual state, telemetry freshness, and/or app version when that data is available. It should be quiet visual framing, not another card.
+
+### 4.5 Full Screen
+
+Full Screen is an extension of Expanded, not another information architecture.
+
+Extra space is used for:
+
+- more graph height and temporal detail;
+- more recent-event rows;
+- richer live-stat descriptions;
+- additional real source/rule rows;
+- less truncation.
+
+It must not introduce a different dashboard tree.
+
+## 5. Morph Lineage: How Each Anchor Grows and Shrinks
+
+The user must be able to visually track where information went during resize or state transitions.
+
+### 5.1 Mode control lineage
+
+- **Glance:** current-state capsule + Auto/lock badge.
+- **Compact:** four-way segmented selector.
+- **Expanded:** four semantic mode cards.
+- **Full Screen:** same cards with slightly richer supporting detail.
+
+This is one `PowerModeControl` with a density/presentation property, not independent mode-selector implementations.
+
+### 5.2 Live Stats lineage
+
+- **Glance:** three inline values.
+- **Compact:** condensed vertical or 2×2 stats rail.
+- **Expanded:** full right-side Live Stats module.
+- **Full Screen:** same module with richer secondary labels/trends.
+
+This is one `LiveStatsControl` bound to one stats projection.
+
+### 5.3 Trajectory lineage
+
+- **Glance:** no axes; state-colored minimal trajectory.
+- **Compact:** compact axes/range, state bands, NOW, major threshold cues.
+- **Expanded:** full readable history, legend/range controls, transitions, thresholds, hover detail.
+- **Full Screen:** same graph with more plotting area and detail.
+
+The same `TrajectoryControl` instance/concept remains the visual spine.
+
+### 5.4 Control-context lineage
+
+- **Glance:** one concise cause/next sentence.
+- **Compact:** one horizontal control-context rail.
+- **Expanded:** three distinct modules: Control/Lock, Active Rule/Cause, Power Flow/Next.
+- **Full Screen:** same modules with additional explanatory detail.
+
+### 5.5 Navigation lineage
+
+- **Glance:** none.
+- **Compact:** compact overflow/menu affordance; navigation consumes no permanent rail.
+- **Expanded:** persistent left rail.
+- **Full Screen:** same rail.
+
+### 5.6 Header lineage
+
+- **Glance:** tiny brand/state identity.
+- **Compact:** one-row PowerFlow/device/status header.
+- **Expanded:** full slim system header integrated with the left rail.
+- **Full Screen:** same header.
+
+## 6. Corrected Layout Architecture
+
+The current boolean-heavy `PowerFlowShellLayoutProfile` must be replaced by a semantic density model.
+
+Suggested conceptual model:
+
+```text
+ShellDensity
+  Glance
+  Compact
+  Expanded
+  Full
+
+ShellPresentationProfile
+  Density
+  NavigationPresentation
+  HeaderPresentation
+  ModePresentation
+  StatsPresentation
+  TrajectoryPresentation
+  ControlContextPresentation
+  SecondaryPresentation
+  Geometry / spacing / typography scalars
+```
+
+Example presentation enums:
+
+```text
+NavigationPresentation: None | Overlay | Rail
+ModePresentation: CurrentChip | Segmented | Cards
+StatsPresentation: Inline | CompactRail | FullRail
+TrajectoryPresentation: Minimal | Compact | Full
+ControlContextPresentation: CauseLine | Rail | Modules
+SecondaryPresentation: Hidden | Summary | Full
+```
+
+The important distinction is that the layout engine decides **how a semantic region presents**, not merely whether it is visible.
+
+### Component boundaries
+
+`MainWindow` should become a shell/composition host rather than carrying the whole cockpit in one large XAML file.
+
+Primary components:
+
+- `ShellHeaderControl`
+- `PowerModeControl`
+- `LiveStatsControl`
+- existing/refined `TrajectoryControl`
+- `ControlContextControl`
+- `OperationalContextControl`
+- `ShellNavigationControl` or a small composition wrapper around native navigation
+
+Each component receives a density/presentation profile and a view model. Primary components should not independently infer window size.
+
+This keeps responsive behavior deterministic and allows each morph lineage to be tested in isolation.
+
+## 7. Data Architecture and Truthfulness
+
+### 7.1 Data PowerFlow already has
+
+The existing dashboard can truthfully present:
+
+- CPU utilization;
+- package watts;
+- average processor frequency;
+- current power state;
+- Auto/manual/game latch state;
+- threshold progress;
+- cooldown remaining;
+- triggering application;
+- decision reason;
+- transition history;
+- promotion and quiet thresholds/windows;
+- rule projections.
+
+### 7.2 Data PowerFlow does not currently have
+
+The current source tree does **not** provide:
+
+- GPU utilization/power/temperature;
+- RAM utilization;
+- CPU temperature;
+- per-process power consumption;
+- rich device identity/hardware inventory.
+
+The experiment must not invent these values.
+
+### 7.3 Telemetry-provider rule
+
+The cockpit may add small, bounded providers where doing so materially improves the reference-faithful Live Stats area, but the UI architecture must not depend on every optional provider succeeding.
+
+Recommended provider boundary:
+
+```text
+ILiveMetricProvider
+  Name
+  Availability
+  SampleAsync()
+
+LiveMetricSnapshot
+  MetricId
+  Value
+  Unit
+  Health/Freshness
+  Optional trend
+```
+
+Provider priorities for this experiment:
+
+1. preserve existing CPU/package/clock path;
+2. add system memory usage if it can be read cheaply and reliably with native Windows APIs;
+3. add basic machine identity cheaply and reliably;
+4. treat GPU telemetry as optional/provider-specific work, not a blocker for the cockpit layout;
+5. do not implement per-process `watts` unless a trustworthy measurement path exists.
+
+Telemetry overhead remains part of PowerFlow's product contract: the monitoring UI must not become the load it is trying to manage.
+
+## 8. Motion Architecture
+
+Motion explains continuity; it is not decoration.
+
+### 8.1 Window motion
+
+The existing same-HWND direction remains correct:
+
+- tray → Glance grows from the real tray-icon rectangle;
+- Glance → Compact grows the same window;
+- Compact → Expanded grows the same window;
+- Expanded → Compact and Compact/Glance → tray reverse the spatial path;
+- Full Screen extends Expanded rather than cross-fading to a different UI.
+
+### 8.2 Interior motion
+
+Primary anchors should translate, resize, or reform rather than blink out and be replaced.
+
+Rules:
+
+- avoid whole-dashboard crossfades;
+- avoid simultaneous disappearance of multiple primary anchors;
+- mode control begins changing form early in growth;
+- graph continuously gains/loses detail as area changes;
+- stats rail expands from the same metric cluster;
+- control-context detail unfolds after sufficient space exists and collapses before shrink geometry becomes tight;
+- navigation rail arrives late during expansion and leaves early during collapse;
+- labels must remain readable during the transition, not merely at rest states.
+
+Target durations remain fast and bounded, roughly **120–240 ms**, with distance-aware timing. Reduced Motion preserves the same information-state sequence but removes most interpolation.
+
+## 9. Visual Language
+
+The supplied image is the visual reference.
+
+Required characteristics:
+
+- deep navy/near-black canvas;
+- subtle glass/Mica-like depth rather than flat gray cards;
+- restrained cyan edge/highlight system;
+- semantic green / blue-cyan / orange / purple power-state colors;
+- selected state stronger through surface, glow, icon, and typography—not just a 1 px border;
+- luminous but readable graph strokes;
+- compact rounded surfaces with deliberate hierarchy;
+- strong horizontal bands and asymmetric primary grid;
+- minimal visual noise;
+- no tiny text used to force content into a box.
+
+Avoid:
+
+- generic equal-weight card walls;
+- giant empty hero regions;
+- decorative telemetry that has no backing data;
+- radial/circular treatment with no information benefit;
+- gratuitous neon everywhere;
+- a large standalone branding card that steals space from operational content.
+
+## 10. Interaction Contract
+
+### Tray
+
+- hover may reveal transient Glance without activation;
+- single click pins/activates Glance;
+- clicking the pinned Glance surface grows it to Compact;
+- double click may continue to open Compact directly if retained;
+- right click remains the tray menu.
 
 ### Compact
 
-Canonical size: **760 x 440**.
-
-Purpose: the normal working dashboard.
-
-The Glance shell grows outward from the tray-origin geometry into Compact. The shared trajectory remains visually continuous and becomes the dominant panel. State selection becomes more explicit. Current rule/context and quick actions appear only when space permits.
-
-Visible content:
-
-- compact branded header;
-- adaptive power-mode selector;
-- trajectory/history panel;
-- compact live telemetry cluster;
-- current/next policy context;
-- Expand control.
-
-Navigation remains minimal; Rules and Settings can be reached without permanently consuming a side rail at this size.
+- mode selection is directly usable;
+- current controlling cause and next action are visible without expansion;
+- Rules/Settings are one compact action away;
+- Expand grows the same shell.
 
 ### Expanded
 
-Canonical size: **1280 x 800**, while remaining fluid above the Compact threshold and up to the work area.
+- persistent rail supports Dashboard / real management destinations;
+- Rules and Settings remain within the same window lifecycle;
+- Compact collapses back into the same shell;
+- Full Screen extends the same composition.
 
-Purpose: the complete PowerFlow cockpit.
+### Close
 
-The visual composition follows the supplied reference image:
+Normal close returns toward the tray and leaves the background controller alive. Explicit Exit shuts down.
 
-- deep navy background with subtle glass/Mica depth;
-- left navigation rail for Dashboard, Rules, and Settings;
-- branded top header;
-- horizontal power-state selector cards using semantic accent colors;
-- large luminous trajectory/power graph as the main visual anchor;
-- live telemetry/status panel to the right using real PowerFlow telemetry only;
-- lower contextual panels for active rule/policy, recent behavior, and quick actions where existing app data supports them;
-- restrained cyan edge glow and gradient accents rather than indiscriminate neon.
+## 11. Responsive Rules
 
-Expanded is not a separate dashboard tree. It is the same shell with additional information density and changed placement.
+Canonical sizes are resting targets, not hard layout breakpoints.
 
-### Full Screen
+- Glance rests near 320 × 176.
+- Compact rests near 760 × 440.
+- Expanded rests near 1280 × 800.
+- manual resizing between Compact and Expanded continuously adjusts layout scalars and may graduate component presentations when sufficient space exists.
 
-Full screen remains an optional extension of Expanded, not a separate conceptual mode. It uses the same Expanded layout engine at greater density and available space.
+However, presentation changes must be coherent and atomic at semantic boundaries. For example, `PowerModeControl` should not half-render both Segmented and Cards at once.
 
-## Interaction Contract
+No main dashboard scrollbar at canonical sizes. No explicitly sized visible text below 11 px.
 
-### Tray hover
+## 12. Failure and Unavailable-Data Behavior
 
-Hovering the tray icon may reveal Glance after the existing bounded hover delay. The shell must use `WS_EX_NOACTIVATE` while it is a transient hover glance. Leaving both icon and shell hides it after the existing grace policy.
+Optional telemetry is allowed to be unavailable. The UI should show a concise unavailable/stale treatment or substitute another truthful metric; it must not show zero as if it were a valid reading.
 
-### Tray single click
+If an optional provider fails:
 
-A single left click becomes the primary PowerFlow interaction.
+- controller operation continues;
+- core CPU/package/clock telemetry continues if healthy;
+- the affected metric is marked unavailable;
+- no modal error or recurring popup appears;
+- failure diagnostics remain bounded and non-spammy.
 
-- If hidden: reveal and pin Glance at the tray anchor, then activate it.
-- If transient Glance is already visible: pin and activate the same HWND without recreating it.
-- A double click may advance directly to Compact as a convenience, but must not be required for ordinary use.
+## 13. Testing Strategy
 
-### Glance click
+The previous implementation over-relied on source-contract tests that proved an element existed. The corrected experiment must test behavior and information roles.
 
-Clicking the Glance surface grows the same HWND to Compact. It must not close one window and open another.
+### Pure layout tests
 
-### Compact Expand
+For each canonical and intermediate size, assert the semantic presentation profile:
 
-Expand grows the same HWND to Expanded. Collapse reverses to Compact. A close/minimize-to-tray action shrinks/hides toward the last tray anchor rather than abruptly disappearing when motion is enabled.
+- Glance answers all five essentials;
+- Compact uses Segmented modes, CompactRail stats, Compact trajectory, and ControlContext Rail;
+- Expanded uses Cards, FullRail stats, Full trajectory, ControlContext Modules, and navigation Rail;
+- larger Expanded sizes change geometry scalars without changing conceptual architecture.
 
-### Rules and Settings
+### Component tests
 
-At Compact size, selecting Rules or Settings may grow the shell to Expanded automatically if their layout needs the space. The user returns to the same shell and prior Dashboard state.
+Each primary component gets density/presentation tests proving it can represent the same underlying state at Glance/Compact/Expanded densities without inventing data.
 
-## Motion Model
+### Data tests
 
-Motion must explain hierarchy, not decorate it.
+- unavailable optional metrics remain unavailable, never fabricated as zero;
+- stale metrics are marked stale;
+- existing package/clock semantics remain correct;
+- rule/latch/cooldown projections remain consistent across densities.
 
-### Window geometry
+### Motion/source contracts
 
-All state changes animate position and size together with `AppWindow.MoveAndResize`, not size alone. The tray icon/work-area rectangle is the geometric source for Glance and the origin used when growing toward Compact.
+- one visual shell/window owner;
+- same-HWND `MoveAndResize` path remains;
+- reverse shrink goes toward the tray anchor;
+- Reduced Motion bypasses interpolation without changing final information state.
 
-Target timing:
+### Full regression
 
-- Hidden -> Glance: 110-150 ms;
-- Glance -> Compact: 160-200 ms;
-- Compact -> Expanded: 180-240 ms;
-- reverse transitions: equal or slightly faster.
+Core, Windows, and App tests must all pass on the exact candidate build before live acceptance.
 
-Use one cubic ease-out family for growth and a complementary ease-in/out for collapse. No bouncing or elastic motion.
+## 14. Visual Acceptance Rubric
 
-### Shared visual anchors
+Automated tests do **not** constitute visual acceptance.
 
-The following are persistent element instances wherever practical:
+Before merge/publication, direct captures of the exact candidate must be reviewed at:
 
-- current state/mode selector;
-- primary telemetry cluster;
-- trajectory control;
-- current/next policy context;
-- PowerFlow identity/header.
+- Glance 320 × 176;
+- Compact 760 × 440;
+- Expanded approximately 1280 × 800;
+- Full Screen.
 
-The layout engine changes their `Grid.Row`, `Grid.Column`, spans, padding, size, visibility density, and composition offsets as shell state changes. This preserves identity instead of cross-fading duplicate controls.
+Expanded acceptance questions:
 
-### Entering detail
+1. At a glance, does it visibly share the reference image's cockpit hierarchy and relative visual weighting?
+2. Is the power-mode band immediately legible and unmistakably interactive?
+3. Is the graph the largest analytical object without swallowing the rest of the product?
+4. Does Live Stats look like a real first-class instrumentation rail rather than a text card?
+5. Are Control/Lock, Active Rule/Cause, and Power Flow/Next visibly distinct?
+6. Does the secondary row feel operational rather than like filler cards?
+7. Is machine/status framing present without wasting space?
+8. Is there any fake or unsupported telemetry?
 
-Elements that only exist at higher density may fade/translate in after the window has completed roughly the first third of its growth. Shared elements move first; secondary detail follows. Exiting performs the reverse ordering.
+Cross-density acceptance questions:
 
-### Reduced Motion
+1. Can a reviewer visually track state, stats, graph, cause, and next action while growing/shrinking?
+2. Does Compact still answer all five essential questions?
+3. Does Glance still answer all five essentials without looking cramped?
+4. Are there no clipping/overlap/tiny-text failures during animated transitions?
+5. Does Reduced Motion remain coherent?
 
-Respect Windows animation settings and `ReducedMotionOverride`. With reduced motion enabled, state/layout changes occur immediately or with a minimal opacity handoff; all information and interaction behavior remains identical.
+The experiment is not accepted until the user reviews the actual UI, not merely screenshots or tests, and says the information architecture is right.
 
-## Architecture
-
-### One shell window
-
-`MainWindow` becomes the single PowerFlow shell window. It is created once and reused for hover, pinned Glance, Compact, Expanded, Full Screen, Rules, and Settings.
-
-The separate `TrayHoverWindow` is removed after parity is proven.
-
-### Presentation state
-
-Replace the dashboard-only presentation enum with a shell enum:
-
-```csharp
-public enum PowerFlowShellState
-{
-    Hidden,
-    Glance,
-    Compact,
-    Expanded,
-    FullScreen
-}
-```
-
-Transient/pinned behavior is orthogonal state, not another visual mode:
-
-```csharp
-public enum ShellActivationMode
-{
-    TransientNoActivate,
-    PinnedActive
-}
-```
-
-### Layout profile
-
-Evolve `DashboardResponsiveLayout` into `PowerFlowShellLayout` returning a `PowerFlowShellLayoutProfile` for actual width, height, state, and navigation section. The profile owns density decisions such as:
-
-- navigation rail visibility/width;
-- mode-selector density;
-- graph minimum/desired height;
-- telemetry density;
-- context panel visibility;
-- header/logo density;
-- padding/gaps/font scale;
-- detail panel visibility;
-- corner radius and chrome density.
-
-Pure layout calculations remain testable without WinUI.
-
-### Geometry transition controller
-
-Create a focused `ShellTransitionGeometry` pure model that computes target rectangles and interpolated frame rectangles from:
-
-- tray icon rectangle;
-- monitor work area;
-- current shell bounds;
-- target shell state;
-- normalized progress.
-
-`MainWindow` owns the DispatcherQueue timer/composition application but delegates geometry math to the pure model.
-
-### Tray host
-
-`TrayIconHost` adds explicit single-left-click signaling. It continues owning icon placement discovery and context-menu commands. It must not create visual windows.
-
-### App lifecycle
-
-`App` owns one `_shellWindow`. Hover, tray click, secondary-instance dashboard signals, settings navigation, and preview all route through that shell. There must never be a `TrayHoverWindow` and `MainWindow` visible simultaneously because only the shell remains.
-
-## Visual System
-
-The supplied reference is the visual direction, not a demand to invent unsupported telemetry or controls.
-
-### Palette
-
-Use theme resources, not hard-coded colors in controls.
-
-- canvas: near-black navy;
-- elevated surface: blue-black/navy with subtle alpha depth;
-- borders: desaturated blue-gray;
-- primary accent: electric cyan;
-- efficiency/saver accent: green/teal;
-- balanced accent: cyan/blue;
-- performance accent: orange/coral;
-- auto accent: restrained purple;
-- text: cool white with blue-gray secondary text.
-
-### Surfaces
-
-- 12-18 px corner radii depending on shell size;
-- 1 px low-contrast borders;
-- Mica where supported, with deterministic fallback brush;
-- soft accent glow only on selected/active controls and graph highlights;
-- no giant gradients behind ordinary text;
-- no tiny text: 11 px is the absolute explicit-font minimum, with primary dashboard text larger.
-
-### Graph
-
-The trajectory graph remains the hero. It gains a polished reference-like treatment:
-
-- subtle grid;
-- cyan/teal/purple series from real telemetry/policy data;
-- soft fill/area glow where supported;
-- crisp NOW marker;
-- hover detail card;
-- time-range controls only at densities that can afford them.
-
-No decorative fake data series are allowed.
-
-### Power-mode selector
-
-The selector visually echoes the reference state cards. At Expanded density it exposes Power Saver, Balanced, Performance, and Auto as distinct semantic cards. At Compact it uses a tighter horizontal presentation. At Glance it emphasizes only the current state plus an affordance to grow.
-
-## README Contract
-
-Rewrite `README.md` for a person discovering PowerFlow on GitHub. It is product documentation, not release playback.
-
-Required sections:
-
-1. **What PowerFlow is** — one strong paragraph with personality.
-2. **Why it exists** — Windows power plans are useful but static/manual; PowerFlow adds adaptive behavior without turning monitoring into another workload.
-3. **How it works** — Saver, Balanced, Performance, Auto/rules; hysteresis, hold windows, cooldown, game/app lifecycle.
-4. **What makes it different** — tray-first, explainable state changes, low-overhead background continuity, real Windows power-plan switching, modern native UI.
-5. **Screenshots** — current Glance and Expanded screenshots; Compact when it adds useful context.
-6. **Install / build / run** — only truthful currently-supported paths. Do not claim a packaged installer or GitHub Release asset until one exists.
-7. **Configuration / safety** — concise user-facing configuration location and what PowerFlow does/does not change.
-8. **Status / limitations** — short beta statement, no internal acceptance transcript.
-9. **AI note** — one brief note, approximately: “PowerFlow is vibe-coded with AI, but developed with test-driven discipline: behavior is specified in tests before changes are accepted.”
-
-Explicitly remove from the README:
-
-- machine name “reference-host”;
-- HWNDs, capture mechanics, acceptance matrices, or PID evidence;
-- test-count chest-thumping;
-- red/green crash archaeology;
-- internal commit/release forensic narration;
-- “current candidate passed” sections.
-
-Detailed engineering evidence remains in `docs/acceptance/`.
-
-## Testing Strategy
-
-TDD is mandatory for behavior changes.
-
-### Pure tests
-
-Add tests for:
-
-- shell state target sizes and density profiles;
-- geometry anchored to tray/work area;
-- interpolation monotonicity and exact endpoints;
-- layout continuity within Compact/Expanded resizing;
-- Reduced Motion policy;
-- tray single-click semantics;
-- hover transient -> pinned promotion;
-- Glance -> Compact -> Expanded state transitions;
-- no duplicate window ownership path in `App` source contract.
-
-### WinUI/source-contract tests
-
-Verify:
-
-- one shell XAML tree contains the Glance/Compact/Expanded content anchors;
-- separate `TrayHoverWindow` is no longer instantiated;
-- visible explicit fonts are never below 11 px;
-- semantic colors come through theme resources;
-- `AppWindow.MoveAndResize` is used by shell geometry transitions;
-- Rules/Settings route through the same shell.
-
-### Live acceptance
-
-On reference-host, after the test suite is green:
-
-1. Start tray-first and verify no visible shell.
-2. Hover tray icon; verify one PowerFlow HWND at Glance size and no activation theft.
-3. Single-click tray icon; verify the same HWND becomes pinned/active.
-4. Click Glance; record same HWND throughout growth into Compact.
-5. Click Expand; record same HWND throughout growth into Expanded.
-6. Collapse back to Compact and hide toward tray; verify same HWND and expected final hidden state.
-7. Resize Expanded manually across several widths; verify fluid reflow and readable text.
-8. Exercise Rules and Settings.
-9. Verify one PowerFlow process, no duplicate windows, no new Application/.NET/WER crash events.
-10. Capture current Glance, Compact, and Expanded screenshots directly from the PowerFlow HWND for README use.
-
-## Non-Goals
-
-This UI pass does not:
-
-- invent GPU/RAM/temperature telemetry PowerFlow does not already collect;
-- add a new backend service;
-- rewrite power-plan policy behavior;
-- add unrelated system diagnostics;
-- add a packaged installer unless separately approved;
-- change the established remaining power-overhead/game-soak hardening work.
-
-## Acceptance Criteria
-
-The change is ready for visual review when:
-
-- a single PowerFlow HWND performs Glance -> Compact -> Expanded transitions;
-- single tray click opens/pins Glance;
-- the Glance click grows that same HWND into Compact;
-- Expand grows the same HWND into the reference-inspired cockpit;
-- shared graph/state/telemetry elements maintain spatial continuity;
-- Expanded appearance clearly reflects the supplied reference image without fake telemetry;
-- Reduced Motion works;
-- full automated suite and Release build are clean;
-- live tray-to-expanded acceptance has zero new crash events;
-- README reads as public product documentation and contains only the concise AI/TDD note described above;
-- runtime/repo hygiene is clean before release publication.
+## 15. Non-Goals for This Experiment
+
+- packaging/signing/installer work;
+- unrelated controller-policy changes;
+- BIOS or hardware power tuning;
+- fake GPU/RAM/temp values to mimic the reference;
+- exhaustive hardware-monitoring support;
+- unrelated Rules/Settings redesign except what is required for same-shell continuity;
+- changing the established power-plan policy semantics.
+
+## 16. Implementation Sequencing Constraint
+
+Once this written spec is approved, the implementation plan must follow this order:
+
+1. semantic layout/density model and RED tests;
+2. componentize the five primary anchors without changing behavior;
+3. rebuild Expanded to match the reference hierarchy first;
+4. derive Compact from those same components;
+5. derive Glance from those same components;
+6. add only bounded truthful telemetry/provider enhancements needed for Live Stats;
+7. choreograph cross-density motion and reverse shrink;
+8. full automated regression;
+9. live same-HWND acceptance at all four densities;
+10. user visual review;
+11. README screenshots/documentation only after visual acceptance;
+12. cleanup, merge, publication only after approval.
+
+Expanded-first is deliberate: the reference cockpit is the source architecture. Compact and Glance must be compression products of the correct Expanded design, not independent layouts invented in parallel.
+
+## 17. Success Definition
+
+This experiment succeeds when PowerFlow no longer feels like a graph with cards around it. It should feel like the supplied cockpit condensed into one coherent physical object:
+
+- **Expanded** closely matches the reference's hierarchy and visual rhythm;
+- **Compact** retains the same operational essentials in a denser arrangement;
+- **Glance** retains those essentials in one glance;
+- transitions make it obvious that each state grew from the one before it;
+- every displayed value is real or clearly unavailable;
+- the user can understand current state, live condition, recent trajectory, controlling cause, and next action without hunting.

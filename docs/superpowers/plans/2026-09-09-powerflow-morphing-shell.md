@@ -1,3 +1,5 @@
+> **SUPERSEDED BY REFERENCE-FAITHFUL IA EXPERIMENT — DO NOT CONTINUE THIS PLAN.**
+> The approved 2026-09-09 corrected design in `../specs/2026-09-09-powerflow-morphing-shell-design.md` replaces the information architecture assumed here. A new implementation plan must be written only after that corrected spec passes user review.
 # PowerFlow Morphing Shell Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
