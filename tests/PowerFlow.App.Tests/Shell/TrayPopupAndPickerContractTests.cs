@@ -49,6 +49,8 @@ public sealed class TrayPopupAndPickerContractTests
         Assert.Contains("TryGetHoverAnchorRect", trayHost, StringComparison.Ordinal);
         Assert.Contains("_observedHoverRect", trayHost, StringComparison.Ordinal);
         Assert.Contains("TryGetHoverAnchorRect", app, StringComparison.Ordinal);
+        Assert.Contains("ShowTrayHoverPreviewAsync", app, StringComparison.Ordinal);
+        Assert.Contains("TryGetIconRect", app, StringComparison.Ordinal);
     }
     private static string RepoRoot()
     {

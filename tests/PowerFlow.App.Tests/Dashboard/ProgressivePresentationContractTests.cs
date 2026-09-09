@@ -39,7 +39,7 @@ public sealed class ProgressivePresentationContractTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs");
 
         Assert.DoesNotContain("MinHeight=\"300\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("SetPresentationMode", code, StringComparison.Ordinal);
+        Assert.Contains("SetLayoutProfile", code, StringComparison.Ordinal);
         Assert.Contains("Graph.MinHeight", code, StringComparison.Ordinal);
     }
 
@@ -52,6 +52,20 @@ public sealed class ProgressivePresentationContractTests
         Assert.DoesNotContain("RowDefinition Height=\"96\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Dashboard_ReflowsAndSupportsARealFullScreenState()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var trajectory = Read("src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs");
+
+        Assert.Contains("x:Name=\"CompactTelemetryStrip\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TelemetryCard\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FullScreenContext\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ApplyResponsiveLayout", code, StringComparison.Ordinal);
+        Assert.Contains("AppWindowPresenterKind.FullScreen", code, StringComparison.Ordinal);
+        Assert.Contains("SetLayoutProfile", trajectory, StringComparison.Ordinal);
+    }
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

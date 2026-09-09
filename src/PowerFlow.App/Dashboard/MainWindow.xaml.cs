@@ -22,8 +22,6 @@ public sealed partial class MainWindow : Window
     private const int CompressedHeight = 440;
     private const int ExpandedWidth = 1120;
     private const int ExpandedHeight = 720;
-    private const int ExpandedBreakpointWidth = 920;
-    private const int ExpandedBreakpointHeight = 580;
     private readonly PowerFlowController _controller;
     private readonly Func<PowerFlowConfig, Task> _applyConfig;
     private readonly TelemetryContinuityRecorder _recorder;
@@ -74,12 +72,12 @@ public sealed partial class MainWindow : Window
         SelectSection("flow");
     }
 
-    public Task ShowAsync(bool showSettings = false)
+    public Task ShowAsync(bool showSettings = false, bool fullScreen = false)
     {
         _visibilityLease ??= _recorder.AcquireVisibility();
         ViewModel.UpdateContinuity(_controller.Snapshot, _recorder.History, _recorder.LatestRichTelemetry);
         ApplyVisualState(_controller.Snapshot);
-        ApplyPresentationMode(showSettings ? DashboardPresentationMode.Expanded : DashboardPresentationMode.Compressed, animate: false);
+        ApplyPresentationMode(fullScreen ? DashboardPresentationMode.FullScreen : showSettings ? DashboardPresentationMode.Expanded : DashboardPresentationMode.Compressed, animate: false);
         SelectSection(showSettings ? "settings" : "flow");
         Activate();
         return Task.CompletedTask;
@@ -94,40 +92,93 @@ public sealed partial class MainWindow : Window
 
     private void OnPresentationToggleClicked(object sender, RoutedEventArgs e)
     {
+        if (IsFullScreenPresenter())
+        {
+            ApplyPresentationMode(DashboardPresentationMode.Expanded, animate: true);
+            return;
+        }
+
         var next = _presentationMode == DashboardPresentationMode.Compressed
             ? DashboardPresentationMode.Expanded
-            : DashboardPresentationMode.Compressed;
+            : DashboardPresentationMode.FullScreen;
         ApplyPresentationMode(next, animate: true);
     }
 
+    private void OnCompactClicked(object sender, RoutedEventArgs e) => ApplyPresentationMode(DashboardPresentationMode.Compressed, animate: true);
+
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (!args.DidSizeChange || _suppressResizeModeSync) return;
-        var size = sender.Size;
-        var mode = size.Width >= ExpandedBreakpointWidth && size.Height >= ExpandedBreakpointHeight
-            ? DashboardPresentationMode.Expanded
-            : DashboardPresentationMode.Compressed;
-        if (mode != _presentationMode) ApplyPresentationMode(mode, animate: false, resizeWindow: false);
+        if ((!args.DidSizeChange && !args.DidPresenterChange) || _suppressResizeModeSync) return;
+        ApplyResponsiveLayout(animate: false);
     }
 
     private void ApplyPresentationMode(DashboardPresentationMode mode, bool animate, bool resizeWindow = true)
     {
         _presentationMode = mode;
-        var expanded = mode == DashboardPresentationMode.Expanded;
-        ExpandedContextRail.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        PresentationToggleButton.Content = expanded ? "COMPRESS" : "EXPAND";
-        ToolTipService.SetToolTip(PresentationToggleButton, expanded ? "Return to compressed instrument" : "Open full cockpit");
-        Trajectory.SetPresentationMode(mode);
-        DashboardPanel.Padding = expanded ? new Thickness(14, 9, 14, 12) : new Thickness(12, 7, 12, 10);
+        if (mode == DashboardPresentationMode.FullScreen && resizeWindow)
+        {
+            _presentationTimer?.Stop();
+            _presentationTimer = null;
+            _suppressResizeModeSync = true;
+            AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+            _suppressResizeModeSync = false;
+            ApplyResponsiveLayout(animate);
+            return;
+        }
+
+        if (mode != DashboardPresentationMode.FullScreen && IsFullScreenPresenter())
+        {
+            _suppressResizeModeSync = true;
+            AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+            _suppressResizeModeSync = false;
+        }
+
         if (resizeWindow)
         {
-            var target = expanded
+            var target = mode == DashboardPresentationMode.Expanded
                 ? new SizeInt32(ExpandedWidth, ExpandedHeight)
                 : new SizeInt32(CompressedWidth, CompressedHeight);
             AnimateWindowTo(target, animate);
         }
+        else
+        {
+            ApplyResponsiveLayout(animate);
+        }
+    }
+
+    private void ApplyResponsiveLayout(bool animate)
+    {
+        var size = AppWindow.Size;
+        var profile = DashboardResponsiveLayout.Resolve(size.Width, size.Height, IsFullScreenPresenter());
+        _presentationMode = profile.Mode;
+
+        CompactTelemetryStrip.Visibility = profile.ShowCompactTelemetry ? Visibility.Visible : Visibility.Collapsed;
+        TelemetryCard.Visibility = profile.ShowTelemetryCard ? Visibility.Visible : Visibility.Collapsed;
+        ExpandedContextRail.Visibility = profile.ShowContextRail ? Visibility.Visible : Visibility.Collapsed;
+        FullScreenContext.Visibility = profile.ShowFullContext ? Visibility.Visible : Visibility.Collapsed;
+        CompactButton.Visibility = profile.Mode == DashboardPresentationMode.Compressed ? Visibility.Collapsed : Visibility.Visible;
+
+        var isFullScreen = IsFullScreenPresenter();
+        PresentationToggleButton.Content = isFullScreen ? "RESTORE" : profile.Mode == DashboardPresentationMode.Compressed ? "EXPAND" : "FULL SCREEN";
+        ToolTipService.SetToolTip(PresentationToggleButton, isFullScreen ? "Return to the expanded dashboard" : profile.Mode == DashboardPresentationMode.Compressed ? "Open the working dashboard" : "Enter full-screen cockpit");
+
+        StateLabelText.FontSize = profile.StateFontSize;
+        ReasonText.MaxWidth = profile.ReasonMaxWidth;
+        CpuValueText.FontSize = profile.MetricFontSize;
+        WattsValueText.FontSize = profile.MetricFontSize;
+        ClockValueText.FontSize = profile.MetricFontSize;
+        CompactCpuValue.FontSize = Math.Max(14, profile.MetricFontSize - 1);
+        CompactWattsValue.FontSize = Math.Max(14, profile.MetricFontSize - 1);
+        CompactClockValue.FontSize = Math.Max(14, profile.MetricFontSize - 1);
+        DashboardPanel.Padding = new Thickness(profile.PanelHorizontalPadding, profile.PanelVerticalPadding, profile.PanelHorizontalPadding, profile.PanelVerticalPadding + 2);
+        HeaderGrid.ColumnSpacing = profile.HeaderColumnSpacing;
+        ExpandedContextGrid.ColumnSpacing = profile.ContextColumnSpacing;
+        ExpandedContextRail.Padding = new Thickness(profile.PanelHorizontalPadding * 0.75, profile.PanelVerticalPadding, profile.PanelHorizontalPadding * 0.75, profile.PanelVerticalPadding);
+        Trajectory.SetLayoutProfile(profile);
         AnimatePresentationContent(animate);
     }
+
+    private bool IsFullScreenPresenter() => AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
 
     private void AnimateWindowTo(SizeInt32 target, bool animate)
     {
@@ -139,6 +190,7 @@ public sealed partial class MainWindow : Window
             _suppressResizeModeSync = true;
             AppWindow.Resize(target);
             _suppressResizeModeSync = false;
+            ApplyResponsiveLayout(animate: false);
             return;
         }
 
@@ -159,12 +211,14 @@ public sealed partial class MainWindow : Window
             var width = (int)Math.Round(start.Width + (target.Width - start.Width) * eased);
             var height = (int)Math.Round(start.Height + (target.Height - start.Height) * eased);
             AppWindow.Resize(new SizeInt32(width, height));
+            ApplyResponsiveLayout(animate: false);
             if (frame < frames) return;
             sender.Stop();
             sender.Tick -= Tick;
             AppWindow.Resize(target);
             _presentationTimer = null;
             _suppressResizeModeSync = false;
+            ApplyResponsiveLayout(animate: false);
         }
     }
 
@@ -180,11 +234,11 @@ public sealed partial class MainWindow : Window
         visual.StartAnimation("Opacity", opacity);
         var offset = compositor.CreateVector3KeyFrameAnimation();
         offset.Duration = TimeSpan.FromMilliseconds(190);
-        offset.InsertKeyFrame(0, new Vector3(0, _presentationMode == DashboardPresentationMode.Expanded ? 8 : -5, 0));
+        var travel = _presentationMode == DashboardPresentationMode.Compressed ? -5 : _presentationMode == DashboardPresentationMode.FullScreen ? 11 : 8;
+        offset.InsertKeyFrame(0, new Vector3(0, travel, 0));
         offset.InsertKeyFrame(1, Vector3.Zero);
         visual.StartAnimation("Offset", offset);
     }
-
     private bool ShouldAnimatePresentation()
     {
         if (_config.ReducedMotionOverride is bool reduced) return !reduced;
@@ -284,7 +338,7 @@ public sealed partial class MainWindow : Window
     private void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         var tag = (args.SelectedItemContainer?.Tag as string) ?? "flow";
-        if (tag != "flow" && _presentationMode != DashboardPresentationMode.Expanded)
+        if (tag != "flow" && _presentationMode == DashboardPresentationMode.Compressed)
             ApplyPresentationMode(DashboardPresentationMode.Expanded, animate: true);
         DashboardPanel.Visibility = tag == "flow" ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;

@@ -21,6 +21,7 @@ public partial class App : Application
     private const string DashboardOpenSignalName = @"Local\PowerFlow.OpenDashboard.v1";
     private SingleInstanceSignal? _dashboardOpenSignal;
     private int _dashboardOpenRequested;
+    private int _dashboardFullScreenRequested;
     private int _runtimeReady;
     private PowerFlowController? _controller;
     private TelemetryContinuityRecorder? _telemetryRecorder;
@@ -80,7 +81,12 @@ public partial class App : Application
                 _tray.HoverActivity += OnTrayHoverActivity;
             }
             if (LaunchIntent.ShouldOpenDashboard(launchArgs)) Interlocked.Exchange(ref _dashboardOpenRequested, 1);
+            if (LaunchIntent.ShouldOpenFullScreen(launchArgs)) Interlocked.Exchange(ref _dashboardFullScreenRequested, 1);
             Volatile.Write(ref _runtimeReady, 1);
+            if (LaunchIntent.ShouldOpenPopupPreview(launchArgs))
+            {
+                await ShowTrayHoverPreviewAsync();
+            }
             await DrainDashboardOpenRequestAsync();
         }
         catch (Exception ex)
@@ -104,7 +110,8 @@ public partial class App : Application
     private async Task DrainDashboardOpenRequestAsync()
     {
         if (_shuttingDown || Interlocked.Exchange(ref _dashboardOpenRequested, 0) == 0) return;
-        await OpenDashboardAsync(false);
+        var fullScreen = Interlocked.Exchange(ref _dashboardFullScreenRequested, 0) == 1;
+        await OpenDashboardAsync(false, fullScreen);
     }
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
@@ -156,6 +163,26 @@ public partial class App : Application
         }
     }
 
+    private async Task ShowTrayHoverPreviewAsync()
+    {
+        if (_controller is null || _tray is null || _telemetryRecorder is null) return;
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            if (_tray.TryGetIconRect(out var iconRect) && _tray.TryGetWorkArea(iconRect, out var workArea))
+            {
+                if (_trayHoverWindow is null)
+                {
+                    _trayHoverWindow = new TrayHoverWindow(_controller, _telemetryRecorder, _config);
+                    _trayHoverWindow.OpenDashboardRequested += OnTrayHoverOpenDashboardRequested;
+                }
+                _trayHoverWindow.UpdateConfig(_config);
+                await _trayHoverWindow.ShowAsync(iconRect, workArea);
+                return;
+            }
+            await Task.Delay(250);
+        }
+        throw new InvalidOperationException("Tray icon rectangle did not become available for popup preview.");
+    }
     private async Task ShowTrayHoverAsync()
     {
         if (_controller is null || _tray is null) return;
@@ -207,7 +234,7 @@ public partial class App : Application
         catch (Exception ex) { await WriteStartupFailureAsync(ex); }
     }
 
-    private async Task OpenDashboardAsync(bool showSettings)
+    private async Task OpenDashboardAsync(bool showSettings, bool fullScreen = false)
     {
         if (_controller is null) return;
         if (_dashboardWindow is null)
@@ -220,7 +247,7 @@ public partial class App : Application
                 if (_previewMode) await ShutdownAsync(true);
             };
         }
-        await _dashboardWindow.ShowAsync(showSettings);
+        await _dashboardWindow.ShowAsync(showSettings, fullScreen);
     }
 
     private async Task ApplyConfigAsync(PowerFlowConfig updated)

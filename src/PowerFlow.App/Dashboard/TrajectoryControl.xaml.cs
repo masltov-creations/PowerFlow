@@ -36,13 +36,20 @@ public sealed partial class TrajectoryControl : UserControl
         Graph.HoverChanged += OnGraphHoverChanged;
     }
 
-    public void SetPresentationMode(DashboardPresentationMode mode)
+    public void SetLayoutProfile(DashboardLayoutProfile profile)
     {
-        var compressed = mode == DashboardPresentationMode.Compressed;
-        Graph.MinHeight = compressed ? 170 : 320;
-        Root.RowSpacing = compressed ? 5 : 7;
-        HoverLens.MaxWidth = compressed ? 250 : 315;
-        DisclosurePanel.Padding = compressed ? new Thickness(9, 6, 9, 6) : new Thickness(11, 8, 11, 8);
+        Graph.MinHeight = profile.GraphMinHeight;
+        Root.RowSpacing = profile.TrajectoryRowSpacing;
+        HoverLens.MaxWidth = profile.HoverLensMaxWidth;
+        var compact = profile.Mode == DashboardPresentationMode.Compressed;
+        var full = profile.Mode == DashboardPresentationMode.FullScreen;
+        DisclosurePanel.Padding = compact ? new Thickness(9, 6, 9, 6) : full ? new Thickness(15, 10, 15, 10) : new Thickness(11, 8, 11, 8);
+        var nodePadding = compact ? new Thickness(9, 4, 9, 4) : full ? new Thickness(15, 7, 15, 7) : new Thickness(12, 5, 12, 5);
+        var nodeFont = full ? 13d : 12d;
+        foreach (var node in new[] { AutoNode, SaverNode, BalancedNode, PerformanceNode }) { node.Padding = nodePadding; node.FontSize = nodeFont; }
+        NowText.FontSize = full ? 14 : 12;
+        NextActionText.FontSize = full ? 13 : 12;
+        DirectionText.FontSize = full ? 12 : 11;
     }
     public event EventHandler? AutoRequested;
     public event EventHandler<TrajectoryManualStateEventArgs>? ManualStateRequested;
