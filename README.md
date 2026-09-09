@@ -33,6 +33,8 @@ The dashboard is trajectory-first: recent behavior, **NOW**, policy pressure, th
 
 ![PowerFlow expanded cockpit](docs/assets/powerflow-expanded.png)
 
+_Screenshots are captured directly from the PowerFlow window handle, not from screen coordinates._
+
 Compressed and expanded modes evolve through a short bounded resize/content transition. Reduced Motion turns the flourish off without changing the information hierarchy. Manual resizing maps onto the same two dashboard modes.
 
 Telemetry also survives a closed dashboard without becoming its own space heater:

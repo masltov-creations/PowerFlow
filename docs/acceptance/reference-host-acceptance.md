@@ -81,3 +81,18 @@ Not claimed by this acceptance record:
 - signed installer/package.
 
 These remain production-hardening gates, not hidden claims.
+## Screenshot evidence correction
+
+The first progressive-shell screenshots were captured with screen-coordinate `CopyFromScreen`, which did **not** prove the pixels came from the PowerFlow window and, in practice, captured the wrong content. Those files must not be treated as valid release evidence.
+
+They were replaced on 2026-09-09 using direct HWND capture:
+
+- process: `PowerFlow.App.exe`;
+- verified executable: Release `PowerFlow.App.exe` under this repository;
+- window title: `PowerFlow`;
+- HWND at capture: `10552990`;
+- compressed direct capture: 760 x 440, nonblank;
+- expanded direct capture: 1120 x 720, nonblank;
+- capture API: `PrintWindow` on the verified PowerFlow HWND, not screen coordinates.
+
+This correction preserves the earlier beta.2 tag as historical evidence and supersedes only its screenshot proof.
