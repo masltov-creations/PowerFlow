@@ -35,6 +35,19 @@ public sealed class TrayPopupAndPickerContractTests
         Assert.Contains("Shell_NotifyIconGetRect", trayHost, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TrayHover_UsesModernCallbacksAndObservedAnchorForOverflowIcons()
+    {
+        var root = RepoRoot();
+        var trayHost = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayIconHost.cs"));
+        var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml.cs"));
+
+        Assert.Contains("NimSetVersion", trayHost, StringComparison.Ordinal);
+        Assert.Contains("NotifyIconVersion4", trayHost, StringComparison.Ordinal);
+        Assert.Contains("TryGetHoverAnchorRect", trayHost, StringComparison.Ordinal);
+        Assert.Contains("_observedHoverRect", trayHost, StringComparison.Ordinal);
+        Assert.Contains("TryGetHoverAnchorRect", app, StringComparison.Ordinal);
+    }
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

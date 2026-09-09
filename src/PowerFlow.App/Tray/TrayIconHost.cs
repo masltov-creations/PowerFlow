@@ -19,6 +19,9 @@ public sealed class TrayIconHost : IDisposable
     private const uint NimAdd = 0x00000000;
     private const uint NimModify = 0x00000001;
     private const uint NimDelete = 0x00000002;
+    private const uint NimSetVersion = 0x00000004;
+    private const uint NotifyIconVersion4 = 4;
+    private const uint NinPopupOpen = 0x0406;
     private const uint MfString = 0x00000000;
     private const uint MfDisabled = 0x00000002;
     private const uint MfGrayed = 0x00000001;
@@ -37,6 +40,7 @@ public sealed class TrayIconHost : IDisposable
     private ushort _classAtom;
     private bool _iconAdded;
     private ControllerSnapshot _snapshot;
+    private TrayRect? _observedHoverRect;
 
     public TrayIconHost(ControllerSnapshot initialSnapshot)
     {
@@ -109,7 +113,12 @@ public sealed class TrayIconHost : IDisposable
         if (msg == WmTray)
         {
             var mouseMessage = unchecked((uint)(lParam.ToInt64() & 0xffff));
-            if (mouseMessage == WmMouseMove) HoverActivity?.Invoke(this, EventArgs.Empty);
+            if (mouseMessage is WmMouseMove or NinPopupOpen)
+            {
+                if (GetCursorPos(out var hoverPoint))
+                    _observedHoverRect = TrayHoverAnchorProjection.AroundPoint(hoverPoint.X, hoverPoint.Y, 40);
+                HoverActivity?.Invoke(this, EventArgs.Empty);
+            }
             if (mouseMessage == WmLButtonDblClk)
                 RaiseCommand(TrayMenuCommands.OpenDashboard);
             else if (mouseMessage is WmRButtonUp or WmContextMenu)
@@ -121,10 +130,16 @@ public sealed class TrayIconHost : IDisposable
     }
 
 
-    public bool IsPointerOverIcon()
+    public bool IsPointerOverIcon() => TryGetHoverAnchorRect(out _);
+
+    public bool TryGetHoverAnchorRect(out TrayRect rect)
     {
-        if (!GetCursorPos(out var point) || !TryGetIconRect(out var rect)) return false;
-        return rect.Contains(point.X, point.Y);
+        if (!GetCursorPos(out var point)) { rect = default; return false; }
+        TrayRect? shellRect = TryGetIconRect(out var shell) ? shell : null;
+        var resolved = TrayHoverAnchorProjection.Resolve(shellRect, _observedHoverRect, point.X, point.Y);
+        if (resolved is null) { rect = default; return false; }
+        rect = resolved.Value;
+        return true;
     }
 
     public bool TryGetIconRect(out TrayRect rect)
@@ -147,7 +162,12 @@ public sealed class TrayIconHost : IDisposable
 
     public bool TryGetWorkArea(out TrayRect workArea)
     {
-        if (!TryGetIconRect(out var icon)) { workArea = default; return false; }
+        if (!TryGetHoverAnchorRect(out var icon)) { workArea = default; return false; }
+        return TryGetWorkArea(icon, out workArea);
+    }
+
+    public bool TryGetWorkArea(TrayRect icon, out TrayRect workArea)
+    {
         var point = new Point { X = icon.Left + icon.Width / 2, Y = icon.Top + icon.Height / 2 };
         var monitor = MonitorFromPoint(point, 2);
         if (monitor == IntPtr.Zero) { workArea = default; return false; }
@@ -195,8 +215,17 @@ public sealed class TrayIconHost : IDisposable
     {
         if (_window == IntPtr.Zero) return;
         var data = CreateNotifyData();
-        if (Shell_NotifyIcon(add || !_iconAdded ? NimAdd : NimModify, ref data))
+        var operation = add || !_iconAdded ? NimAdd : NimModify;
+        if (Shell_NotifyIcon(operation, ref data))
+        {
             _iconAdded = true;
+            if (operation == NimAdd)
+            {
+                var versionData = CreateNotifyData();
+                versionData.UTimeoutOrVersion = NotifyIconVersion4;
+                Shell_NotifyIcon(NimSetVersion, ref versionData);
+            }
+        }
     }
 
     private NotifyIconData CreateNotifyData()

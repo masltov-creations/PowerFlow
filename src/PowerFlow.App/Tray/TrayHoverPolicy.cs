@@ -57,6 +57,23 @@ public readonly record struct TrayRect(int Left, int Top, int Right, int Bottom)
     public bool Contains(int x, int y) => x >= Left && x < Right && y >= Top && y < Bottom;
 }
 
+public static class TrayHoverAnchorProjection
+{
+    public static TrayRect AroundPoint(int x, int y, int size)
+    {
+        if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+        var left = x - (size / 2);
+        var top = y - (size / 2);
+        return new TrayRect(left, top, left + size, top + size);
+    }
+
+    public static TrayRect? Resolve(TrayRect? shellRect, TrayRect? observedRect, int pointerX, int pointerY)
+    {
+        if (shellRect is { } shell && shell.Contains(pointerX, pointerY)) return shell;
+        if (observedRect is { } observed && observed.Contains(pointerX, pointerY)) return observed;
+        return null;
+    }
+}
 public static class TrayPopupPlacement
 {
     public static TrayRect AboveIcon(TrayRect icon, TrayRect workArea, int width, int height, int gap)

@@ -121,7 +121,7 @@ public partial class App : Application
     private async Task ShowTrayHoverAsync()
     {
         if (_controller is null || _tray is null) return;
-        if (!_tray.TryGetIconRect(out var iconRect) || !_tray.TryGetWorkArea(out var workArea)) return;
+        if (!_tray.TryGetHoverAnchorRect(out var iconRect) || !_tray.TryGetWorkArea(iconRect, out var workArea)) return;
         if (_trayHoverWindow is null)
         {
             _trayHoverWindow = new TrayHoverWindow(_controller, _config);
