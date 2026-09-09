@@ -24,19 +24,18 @@ public sealed class ReferenceCockpitContractTests
     }
 
     [Fact]
-    public void Dashboard_HasReferenceCockpitHierarchyUsingRealPowerFlowData()
+    public void Dashboard_HasReferenceCockpitScaffoldingUsingRealPowerFlowData()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var modes = Read("src", "PowerFlow.App", "Dashboard", "PowerModeControl.xaml");
 
         foreach (var name in new[]
         {
             "BrandHeader",
             "NavigationRail",
+            "ShellHeaderHost",
             "ModeSelectorHost",
-            "SaverModeButton",
-            "BalancedModeButton",
-            "PerformanceModeButton",
-            "AutoModeButton",
+            "PowerModeHost",
             "HeroTrajectoryPanel",
             "LiveStatsPanel",
             "LowerContextGrid",
@@ -47,43 +46,49 @@ public sealed class ReferenceCockpitContractTests
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
 
         Assert.Equal(1, Count(xaml, "<dash:TrajectoryControl x:Name=\"Trajectory\""));
-        Assert.Contains("{Binding CpuLabel}", xaml, StringComparison.Ordinal);
-        Assert.Contains("{Binding WattsLabel}", xaml, StringComparison.Ordinal);
-        Assert.Contains("{Binding FrequencyLabel}", xaml, StringComparison.Ordinal);
-        Assert.Contains("{Binding TriggerApplication}", xaml, StringComparison.Ordinal);
-        Assert.Contains("{Binding PromotionRuleLabel}", xaml, StringComparison.Ordinal);
-        Assert.Contains("{Binding QuietRuleLabel}", xaml, StringComparison.Ordinal);
+        Assert.Equal(1, Count(xaml, "<dash:PowerModeControl x:Name=\"PowerModeHost\""));
+        Assert.Contains("{Binding IsPowerSaverSelected", modes, StringComparison.Ordinal);
+        Assert.Contains("{Binding IsBalancedSelected", modes, StringComparison.Ordinal);
+        Assert.Contains("{Binding IsPerformanceSelected", modes, StringComparison.Ordinal);
+        Assert.Contains("{Binding IsAutoSelected", modes, StringComparison.Ordinal);
         Assert.DoesNotContain("GPU", xaml, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("RAM", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("CPU Temp", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Dashboard_UsesPersistentModeCardsAndNoTinyExplicitFonts()
+    public void Dashboard_UsesDensityAwareModeControlAndNoTinyExplicitFonts()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var modes = Read("src", "PowerFlow.App", "Dashboard", "PowerModeControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
-        Assert.Contains("OnSaverModeClicked", xaml, StringComparison.Ordinal);
-        Assert.Contains("OnBalancedModeClicked", xaml, StringComparison.Ordinal);
-        Assert.Contains("OnPerformanceModeClicked", xaml, StringComparison.Ordinal);
-        Assert.Contains("OnAutoModeClicked", xaml, StringComparison.Ordinal);
-        Assert.Contains("UpdateModeSelector", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("FontSize=\"10\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("FontSize=\"9\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("FontSize=\"8\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CurrentChipLayer", modes, StringComparison.Ordinal);
+        Assert.Contains("SegmentedLayer", modes, StringComparison.Ordinal);
+        Assert.Contains("CardsLayer", modes, StringComparison.Ordinal);
+        Assert.Contains("OnPowerModeRequested", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateModeSelector", code, StringComparison.Ordinal);
+        foreach (var source in new[] { xaml, modes })
+        {
+            Assert.DoesNotContain("FontSize=\"10\"", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("FontSize=\"9\"", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("FontSize=\"8\"", source, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
-    public void ShellLayout_DrivesCockpitDisclosureInsteadOfHardCodingExpandedOnly()
+    public void ShellLayout_DrivesSemanticPresentationInsteadOfInformationLossBooleans()
     {
+        var layout = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellLayout.cs");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("shell.ShowModeCards", code, StringComparison.Ordinal);
-        Assert.Contains("shell.ShowLiveStatsPanel", code, StringComparison.Ordinal);
-        Assert.Contains("shell.ShowLowerContextPanels", code, StringComparison.Ordinal);
-        Assert.Contains("ModeSelectorHost.Visibility", code, StringComparison.Ordinal);
-        Assert.Contains("LiveStatsPanel.Visibility", code, StringComparison.Ordinal);
-        Assert.Contains("LowerContextGrid.Visibility", code, StringComparison.Ordinal);
+
+        Assert.Contains("StatsPresentation.CompactRail", layout, StringComparison.Ordinal);
+        Assert.Contains("ControlContextPresentation.Rail", layout, StringComparison.Ordinal);
+        Assert.Contains("ModePresentation.Segmented", layout, StringComparison.Ordinal);
+        Assert.Contains("PowerModeHost.Presentation = shell.Modes", code, StringComparison.Ordinal);
+        Assert.Contains("ShellHeaderHost.Presentation = shell.Header", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("shell.ShowModeCards", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("shell.ShowLiveStatsPanel", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("shell.ShowLowerContextPanels", code, StringComparison.Ordinal);
     }
 
     private static int Count(string text, string value)

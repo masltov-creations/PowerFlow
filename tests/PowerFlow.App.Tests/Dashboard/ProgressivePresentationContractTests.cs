@@ -19,7 +19,9 @@ public sealed class ProgressivePresentationContractTests
         Assert.Contains("(320, 176)", geometry, StringComparison.Ordinal);
         Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
         Assert.Contains("(1280, 800)", geometry, StringComparison.Ordinal);
-        Assert.Contains("ShowNavigationRail", layout, StringComparison.Ordinal);
+        Assert.Contains("NavigationPresentation.Rail", layout, StringComparison.Ordinal);
+        Assert.Contains("StatsPresentation.CompactRail", layout, StringComparison.Ordinal);
+        Assert.Contains("ControlContextPresentation.Rail", layout, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -48,6 +50,7 @@ public sealed class ProgressivePresentationContractTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs");
 
         Assert.DoesNotContain("MinHeight=\"300\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SetShellPresentation", code, StringComparison.Ordinal);
         Assert.Contains("SetLayoutProfile", code, StringComparison.Ordinal);
         Assert.Contains("Graph.MinHeight", code, StringComparison.Ordinal);
     }

@@ -36,6 +36,23 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public string CpuLabel => _snapshot is null ? "—" : $"{_snapshot.CpuPercent:0.0}%";
     public string WattsLabel => _telemetry?.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
     public string FrequencyLabel => _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
+    public bool IsPowerSaverSelected => _snapshot?.State == PowerState.PowerSaver;
+    public bool IsBalancedSelected => _snapshot?.State == PowerState.Balanced;
+    public bool IsPerformanceSelected => _snapshot?.State == PowerState.HighPerformance;
+    public bool IsAutoSelected => _snapshot is null || !(_snapshot.IsLatched && string.Equals(_snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase));
+    public bool ManualModeEnabled => !(_snapshot?.IsLatched == true && string.Equals(_snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase));
+    public string ControlBadgeLabel => _snapshot switch
+    {
+        { IsLatched: true, LatchType: "Manual" } => "MANUAL LOCK",
+        { IsLatched: true, LatchType: "Game" } => "GAME LATCH",
+        _ => "AUTO"
+    };
+    public string AutoModeDetail => _snapshot switch
+    {
+        { IsLatched: true, LatchType: "Manual" } => "Release manual lock",
+        { IsLatched: true, LatchType: "Game" } => "Game latch active",
+        _ => "Rules · apps · smart"
+    };
     public double FlowProgress => Math.Clamp(_snapshot?.ThresholdProgress ?? 0, 0, 1);
     public IReadOnlyList<TransitionRecord> History => _history;
     public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
@@ -106,6 +123,13 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CpuLabel));
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
+        OnPropertyChanged(nameof(IsPowerSaverSelected));
+        OnPropertyChanged(nameof(IsBalancedSelected));
+        OnPropertyChanged(nameof(IsPerformanceSelected));
+        OnPropertyChanged(nameof(IsAutoSelected));
+        OnPropertyChanged(nameof(ManualModeEnabled));
+        OnPropertyChanged(nameof(ControlBadgeLabel));
+        OnPropertyChanged(nameof(AutoModeDetail));
         OnPropertyChanged(nameof(FlowProgress));
         if (historyChanged) OnPropertyChanged(nameof(History));
         if (historyChanged) OnPropertyChanged(nameof(RecentEventLines));

@@ -51,6 +51,29 @@ public sealed partial class TrajectoryControl : UserControl
         NextActionText.FontSize = full ? 13 : 12;
         DirectionText.FontSize = full ? 12 : 11;
     }
+    public void SetShellPresentation(TrajectoryPresentation presentation, double targetHeight)
+    {
+        DashboardLayoutProfile profile;
+        if (presentation == TrajectoryPresentation.Minimal)
+        {
+            profile = new DashboardLayoutProfile(
+                DashboardPresentationMode.Compressed, true, false, false, false,
+                16, 13, 6, 4, 6, 160, Math.Max(48, targetHeight), 3, 180, 8);
+            HoverLens.Visibility = Visibility.Collapsed;
+            DisclosurePanel.Visibility = Visibility.Collapsed;
+        }
+        else if (presentation == TrajectoryPresentation.Compact)
+        {
+            profile = DashboardResponsiveLayout.Resolve(760, 440, false);
+            HoverLens.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            profile = DashboardResponsiveLayout.Resolve(1280, 800, false);
+        }
+
+        SetLayoutProfile(profile);
+    }
     public event EventHandler? AutoRequested;
     public event EventHandler<TrajectoryManualStateEventArgs>? ManualStateRequested;
     public event EventHandler<TrajectoryRangeChangedEventArgs>? RangeChanged;

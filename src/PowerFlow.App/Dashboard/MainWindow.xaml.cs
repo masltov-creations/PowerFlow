@@ -54,7 +54,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
-        PreviewModeBadge.Visibility = previewMode ? Visibility.Visible : Visibility.Collapsed;
+        ShellHeaderHost.IsPreviewMode = previewMode;
         _controller = controller;
         _recorder = recorder;
         _previewMode = previewMode;
@@ -244,6 +244,9 @@ public sealed partial class MainWindow : Window
         var expanded = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen;
 
         // Temporary semantic-to-current-XAML adapter. Task 4 replaces this with the reference cockpit composition.
+        ShellHeaderHost.Presentation = shell.Header;
+        PowerModeHost.Presentation = shell.Modes;
+
         var showNavigationRail = shell.Navigation == NavigationPresentation.Rail;
         var showModeSurface = shell.Modes != ModePresentation.CurrentChip;
         var showFullStats = shell.Stats == StatsPresentation.FullRail;
@@ -254,7 +257,6 @@ public sealed partial class MainWindow : Window
         ModeSelectorHost.Visibility = showModeSurface ? Visibility.Visible : Visibility.Collapsed;
         LiveStatsPanel.Visibility = showFullStats ? Visibility.Visible : Visibility.Collapsed;
         LowerContextGrid.Visibility = showExpandedContext ? Visibility.Visible : Visibility.Collapsed;
-        BrandTagline.Visibility = state == PowerFlowShellState.Glance ? Visibility.Collapsed : Visibility.Visible;
         NavigationRail.PaneDisplayMode = showNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
         if (showNavigationRail) NavigationRail.OpenPaneLength = shell.Geometry.NavigationWidth;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
@@ -467,22 +469,29 @@ public sealed partial class MainWindow : Window
 
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
-        UpdateModeSelector(snapshot);
         var model = TrajectoryProjection.Create(_recorder.History, snapshot, _config);
         Trajectory.Apply(model, ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
     }
-
-    private async void OnAutoModeClicked(object sender, RoutedEventArgs e)
+    private async void OnPowerModeRequested(object? sender, PowerModeRequestedEventArgs e)
     {
-        if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
-            await _controller.ReleaseManualLatchAsync();
-        ApplyVisualState(_controller.Snapshot);
+        switch (e.Choice)
+        {
+            case PowerModeChoice.Auto:
+                if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
+                    await _controller.ReleaseManualLatchAsync();
+                ApplyVisualState(_controller.Snapshot);
+                break;
+            case PowerModeChoice.PowerSaver:
+                await _controller.SetManualStateAsync(PowerState.PowerSaver);
+                break;
+            case PowerModeChoice.Balanced:
+                await _controller.SetManualStateAsync(PowerState.Balanced);
+                break;
+            case PowerModeChoice.Performance:
+                await _controller.SetManualStateAsync(PowerState.HighPerformance);
+                break;
+        }
     }
-
-    private async void OnSaverModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.PowerSaver);
-    private async void OnBalancedModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.Balanced);
-    private async void OnPerformanceModeClicked(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.HighPerformance);
-
     private async void OnOpenRulesClicked(object sender, RoutedEventArgs e)
     {
         SelectSection("rules");
@@ -493,20 +502,6 @@ public sealed partial class MainWindow : Window
     {
         SelectSection("settings");
         await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
-    }
-
-    private void UpdateModeSelector(ControllerSnapshot snapshot)
-    {
-        var manual = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
-        var game = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase);
-        AutoModeButton.IsChecked = !manual;
-        SaverModeButton.IsChecked = snapshot.State == PowerState.PowerSaver;
-        BalancedModeButton.IsChecked = snapshot.State == PowerState.Balanced;
-        PerformanceModeButton.IsChecked = snapshot.State == PowerState.HighPerformance;
-        SaverModeButton.IsEnabled = !game;
-        BalancedModeButton.IsEnabled = !game;
-        PerformanceModeButton.IsEnabled = !game;
-        AutoModeDetail.Text = manual ? "Release manual lock" : game ? "Game latch active" : "Rules · Apps · Smart";
     }
     private async void OnTrajectoryAutoRequested(object? sender, EventArgs e)
     {
