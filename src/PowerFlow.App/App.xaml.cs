@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Dashboard;
 using PowerFlow.App.Tray;
+using PowerFlow.App.Telemetry;
 using PowerFlow.App.Startup;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
@@ -18,6 +19,7 @@ public partial class App : Application
 {
     private SingleInstanceGuard? _instanceGuard;
     private PowerFlowController? _controller;
+    private TelemetryContinuityRecorder? _telemetryRecorder;
     private GameLifecycleMonitor? _games;
     private TrayIconHost? _tray;
     private TrayHoverWindow? _trayHoverWindow;
@@ -56,8 +58,10 @@ public partial class App : Application
                 ? new PreviewPowerPlanController(new WindowsPowerPlanController())
                 : new WindowsPowerPlanController();
             _controller = new PowerFlowController(_config, planController, new SystemTimesActivitySource(), _games, new PeriodicControllerTickSourceFactory(), new SystemControllerDelay(), new SystemControllerClock(), new WindowsPowerPlanObserver());
+            _telemetryRecorder = new TelemetryContinuityRecorder(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
             _controller.SnapshotChanged += OnSnapshotChanged;
             await _controller.StartAsync();
+            await _telemetryRecorder.StartAsync();
             if (LaunchIntent.ShouldCreateTray(launchArgs))
             {
                 _tray = new TrayIconHost(_controller.Snapshot);
@@ -73,7 +77,11 @@ public partial class App : Application
         }
     }
 
-    private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
+    private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
+    {
+        _telemetryRecorder?.UpdateControllerSnapshot(snapshot);
+        _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
+    }
 
 
     private void OnTrayHoverActivity(object? sender, EventArgs e)
@@ -124,7 +132,8 @@ public partial class App : Application
         if (!_tray.TryGetHoverAnchorRect(out var iconRect) || !_tray.TryGetWorkArea(iconRect, out var workArea)) return;
         if (_trayHoverWindow is null)
         {
-            _trayHoverWindow = new TrayHoverWindow(_controller, _config);
+            if (_telemetryRecorder is null) return;
+            _trayHoverWindow = new TrayHoverWindow(_controller, _telemetryRecorder, _config);
             _trayHoverWindow.OpenDashboardRequested += OnTrayHoverOpenDashboardRequested;
         }
         _trayHoverWindow.UpdateConfig(_config);
@@ -173,7 +182,8 @@ public partial class App : Application
         if (_controller is null) return;
         if (_dashboardWindow is null)
         {
-            _dashboardWindow = new MainWindow(_controller, _config, ApplyConfigAsync, _previewMode);
+            if (_telemetryRecorder is null) return;
+            _dashboardWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode);
             _dashboardWindow.Closed += async (_, _) =>
             {
                 _dashboardWindow = null;
@@ -206,6 +216,11 @@ public partial class App : Application
             {
                 _controller.SnapshotChanged -= OnSnapshotChanged;
                 await _controller.StopAsync();
+            }
+            if (_telemetryRecorder is not null)
+            {
+                await _telemetryRecorder.DisposeAsync();
+                _telemetryRecorder = null;
             }
         }
         finally

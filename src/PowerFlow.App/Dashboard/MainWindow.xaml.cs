@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
+using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -15,37 +16,37 @@ public sealed partial class MainWindow : Window
 {
     private readonly PowerFlowController _controller;
     private readonly Func<PowerFlowConfig, Task> _applyConfig;
-    private readonly DashboardTelemetrySession _telemetrySession;
+    private readonly TelemetryContinuityRecorder _recorder;
+    private TelemetryVisibilityLease? _visibilityLease;
     private readonly DispatcherQueue _dispatcher;
     private readonly bool _previewMode;
     private bool _explicitShutdown;
     private PowerFlowConfig _config;
-    private bool _sessionStarted;
     private bool _closed;
     private double _graphWindowSeconds = 60;
 
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
         PreviewModeBadge.Visibility = previewMode ? Visibility.Visible : Visibility.Collapsed;
         _controller = controller;
+        _recorder = recorder;
         _previewMode = previewMode;
         _config = config;
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
-        _telemetrySession = new DashboardTelemetrySession(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
         ApplyTheme(config.Theme);
         ViewModel.Configure(config);
         Root.DataContext = ViewModel;
-        ViewModel.Update(controller.Snapshot, null);
+        ViewModel.Update(controller.Snapshot, recorder.LatestRichTelemetry);
         ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         controller.SnapshotChanged += OnSnapshotChanged;
-        _telemetrySession.TelemetryChanged += OnTelemetryChanged;
+        _recorder.ContinuityChanged += OnContinuityChanged;
         TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
         AppWindow.Closing += OnAppWindowClosing;
@@ -55,15 +56,14 @@ public sealed partial class MainWindow : Window
         SelectSection("flow");
     }
 
-    public async Task ShowAsync(bool showSettings = false)
+    public Task ShowAsync(bool showSettings = false)
     {
-        if (!_sessionStarted)
-        {
-            _sessionStarted = true;
-            await _telemetrySession.StartAsync();
-        }
+        _visibilityLease ??= _recorder.AcquireVisibility();
+        ViewModel.Update(_controller.Snapshot, _recorder.LatestRichTelemetry);
+        ApplyVisualState(_controller.Snapshot);
         SelectSection(showSettings ? "settings" : "flow");
         Activate();
+        return Task.CompletedTask;
     }
 
     public void CloseForShutdown()
@@ -72,35 +72,33 @@ public sealed partial class MainWindow : Window
         Close();
     }
 
-    private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (DashboardClosePolicy.Decide(_previewMode, _explicitShutdown) == DashboardCloseDisposition.Close) return;
         args.Cancel = true;
         AppWindow.Hide();
-        await StopDashboardTelemetryAsync();
+        ReleaseDashboardVisibility();
     }
 
-    private async Task StopDashboardTelemetryAsync()
+    private void ReleaseDashboardVisibility()
     {
-        if (!_sessionStarted) return;
-        _sessionStarted = false;
-        await _telemetrySession.StopAsync();
+        _visibilityLease?.Dispose();
+        _visibilityLease = null;
     }
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() =>
     {
-        ViewModel.Update(snapshot, _telemetrySession.Latest);
+        ViewModel.Update(snapshot, _recorder.LatestRichTelemetry);
         ApplyVisualState(snapshot);
     });
 
-    private void OnTelemetryChanged(object? sender, DashboardTelemetry telemetry) => _dispatcher.TryEnqueue(() =>
+    private void OnContinuityChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(() =>
     {
         var snapshot = _controller.Snapshot;
-        ViewModel.Update(snapshot, telemetry);
+        ViewModel.Update(snapshot, _recorder.LatestRichTelemetry);
         TelemetryGraph.Apply(ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
         DecisionPressure.Apply(_config, snapshot);
     });
-
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
         ApplyOverrideVisual(snapshot);
@@ -211,16 +209,15 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void OnClosed(object sender, WindowEventArgs args)
+    private void OnClosed(object sender, WindowEventArgs args)
     {
         if (_closed) return;
         _closed = true;
         AppWindow.Closing -= OnAppWindowClosing;
         _controller.SnapshotChanged -= OnSnapshotChanged;
-        _telemetrySession.TelemetryChanged -= OnTelemetryChanged;
+        _recorder.ContinuityChanged -= OnContinuityChanged;
         TelemetryGraph.ThresholdsPreviewed -= OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted -= OnThresholdsCommitted;
-        await StopDashboardTelemetryAsync();
-        await _telemetrySession.DisposeAsync();
+        ReleaseDashboardVisibility();
     }
 }

@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Shapes;
 using XamlPath = Microsoft.UI.Xaml.Shapes.Path;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Dashboard;
+using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -33,7 +34,8 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     private const int PopupHeight = 236;
 
     private readonly PowerFlowController _controller;
-    private readonly DashboardTelemetrySession _telemetrySession;
+    private readonly TelemetryContinuityRecorder _recorder;
+    private TelemetryVisibilityLease? _visibilityLease;
     private readonly DispatcherQueue _dispatcher;
     private readonly IntPtr _hwnd;
     private readonly List<(DateTimeOffset At, double Cpu)> _samples = [];
@@ -41,14 +43,14 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     private DashboardTelemetry? _telemetry;
     private bool _disposed;
 
-    public TrayHoverWindow(PowerFlowController controller, PowerFlowConfig config)
+    public TrayHoverWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config)
     {
         InitializeComponent();
         _controller = controller;
+        _recorder = recorder;
         _config = config;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
-        _telemetrySession = new DashboardTelemetrySession(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
-        _telemetrySession.TelemetryChanged += OnTelemetryChanged;
+        _recorder.ContinuityChanged += OnContinuityChanged;
         _controller.SnapshotChanged += OnSnapshotChanged;
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         ApplyNonActivatingToolWindowStyle();
@@ -78,24 +80,27 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         UpdateUi(_controller.Snapshot);
     }
 
-    public async Task ShowAsync(TrayRect iconRect, TrayRect workArea)
+    public Task ShowAsync(TrayRect iconRect, TrayRect workArea)
     {
-        if (_disposed) return;
+        if (_disposed) return Task.CompletedTask;
         var placement = TrayPopupPlacement.AboveIcon(iconRect, workArea, PopupWidth, PopupHeight, 10);
         AppWindow.MoveAndResize(new RectInt32(placement.Left, placement.Top, PopupWidth, PopupHeight));
+        _telemetry = _recorder.LatestRichTelemetry;
         UpdateUi(_controller.Snapshot);
-        if (!_telemetrySession.IsRunning) await _telemetrySession.StartAsync();
+        _visibilityLease ??= _recorder.AcquireVisibility();
         ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
         IsVisible = true;
         AnimateIn();
+        return Task.CompletedTask;
     }
 
-    public async Task HideAsync()
+    public Task HideAsync()
     {
-        if (_disposed || !IsVisible) return;
+        if (_disposed || !IsVisible) return Task.CompletedTask;
         IsVisible = false;
         ShowWindow(_hwnd, SW_HIDE);
-        await _telemetrySession.StopAsync();
+        ReleaseVisibility();
+        return Task.CompletedTask;
     }
 
     public bool ContainsCursor()
@@ -135,17 +140,21 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() => UpdateUi(snapshot));
 
-    private void OnTelemetryChanged(object? sender, DashboardTelemetry telemetry) => _dispatcher.TryEnqueue(() =>
+    private void OnContinuityChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(() =>
     {
         if (!IsVisible) return;
-        _telemetry = telemetry;
-        var snapshot = _controller.Snapshot;
-        _samples.Add((telemetry.At, snapshot.CpuPercent));
-        while (_samples.Count > 30) _samples.RemoveAt(0);
-        UpdateUi(snapshot);
+        _telemetry = _recorder.LatestRichTelemetry;
+        _samples.Clear();
+        foreach (var sample in _recorder.History.TakeLast(30)) _samples.Add((sample.At, sample.CpuPercent));
+        UpdateUi(_controller.Snapshot);
         DrawSparkline();
     });
 
+    private void ReleaseVisibility()
+    {
+        _visibilityLease?.Dispose();
+        _visibilityLease = null;
+    }
     private void UpdateUi(ControllerSnapshot snapshot)
     {
         StateText.Text = snapshot.State switch
@@ -249,9 +258,8 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     {
         if (_disposed) return;
         _controller.SnapshotChanged -= OnSnapshotChanged;
-        _telemetrySession.TelemetryChanged -= OnTelemetryChanged;
+        _recorder.ContinuityChanged -= OnContinuityChanged;
         if (IsVisible) await HideAsync();
-        await _telemetrySession.DisposeAsync();
         _disposed = true;
         Close();
     }
