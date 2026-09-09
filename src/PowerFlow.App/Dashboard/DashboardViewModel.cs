@@ -14,6 +14,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private DashboardTelemetry? _telemetry;
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private DateTimeOffset? _lastSampleAt;
+    private IReadOnlyList<TransitionRecord> _history = Array.Empty<TransitionRecord>();
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -31,11 +32,11 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public string Reason => _snapshot?.Reason ?? "Initializing controller";
     public string BadgeLabel => _snapshot?.LatchType ?? (_snapshot?.CooldownRemaining is not null ? "Cooldown" : "Automatic");
     public string TriggerApplication => string.IsNullOrWhiteSpace(_snapshot?.TriggerApplication) ? "No explicit trigger" : _snapshot!.TriggerApplication!;
-    public string CpuLabel => _snapshot is null ? "-" : $"{_snapshot.CpuPercent:0.0}%";
+    public string CpuLabel => _snapshot is null ? "—" : $"{_snapshot.CpuPercent:0.0}%";
     public string WattsLabel => _telemetry?.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
     public string FrequencyLabel => _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
     public double FlowProgress => Math.Clamp(_snapshot?.ThresholdProgress ?? 0, 0, 1);
-    public IReadOnlyList<TransitionRecord> History => _snapshot?.History ?? Array.Empty<TransitionRecord>();
+    public IReadOnlyList<TransitionRecord> History => _history;
     public IReadOnlyList<DashboardSample> Samples => _samples;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
@@ -58,11 +59,15 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public void Configure(PowerFlowConfig config)
     {
         _config = config;
-        RaiseAll();
+        RaiseAll(historyChanged: false);
     }
 
     public void Update(ControllerSnapshot snapshot, DashboardTelemetry? telemetry)
     {
+        var projectedHistory = snapshot.History.Reverse().ToArray();
+        var historyChanged = projectedHistory.Length != _history.Count || !projectedHistory.SequenceEqual(_history);
+        if (historyChanged) _history = projectedHistory;
+
         _snapshot = snapshot;
         if (telemetry is not null)
         {
@@ -74,10 +79,10 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
                 while (_samples.Count > 120) _samples.RemoveAt(0);
             }
         }
-        RaiseAll();
+        RaiseAll(historyChanged);
     }
 
-    private void RaiseAll()
+    private void RaiseAll(bool historyChanged)
     {
         OnPropertyChanged(nameof(StateLabel));
         OnPropertyChanged(nameof(Reason));
@@ -87,7 +92,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
         OnPropertyChanged(nameof(FlowProgress));
-        OnPropertyChanged(nameof(History));
+        if (historyChanged) OnPropertyChanged(nameof(History));
         OnPropertyChanged(nameof(Samples));
         OnPropertyChanged(nameof(PromotionThresholdPercent));
         OnPropertyChanged(nameof(QuietThresholdPercent));

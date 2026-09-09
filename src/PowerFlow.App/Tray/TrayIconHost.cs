@@ -8,6 +8,7 @@ public sealed class TrayIconHost : IDisposable
 {
     private const uint WmApp = 0x8000;
     private const uint WmTray = WmApp + 0x31;
+    private const uint WmMouseMove = 0x0200;
     private const uint WmRButtonUp = 0x0205;
     private const uint WmLButtonDblClk = 0x0203;
     private const uint WmContextMenu = 0x007B;
@@ -48,6 +49,7 @@ public sealed class TrayIconHost : IDisposable
     }
 
     public event EventHandler<TrayCommandInvokedEventArgs>? CommandInvoked;
+    public event EventHandler? HoverActivity;
 
     public void Update(ControllerSnapshot snapshot)
     {
@@ -106,7 +108,8 @@ public sealed class TrayIconHost : IDisposable
         }
         if (msg == WmTray)
         {
-            var mouseMessage = unchecked((uint)lParam.ToInt64());
+            var mouseMessage = unchecked((uint)(lParam.ToInt64() & 0xffff));
+            if (mouseMessage == WmMouseMove) HoverActivity?.Invoke(this, EventArgs.Empty);
             if (mouseMessage == WmLButtonDblClk)
                 RaiseCommand(TrayMenuCommands.OpenDashboard);
             else if (mouseMessage is WmRButtonUp or WmContextMenu)
@@ -117,6 +120,42 @@ public sealed class TrayIconHost : IDisposable
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
 
+
+    public bool IsPointerOverIcon()
+    {
+        if (!GetCursorPos(out var point) || !TryGetIconRect(out var rect)) return false;
+        return rect.Contains(point.X, point.Y);
+    }
+
+    public bool TryGetIconRect(out TrayRect rect)
+    {
+        var id = new NotifyIconIdentifier
+        {
+            CbSize = (uint)Marshal.SizeOf<NotifyIconIdentifier>(),
+            HWnd = _window,
+            UId = 1,
+            GuidItem = Guid.Empty
+        };
+        if (Shell_NotifyIconGetRect(ref id, out var native) != 0)
+        {
+            rect = default;
+            return false;
+        }
+        rect = new TrayRect(native.Left, native.Top, native.Right, native.Bottom);
+        return true;
+    }
+
+    public bool TryGetWorkArea(out TrayRect workArea)
+    {
+        if (!TryGetIconRect(out var icon)) { workArea = default; return false; }
+        var point = new Point { X = icon.Left + icon.Width / 2, Y = icon.Top + icon.Height / 2 };
+        var monitor = MonitorFromPoint(point, 2);
+        if (monitor == IntPtr.Zero) { workArea = default; return false; }
+        var info = new MonitorInfo { CbSize = (uint)Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info)) { workArea = default; return false; }
+        workArea = new TrayRect(info.Work.Left, info.Work.Top, info.Work.Right, info.Work.Bottom);
+        return true;
+    }
     private void ShowContextMenu()
     {
         var model = TrayMenuCommands.Build(_snapshot);
@@ -253,13 +292,36 @@ public sealed class TrayIconHost : IDisposable
     [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern uint RegisterWindowMessage(string value);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool Shell_NotifyIcon(uint message, ref NotifyIconData data);
+    [DllImport("shell32.dll")] private static extern int Shell_NotifyIconGetRect(ref NotifyIconIdentifier identifier, out NativeRect iconLocation);
     [DllImport("user32.dll")] private static extern IntPtr CreatePopupMenu();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool AppendMenu(IntPtr menu, uint flags, int id, string? text);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool DestroyMenu(IntPtr menu);
     [DllImport("user32.dll")] private static extern uint TrackPopupMenu(IntPtr menu, uint flags, int x, int y, int reserved, IntPtr hwnd, IntPtr rect);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out Point point);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern IntPtr LoadIcon(IntPtr instance, IntPtr iconName);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect { public int Left; public int Top; public int Right; public int Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NotifyIconIdentifier
+    {
+        public uint CbSize;
+        public IntPtr HWnd;
+        public uint UId;
+        public Guid GuidItem;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public uint CbSize;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public uint Flags;
+    }
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int cx, int cy, uint loadFlags);
 }

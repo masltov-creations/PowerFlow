@@ -20,6 +20,9 @@ public partial class App : Application
     private PowerFlowController? _controller;
     private GameLifecycleMonitor? _games;
     private TrayIconHost? _tray;
+    private TrayHoverWindow? _trayHoverWindow;
+    private DispatcherQueueTimer? _trayHoverTimer;
+    private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
     private DispatcherQueue? _dispatcher;
     private MainWindow? _dashboardWindow;
     private JsonConfigStore? _configStore;
@@ -59,6 +62,7 @@ public partial class App : Application
             {
                 _tray = new TrayIconHost(_controller.Snapshot);
                 _tray.CommandInvoked += OnTrayCommandInvoked;
+                _tray.HoverActivity += OnTrayHoverActivity;
             }
             if (LaunchIntent.ShouldOpenDashboard(launchArgs)) await OpenDashboardAsync(false);
         }
@@ -71,6 +75,78 @@ public partial class App : Application
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
 
+
+    private void OnTrayHoverActivity(object? sender, EventArgs e)
+    {
+        _dispatcher?.TryEnqueue(() =>
+        {
+            if (_shuttingDown || _tray is null) return;
+            _trayHoverPolicy.BeginHover(DateTimeOffset.UtcNow);
+            EnsureTrayHoverTimer();
+        });
+    }
+
+    private void EnsureTrayHoverTimer()
+    {
+        if (_dispatcher is null) return;
+        if (_trayHoverTimer is null)
+        {
+            _trayHoverTimer = _dispatcher.CreateTimer();
+            _trayHoverTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _trayHoverTimer.IsRepeating = true;
+            _trayHoverTimer.Tick += OnTrayHoverTick;
+        }
+        if (!_trayHoverTimer.IsRunning) _trayHoverTimer.Start();
+    }
+
+    private async void OnTrayHoverTick(DispatcherQueueTimer sender, object args)
+    {
+        if (_tray is null || _shuttingDown) { StopTrayHoverTimer(); return; }
+        var overIcon = _tray.IsPointerOverIcon();
+        var overPopup = _trayHoverWindow?.ContainsCursor() == true;
+        var action = _trayHoverPolicy.Evaluate(DateTimeOffset.UtcNow, overIcon, overPopup);
+        switch (action)
+        {
+            case TrayHoverAction.Show:
+                await ShowTrayHoverAsync();
+                break;
+            case TrayHoverAction.Hide:
+            case TrayHoverAction.Cancel:
+                await HideTrayHoverAsync();
+                StopTrayHoverTimer();
+                break;
+        }
+    }
+
+    private async Task ShowTrayHoverAsync()
+    {
+        if (_controller is null || _tray is null) return;
+        if (!_tray.TryGetIconRect(out var iconRect) || !_tray.TryGetWorkArea(out var workArea)) return;
+        if (_trayHoverWindow is null)
+        {
+            _trayHoverWindow = new TrayHoverWindow(_controller, _config);
+            _trayHoverWindow.OpenDashboardRequested += OnTrayHoverOpenDashboardRequested;
+        }
+        _trayHoverWindow.UpdateConfig(_config);
+        await _trayHoverWindow.ShowAsync(iconRect, workArea);
+    }
+
+    private async Task HideTrayHoverAsync()
+    {
+        if (_trayHoverWindow is not null) await _trayHoverWindow.HideAsync();
+    }
+
+    private async void OnTrayHoverOpenDashboardRequested(object? sender, EventArgs e)
+    {
+        await HideTrayHoverAsync();
+        StopTrayHoverTimer();
+        await OpenDashboardAsync(false);
+    }
+
+    private void StopTrayHoverTimer()
+    {
+        if (_trayHoverTimer?.IsRunning == true) _trayHoverTimer.Stop();
+    }
     private async void OnTrayCommandInvoked(object? sender, TrayIconHost.TrayCommandInvokedEventArgs e)
     {
         if (_controller is null || _shuttingDown) return;
@@ -113,6 +189,7 @@ public partial class App : Application
         if (!_previewMode) await _configStore.SaveAsync(updated);
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
         _config = updated;
+        _trayHoverWindow?.UpdateConfig(updated);
         _games?.UpdateRules(updated.AppRules);
         if (!_previewMode) _startupRegistration?.SetEnabled(updated.StartWithWindows);
     }
@@ -133,7 +210,10 @@ public partial class App : Application
         }
         finally
         {
-            if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.Dispose(); _tray = null; }
+            StopTrayHoverTimer();
+            if (_trayHoverTimer is not null) { _trayHoverTimer.Tick -= OnTrayHoverTick; _trayHoverTimer = null; }
+            if (_trayHoverWindow is not null) { _trayHoverWindow.OpenDashboardRequested -= OnTrayHoverOpenDashboardRequested; await _trayHoverWindow.DisposeAsync(); _trayHoverWindow = null; }
+            if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.HoverActivity -= OnTrayHoverActivity; _tray.Dispose(); _tray = null; }
             _games?.Dispose(); _games = null;
             _instanceGuard?.Dispose(); _instanceGuard = null;
             _controller = null;
