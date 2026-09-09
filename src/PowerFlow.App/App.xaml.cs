@@ -18,6 +18,10 @@ namespace PowerFlow.App;
 public partial class App : Application
 {
     private SingleInstanceGuard? _instanceGuard;
+    private const string DashboardOpenSignalName = @"Local\PowerFlow.OpenDashboard.v1";
+    private SingleInstanceSignal? _dashboardOpenSignal;
+    private int _dashboardOpenRequested;
+    private int _runtimeReady;
     private PowerFlowController? _controller;
     private TelemetryContinuityRecorder? _telemetryRecorder;
     private GameLifecycleMonitor? _games;
@@ -41,7 +45,14 @@ public partial class App : Application
         var launchArgs = Environment.GetCommandLineArgs();
         _previewMode = LaunchIntent.IsPreview(launchArgs);
         _instanceGuard = SingleInstanceGuard.TryAcquire(@"Local\PowerFlow.Controller.v1");
-        if (!_instanceGuard.IsPrimary) { Exit(); return; }
+        if (!_instanceGuard.IsPrimary)
+        {
+            if (!_previewMode && LaunchIntent.ShouldOpenDashboard(launchArgs))
+                SingleInstanceSignal.TrySignal(DashboardOpenSignalName, TimeSpan.FromSeconds(1));
+            Exit();
+            return;
+        }
+        if (!_previewMode) _dashboardOpenSignal = SingleInstanceSignal.Listen(DashboardOpenSignalName, OnDashboardOpenSignal);
         try
         {
             var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PowerFlow");
@@ -68,13 +79,32 @@ public partial class App : Application
                 _tray.CommandInvoked += OnTrayCommandInvoked;
                 _tray.HoverActivity += OnTrayHoverActivity;
             }
-            if (LaunchIntent.ShouldOpenDashboard(launchArgs)) await OpenDashboardAsync(false);
+            if (LaunchIntent.ShouldOpenDashboard(launchArgs)) Interlocked.Exchange(ref _dashboardOpenRequested, 1);
+            Volatile.Write(ref _runtimeReady, 1);
+            await DrainDashboardOpenRequestAsync();
         }
         catch (Exception ex)
         {
             await WriteStartupFailureAsync(ex);
             await ShutdownAsync(true);
         }
+    }
+
+    private void OnDashboardOpenSignal()
+    {
+        Interlocked.Exchange(ref _dashboardOpenRequested, 1);
+        if (Volatile.Read(ref _runtimeReady) != 1 || _shuttingDown) return;
+        _dispatcher?.TryEnqueue(async () =>
+        {
+            try { await DrainDashboardOpenRequestAsync(); }
+            catch (Exception ex) { await WriteStartupFailureAsync(ex); }
+        });
+    }
+
+    private async Task DrainDashboardOpenRequestAsync()
+    {
+        if (_shuttingDown || Interlocked.Exchange(ref _dashboardOpenRequested, 0) == 0) return;
+        await OpenDashboardAsync(false);
     }
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
@@ -230,6 +260,8 @@ public partial class App : Application
             if (_trayHoverWindow is not null) { _trayHoverWindow.OpenDashboardRequested -= OnTrayHoverOpenDashboardRequested; await _trayHoverWindow.DisposeAsync(); _trayHoverWindow = null; }
             if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.HoverActivity -= OnTrayHoverActivity; _tray.Dispose(); _tray = null; }
             _games?.Dispose(); _games = null;
+            Volatile.Write(ref _runtimeReady, 0);
+            _dashboardOpenSignal?.Dispose(); _dashboardOpenSignal = null;
             _instanceGuard?.Dispose(); _instanceGuard = null;
             _controller = null;
             if (exitApplication) Exit();
