@@ -1,0 +1,37 @@
+<UserControl
+    x:Class="PowerFlow.App.Dashboard.ControlContextControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dash="using:PowerFlow.App.Dashboard">
+    <UserControl.Resources>
+        <dash:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid x:Name="CauseLineLayer" ColumnSpacing="6">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding ControlOwnerLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="{Binding NextActionLabel}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        </Grid>
+
+        <Grid x:Name="ContextRailLayer" Visibility="Collapsed" ColumnSpacing="12">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="CONTROL" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding ControlOwnerLabel}" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="{Binding ControlDetailLabel}" FontSize="11" TextTrimming="CharacterEllipsis"/></StackPanel>
+            <StackPanel Grid.Column="1"><TextBlock Text="CAUSE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding CauseLabel}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding PolicyProgressLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding NextActionLabel}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding CooldownLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel>
+        </Grid>
+
+        <Grid x:Name="ContextModulesLayer" Visibility="Collapsed" ColumnSpacing="10">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Border x:Name="ControlLockModule" CornerRadius="12" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="11">
+                <Grid RowSpacing="5"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="CONTROL / LOCK" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><Button Grid.Column="1" Content="RELEASE" FontSize="11" Padding="8,3" Visibility="{Binding IsManualLatch, Converter={StaticResource BoolToVisibility}}" Click="OnReleaseManualClicked"/></Grid><TextBlock Grid.Row="1" Text="{Binding ControlOwnerLabel}" FontSize="15" FontWeight="SemiBold"/><TextBlock Grid.Row="2" Text="{Binding ControlDetailLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextWrapping="Wrap"/></Grid>
+            </Border>
+            <Border x:Name="ActiveCauseModule" Grid.Column="1" CornerRadius="12" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="11">
+                <StackPanel Spacing="5"><TextBlock Text="ACTIVE RULE / CAUSE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding CauseLabel}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding PolicyProgressLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><ProgressBar Maximum="1" Value="{Binding FlowProgress}" Height="5"/></StackPanel>
+            </Border>
+            <Border x:Name="PowerFlowNextModule" Grid.Column="2" CornerRadius="12" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="11">
+                <StackPanel Spacing="5"><TextBlock Text="POWER FLOW / NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding NextActionLabel}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding CooldownLabel}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

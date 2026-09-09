@@ -33,6 +33,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public string Reason => _snapshot?.Reason ?? "Initializing controller";
     public string BadgeLabel => _snapshot?.LatchType ?? (_snapshot?.CooldownRemaining is not null ? "Cooldown" : "Automatic");
     public string TriggerApplication => string.IsNullOrWhiteSpace(_snapshot?.TriggerApplication) ? "No explicit trigger" : _snapshot!.TriggerApplication!;
+    public double CpuPercent => Math.Clamp(_snapshot?.CpuPercent ?? 0, 0, 100);
     public string CpuLabel => _snapshot is null ? "—" : $"{_snapshot.CpuPercent:0.0}%";
     public string WattsLabel => _telemetry?.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
     public string FrequencyLabel => _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
@@ -53,6 +54,42 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         { IsLatched: true, LatchType: "Game" } => "Game latch active",
         _ => "Rules · apps · smart"
     };
+    public bool IsManualLatch => _snapshot?.IsLatched == true && string.Equals(_snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+    public string ControlOwnerLabel => _snapshot switch
+    {
+        { IsLatched: true, LatchType: "Manual" } => "Manual lock",
+        { IsLatched: true, LatchType: "Game" } => "Game latch",
+        _ => "Auto"
+    };
+    public string ControlDetailLabel => _snapshot switch
+    {
+        { IsLatched: true, LatchType: "Manual" } => $"Manual hold on {StateLabel.Replace(" LOCKED", "", StringComparison.Ordinal)}",
+        { IsLatched: true, LatchType: "Game", TriggerApplication: { Length: > 0 } app } => $"Held by {app}",
+        { IsLatched: true, LatchType: "Game" } => "Held until the tracked game exits",
+        _ => "Rules and sustained load choose the state"
+    };
+    public string CauseLabel => string.IsNullOrWhiteSpace(_snapshot?.TriggerApplication)
+        ? Reason
+        : $"{_snapshot!.TriggerApplication} - {Reason}";
+    public string CooldownLabel => _snapshot?.CooldownRemaining is { } remaining && remaining > TimeSpan.Zero
+        ? $"Cooldown {Math.Ceiling(remaining.TotalSeconds):0}s"
+        : "No cooldown";
+    public string PolicyProgressLabel => _snapshot is null
+        ? "Establishing policy"
+        : $"{Math.Clamp(_snapshot.ThresholdProgress, 0, 1) * 100:0}% toward decision";
+    public IReadOnlyList<string> ActiveSourceLines
+    {
+        get
+        {
+            var lines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_snapshot?.TriggerApplication))
+                lines.Add($"Trigger: {_snapshot!.TriggerApplication}");
+            foreach (var rule in RuleCards.Where(x => x.Status is "ACTIVE" or "LOCKED").Take(3))
+                lines.Add($"{rule.Title}: {rule.Status}");
+            if (lines.Count == 0) lines.Add("No explicit active source");
+            return lines;
+        }
+    }
     public double FlowProgress => Math.Clamp(_snapshot?.ThresholdProgress ?? 0, 0, 1);
     public IReadOnlyList<TransitionRecord> History => _history;
     public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
@@ -130,6 +167,14 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ManualModeEnabled));
         OnPropertyChanged(nameof(ControlBadgeLabel));
         OnPropertyChanged(nameof(AutoModeDetail));
+        OnPropertyChanged(nameof(CpuPercent));
+        OnPropertyChanged(nameof(IsManualLatch));
+        OnPropertyChanged(nameof(ControlOwnerLabel));
+        OnPropertyChanged(nameof(ControlDetailLabel));
+        OnPropertyChanged(nameof(CauseLabel));
+        OnPropertyChanged(nameof(CooldownLabel));
+        OnPropertyChanged(nameof(PolicyProgressLabel));
+        OnPropertyChanged(nameof(ActiveSourceLines));
         OnPropertyChanged(nameof(FlowProgress));
         if (historyChanged) OnPropertyChanged(nameof(History));
         if (historyChanged) OnPropertyChanged(nameof(RecentEventLines));
