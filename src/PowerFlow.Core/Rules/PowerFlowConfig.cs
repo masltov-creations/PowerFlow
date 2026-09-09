@@ -15,7 +15,8 @@ public sealed record PowerFlowConfig(
     Guid? HighPerformancePlanId,
     IReadOnlyList<AppRule> AppRules,
     bool StartWithWindows,
-    bool? ReducedMotionOverride)
+    bool? ReducedMotionOverride,
+    ThemePreference Theme = ThemePreference.System)
 {
     public static PowerFlowConfig Default { get; } = new(
         SchemaVersion: 1,
@@ -30,5 +31,6 @@ public sealed record PowerFlowConfig(
         HighPerformancePlanId: null,
         AppRules: Array.Empty<AppRule>(),
         StartWithWindows: false,
-        ReducedMotionOverride: null);
+        ReducedMotionOverride: null,
+        Theme: ThemePreference.System);
 }

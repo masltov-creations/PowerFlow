@@ -12,7 +12,9 @@ public sealed class DashboardLayoutTests
         Assert.Contains("TelemetryGraphControl", xaml);
         Assert.Contains("RuleFlowControl", xaml);
         Assert.Contains("DecisionPressureControl", xaml);
-        Assert.Contains("StateRailControl", xaml);
+        Assert.Contains("AutoOverrideButton", xaml);
+        Assert.Contains("SaverOverrideButton", xaml);
+        Assert.DoesNotContain("StateRailControl", xaml);
         Assert.Contains("CPU + PACKAGE POWER", xaml);
         Assert.DoesNotContain("FlowFieldControl", xaml);
         Assert.DoesNotContain("Value=\"{Binding Activity}\"", File.ReadAllText(RepoFile("src", "PowerFlow.App", "Dashboard", "RuleFlowControl.xaml")));

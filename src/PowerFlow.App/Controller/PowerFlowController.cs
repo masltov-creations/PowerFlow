@@ -159,6 +159,8 @@ public sealed class PowerFlowController : IAsyncDisposable
         if (!_games.IsLatched) StartSampling();
     });
 
+    public Task<IReadOnlyList<PowerPlanInfo>> ListPowerPlansAsync(CancellationToken cancellationToken = default) => _plans.ListAsync(cancellationToken);
+
     public Task DrainAsync()
     {
         lock (_queueLock) return _queue;

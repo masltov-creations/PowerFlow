@@ -28,7 +28,11 @@ public sealed partial class TelemetryGraphControl : UserControl
 
     public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsPreviewed;
     public event EventHandler<ThresholdsChangedEventArgs>? ThresholdsCommitted;
-public TelemetryGraphControl() => InitializeComponent();
+public TelemetryGraphControl()
+    {
+        InitializeComponent();
+        ActualThemeChanged += (_, _) => Redraw();
+    }
 
     public void Apply(IReadOnlyList<DashboardSample> samples, PowerFlowConfig config, IReadOnlyList<TransitionRecord>? history = null, double windowSeconds = 60)
     {
@@ -59,11 +63,12 @@ public TelemetryGraphControl() => InitializeComponent();
         _plotWidth = plotWidth;
         _plotHeight = plotHeight;
 
-        var gridBrush = Brush(255, 255, 255, 18);
-        var labelBrush = Brush(255, 255, 255, 100);
-        var cpuBrush = Brush(84, 224, 207, 235);
-        var powerBrush = Brush(125, 168, 255, 230);
-        var transitionBrush = Brush(255, 255, 255, 72);
+        var light = ActualTheme == ElementTheme.Light;
+        var gridBrush = light ? Brush(21, 38, 55, 25) : Brush(255, 255, 255, 18);
+        var labelBrush = light ? Brush(21, 38, 55, 125) : Brush(255, 255, 255, 100);
+        var cpuBrush = light ? Brush(22, 146, 132, 235) : Brush(84, 224, 207, 235);
+        var powerBrush = light ? Brush(73, 112, 206, 230) : Brush(125, 168, 255, 230);
+        var transitionBrush = light ? Brush(21, 38, 55, 72) : Brush(255, 255, 255, 72);
 
         foreach (var percent in new[] { 0d, 25d, 50d, 75d, 100d })
         {

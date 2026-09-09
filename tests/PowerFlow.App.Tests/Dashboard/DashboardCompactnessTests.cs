@@ -16,7 +16,7 @@ public sealed class DashboardCompactnessTests
         var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
         var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
 
-        Assert.Contains("SizeInt32(960, 620)", code, StringComparison.Ordinal);
+        Assert.Contains("SizeInt32(900, 560)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("<ScrollViewer", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("MinHeight=\"390\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Range60Button", xaml, StringComparison.Ordinal);

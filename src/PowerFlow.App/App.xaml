@@ -8,6 +8,35 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF0A0F16"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBrush" Color="#D9141B24"/>
+                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#C610161F"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#334B5B6D"/>
+                    <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#18FFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1FFFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#F21A2330"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF0A0F16"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBrush" Color="#D9141B24"/>
+                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#C610161F"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#334B5B6D"/>
+                    <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#18FFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1FFFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#F21A2330"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FFF3F6F9"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBrush" Color="#F7FFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#EFFFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#2B23384D"/>
+                    <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1423384D"/>
+                    <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1823384D"/>
+                    <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FCFFFFFF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

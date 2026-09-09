@@ -181,12 +181,17 @@ public sealed class TrayIconHost : IDisposable
 
     private static IntPtr LoadStateIcon(ControllerSnapshot snapshot)
     {
-        // Shared system icons: no allocation/destruction overhead. Custom vector icons replace these in the visual-polish task.
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "PowerFlow.ico");
+        if (File.Exists(iconPath))
+        {
+            var custom = LoadImage(IntPtr.Zero, iconPath, 1, 0, 0, 0x00000010 | 0x00000040 | 0x00008000);
+            if (custom != IntPtr.Zero) return custom;
+        }
         var resourceId = snapshot.IsLatched ? 32518 : snapshot.State switch
         {
-            PowerState.PowerSaver => 32516,       // IDI_INFORMATION
-            PowerState.Balanced => 32512,         // IDI_APPLICATION
-            PowerState.HighPerformance => 32515,  // IDI_WARNING
+            PowerState.PowerSaver => 32516,
+            PowerState.Balanced => 32512,
+            PowerState.HighPerformance => 32515,
             _ => 32512
         };
         return LoadIcon(IntPtr.Zero, new IntPtr(resourceId));
@@ -256,4 +261,5 @@ public sealed class TrayIconHost : IDisposable
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern IntPtr LoadIcon(IntPtr instance, IntPtr iconName);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadImage(IntPtr instance, string name, uint type, int cx, int cy, uint loadFlags);
 }

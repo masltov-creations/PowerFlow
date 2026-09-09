@@ -3,8 +3,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
+using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
+using Windows.Storage.Pickers;
 
 namespace PowerFlow.App.Dashboard;
 
@@ -31,18 +33,19 @@ public sealed partial class MainWindow : Window
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _telemetrySession = new DashboardTelemetrySession(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
+        ApplyTheme(config.Theme);
         ViewModel.Configure(config);
         Root.DataContext = ViewModel;
         ViewModel.Update(controller.Snapshot, null);
         ApplyVisualState(controller.Snapshot);
-        RulesPanel.Initialize(config, ApplyConfigFromPageAsync);
-        SettingsPanel.Initialize(config, ApplyConfigFromPageAsync);
+        RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
+        SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         controller.SnapshotChanged += OnSnapshotChanged;
         _telemetrySession.TelemetryChanged += OnTelemetryChanged;
         TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
         Closed += OnClosed;
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
+        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(900, 560));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
     }
@@ -68,18 +71,40 @@ public sealed partial class MainWindow : Window
     {
         var snapshot = _controller.Snapshot;
         ViewModel.Update(snapshot, telemetry);
-        TelemetryGraph.Apply(ViewModel.Samples, _config, _controller.Snapshot.History, _graphWindowSeconds);
+        TelemetryGraph.Apply(ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
         DecisionPressure.Apply(_config, snapshot);
     });
 
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
-        StateRail.Apply(snapshot);
+        ApplyOverrideVisual(snapshot);
         RuleFlow.Apply(_config, snapshot);
         DecisionPressure.Apply(_config, snapshot);
-        TelemetryGraph.Apply(ViewModel.Samples, _config, _controller.Snapshot.History, _graphWindowSeconds);
+        TelemetryGraph.Apply(ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
     }
 
+    private void ApplyOverrideVisual(ControllerSnapshot snapshot)
+    {
+        var manual = string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        var game = string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase);
+        AutoOverrideButton.IsChecked = !manual;
+        SaverOverrideButton.IsChecked = snapshot.State == PowerState.PowerSaver;
+        BalancedOverrideButton.IsChecked = snapshot.State == PowerState.Balanced;
+        PerformanceOverrideButton.IsChecked = snapshot.State == PowerState.HighPerformance;
+        SaverOverrideButton.IsEnabled = !game;
+        BalancedOverrideButton.IsEnabled = !game;
+    }
+
+    private async void OnAutoOverride(object sender, RoutedEventArgs e)
+    {
+        if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
+            await _controller.ReleaseManualLatchAsync();
+        ApplyOverrideVisual(_controller.Snapshot);
+    }
+
+    private async void OnSaverOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.PowerSaver);
+    private async void OnBalancedOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.Balanced);
+    private async void OnPerformanceOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.HighPerformance);
 
     private void OnRange60(object sender, RoutedEventArgs e)
     {
@@ -96,13 +121,10 @@ public sealed partial class MainWindow : Window
         Range120Button.IsChecked = true;
         ApplyVisualState(_controller.Snapshot);
     }
+
     private void OnThresholdsPreviewed(object? sender, ThresholdsChangedEventArgs e)
     {
-        _config = _config with
-        {
-            QuietThresholdPercent = e.QuietPercent,
-            CpuPromotionThresholdPercent = e.PromotionPercent
-        };
+        _config = _config with { QuietThresholdPercent = e.QuietPercent, CpuPromotionThresholdPercent = e.PromotionPercent };
         ViewModel.Configure(_config);
         RuleFlow.Apply(_config, _controller.Snapshot);
         DecisionPressure.Apply(_config, _controller.Snapshot);
@@ -110,21 +132,37 @@ public sealed partial class MainWindow : Window
 
     private async void OnThresholdsCommitted(object? sender, ThresholdsChangedEventArgs e)
     {
-        var updated = _config with
-        {
-            QuietThresholdPercent = e.QuietPercent,
-            CpuPromotionThresholdPercent = e.PromotionPercent
-        };
-        await ApplyConfigFromPageAsync(updated);
+        await ApplyConfigFromPageAsync(_config with { QuietThresholdPercent = e.QuietPercent, CpuPromotionThresholdPercent = e.PromotionPercent });
     }
+
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);
         _config = config;
+        ApplyTheme(config.Theme);
         ViewModel.Configure(config);
         ApplyVisualState(_controller.Snapshot);
         RulesPanel.RefreshConfig(config);
         SettingsPanel.RefreshConfig(config);
+    }
+
+    private void ApplyTheme(ThemePreference theme)
+    {
+        Root.RequestedTheme = theme switch
+        {
+            ThemePreference.Light => ElementTheme.Light,
+            ThemePreference.Dark => ElementTheme.Dark,
+            _ => ElementTheme.Default
+        };
+    }
+
+    private async Task<string?> BrowseExecutableAsync()
+    {
+        var picker = new FileOpenPicker { ViewMode = PickerViewMode.List, SuggestedStartLocation = PickerLocationId.ComputerFolder };
+        picker.FileTypeFilter.Add(".exe");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
     }
 
     private void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
