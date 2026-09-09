@@ -9,9 +9,9 @@
                 <DataTemplate>
                     <Border CornerRadius="8" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="7" Margin="0,0,0,1">
                         <StackPanel Spacing="2">
-                            <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Title}" FontSize="8" CharacterSpacing="55" Opacity="0.62"/><Border Grid.Column="1" Padding="5,1" CornerRadius="6" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding Status}" FontSize="7.5" CharacterSpacing="40"/></Border></Grid>
-                            <TextBlock Text="{Binding Condition}" FontSize="9.5" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding Target}" FontSize="8" CharacterSpacing="45" Opacity="0.62"/>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Title}" FontSize="11" CharacterSpacing="45" Opacity="0.68"/><Border Grid.Column="1" Padding="5,1" CornerRadius="6" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding Status}" FontSize="11" CharacterSpacing="40"/></Border></Grid>
+                            <TextBlock Text="{Binding Condition}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Target}" FontSize="11" CharacterSpacing="45" Opacity="0.62"/>
                         </StackPanel>
                     </Border>
                 </DataTemplate>

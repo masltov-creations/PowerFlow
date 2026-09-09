@@ -16,12 +16,12 @@
             <Line x:Name="QuietHitRail" Stroke="Transparent" StrokeThickness="18" IsHitTestVisible="False"/>
             <Ellipse x:Name="PromoteHandle" Width="11" Height="11" Fill="#FFDC8CFF" Stroke="#A0FFFFFF" StrokeThickness="1" IsHitTestVisible="False"/>
             <Ellipse x:Name="QuietHandle" Width="11" Height="11" Fill="#FF54E0CF" Stroke="#A0FFFFFF" StrokeThickness="1" IsHitTestVisible="False"/>
-            <TextBlock x:Name="PromoteLabel" FontSize="8" Foreground="#FFB95EDF" IsHitTestVisible="False"/>
-            <TextBlock x:Name="QuietLabel" FontSize="8" Foreground="#FF2BAE9F" IsHitTestVisible="False"/>
+            <TextBlock x:Name="PromoteLabel" FontSize="11" Foreground="#FFB95EDF" IsHitTestVisible="False"/>
+            <TextBlock x:Name="QuietLabel" FontSize="11" Foreground="#FF2BAE9F" IsHitTestVisible="False"/>
             <Line x:Name="HoverLine" Stroke="#6699AABB" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
             <Ellipse x:Name="CpuHoverDot" Width="8" Height="8" Fill="#FF54E0CF" Stroke="#A0FFFFFF" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
             <Ellipse x:Name="PowerHoverDot" Width="8" Height="8" Fill="#FF7DA8FF" Stroke="#A0FFFFFF" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
         </Canvas>
-        <Border x:Name="HoverCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,7,0" Padding="7,4" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False"><TextBlock x:Name="HoverText" FontSize="8.5"/></Border>
+        <Border x:Name="HoverCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,7,0" Padding="7,4" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False"><TextBlock x:Name="HoverText" FontSize="11"/></Border>
     </Grid>
 </UserControl>

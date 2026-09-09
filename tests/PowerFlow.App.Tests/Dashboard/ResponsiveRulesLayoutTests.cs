@@ -40,7 +40,7 @@ public sealed class ResponsiveRulesLayoutTests
     public void Dashboard_DefaultWindowIsCompact()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("SizeInt32(900, 560)", code);
+        Assert.Contains("SizeInt32(960, 620)", code);
         Assert.DoesNotContain("SizeInt32(1180, 760)", code);
     }
 

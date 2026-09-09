@@ -74,7 +74,7 @@ public TelemetryGraphControl()
         {
             var y = CpuY(percent, top, plotHeight);
             AddLine(left, y, left + plotWidth, y, gridBrush, 1);
-            AddText($"{percent:0}%", 4, y - 7, 9, labelBrush);
+            AddText($"{percent:0}%", 4, y - 7, 11, labelBrush);
         }
 
         var latest = _samples.Count > 0 ? _samples[^1].At : DateTimeOffset.UtcNow;
@@ -84,10 +84,10 @@ public TelemetryGraphControl()
         var powerMax = powerValues.Length == 0 ? 100d : Math.Max(100d, Math.Ceiling(powerValues.Max() / 25d) * 25d);
         _powerMax = powerMax;
         _latest = latest;
-        AddText($"{powerMax:0} W", width - right + 6, top - 6, 9, labelBrush);
-        AddText("0 W", width - right + 6, top + plotHeight - 6, 9, labelBrush);
-        AddText($"-{_windowSeconds:0}s", left, height - 20, 9, labelBrush);
-        AddText("NOW", left + plotWidth - 22, height - 20, 9, labelBrush);
+        AddText($"{powerMax:0} W", width - right + 6, top - 6, 11, labelBrush);
+        AddText("0 W", width - right + 6, top + plotHeight - 6, 11, labelBrush);
+        AddText($"-{_windowSeconds:0}s", left, height - 20, 11, labelBrush);
+        AddText("NOW", left + plotWidth - 22, height - 20, 11, labelBrush);
 
         foreach (var transition in _history.TakeLast(8))
         {

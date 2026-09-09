@@ -7,37 +7,37 @@
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid Grid.Row="0" ColumnSpacing="10">
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel Spacing="0"><TextBlock Text="RULES" FontSize="9" CharacterSpacing="180" Opacity="0.45"/><TextBlock Text="App routing" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="Pick a running app or browse to an executable, then choose Balanced or Performance Lock." FontSize="9.5" Opacity="0.52"/></StackPanel>
+                <StackPanel Spacing="0"><TextBlock Text="RULES" FontSize="11" CharacterSpacing="180" Opacity="0.45"/><TextBlock Text="App routing" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="Pick a running app or browse to an executable, then choose Balanced or Performance Lock." FontSize="12" Opacity="0.52"/></StackPanel>
                 <Button Grid.Column="1" Content="Add app rule" Click="OnAddAppRule" Padding="12,5" VerticalAlignment="Center"/>
             </Grid>
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6"><Border CornerRadius="8" Background="#14D88CFF" BorderBrush="#35D88CFF" BorderThickness="1" Padding="8,4"><TextBlock Text="PERFORMANCE LOCK · lifecycle" FontSize="8"/></Border><Border CornerRadius="8" Background="#146EA8FF" BorderBrush="#356EA8FF" BorderThickness="1" Padding="8,4"><TextBlock Text="BALANCED · while process exists" FontSize="8"/></Border></StackPanel>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6"><Border CornerRadius="8" Background="#14D88CFF" BorderBrush="#35D88CFF" BorderThickness="1" Padding="8,4"><TextBlock Text="PERFORMANCE LOCK · lifecycle" FontSize="11"/></Border><Border CornerRadius="8" Background="#146EA8FF" BorderBrush="#356EA8FF" BorderThickness="1" Padding="8,4"><TextBlock Text="BALANCED · while process exists" FontSize="11"/></Border></StackPanel>
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <ItemsRepeater x:Name="RulesRepeater">
-                    <ItemsRepeater.Layout><UniformGridLayout MinItemWidth="250" MinItemHeight="104" MinRowSpacing="7" MinColumnSpacing="7" ItemsStretch="Fill"/></ItemsRepeater.Layout>
+                    <ItemsRepeater.Layout><UniformGridLayout MinItemWidth="270" MinItemHeight="128" MinRowSpacing="7" MinColumnSpacing="7" ItemsStretch="Fill"/></ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
                             <Border x:Name="RuleCardBorder" CornerRadius="10" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="9">
                                 <Grid RowSpacing="5">
                                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><Border Grid.Column="1" Padding="6,1" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding Mode}" FontSize="8"/></Border></Grid>
-                                    <TextBlock Grid.Row="1" Text="{Binding ExecutablePath}" FontSize="8.5" Opacity="0.42" TextTrimming="CharacterEllipsis"/>
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5"><Button Content="Performance" Tag="{Binding}" Click="OnSetPerformanceFromCard" Padding="7,2" FontSize="8"/><Button Content="Balanced" Tag="{Binding}" Click="OnSetBalancedFromCard" Padding="7,2" FontSize="8"/><Button Content="Remove" Tag="{Binding}" Click="OnRemoveFromCard" Padding="7,2" FontSize="8"/></StackPanel>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><Border Grid.Column="1" Padding="6,1" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding Mode}" FontSize="11"/></Border></Grid>
+                                    <TextBlock Grid.Row="1" Text="{Binding ExecutablePath}" FontSize="11" Opacity="0.42" TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="5"><Button Content="Performance" Tag="{Binding}" Click="OnSetPerformanceFromCard" Padding="9,4" FontSize="12"/><Button Content="Balanced" Tag="{Binding}" Click="OnSetBalancedFromCard" Padding="9,4" FontSize="12"/><Button Content="Remove" Tag="{Binding}" Click="OnRemoveFromCard" Padding="9,4" FontSize="12"/></StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
             </ScrollViewer>
-            <TextBlock x:Name="StatusText" Grid.Row="3" FontSize="9" Opacity="0.48"/>
+            <TextBlock x:Name="StatusText" Grid.Row="3" FontSize="11" Opacity="0.48"/>
         </Grid>
 
         <ContentDialog x:Name="AppPickerDialog" Title="Add app rule" PrimaryButtonText="Add rule" CloseButtonText="Cancel" DefaultButton="Primary" PrimaryButtonClick="OnAppPickerPrimary">
-            <Grid Width="540" RowSpacing="8">
+            <Grid Width="560" RowSpacing="9">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="280"/></Grid.RowDefinitions>
                 <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="AppSearchBox" PlaceholderText="Search running apps" TextChanged="OnAppSearchChanged"/><ComboBox x:Name="AppModeBox" Grid.Column="1" SelectedIndex="0"><ComboBoxItem Content="Performance Lock" Tag="Performance"/><ComboBoxItem Content="Balanced" Tag="Balanced"/></ComboBox><Button Grid.Column="2" Content="Browse…" Click="OnBrowseExecutable" Padding="10,4"/></Grid>
-                <TextBlock Grid.Row="1" Text="Running user apps" FontSize="9" Opacity="0.45"/>
+                <TextBlock Grid.Row="1" Text="Running user apps" FontSize="11" Opacity="0.45"/>
                 <ListView x:Name="AppPickerList" Grid.Row="2" SelectionMode="Single">
-                    <ListView.ItemTemplate><DataTemplate><Grid Padding="4" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="22" Height="22" Source="{Binding Icon}" Stretch="Uniform" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding DisplayName}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ExecutablePath}" FontSize="8.5" Opacity="0.45" TextTrimming="CharacterEllipsis"/></StackPanel></Grid></DataTemplate></ListView.ItemTemplate>
+                    <ListView.ItemTemplate><DataTemplate><Grid Padding="4" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Width="22" Height="22" Source="{Binding Icon}" Stretch="Uniform" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding DisplayName}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding ExecutablePath}" FontSize="11" Opacity="0.45" TextTrimming="CharacterEllipsis"/></StackPanel></Grid></DataTemplate></ListView.ItemTemplate>
                 </ListView>
             </Grid>
         </ContentDialog>

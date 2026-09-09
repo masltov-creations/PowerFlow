@@ -45,7 +45,7 @@ public sealed partial class MainWindow : Window
         TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
         Closed += OnClosed;
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(900, 560));
+        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
     }
