@@ -4,7 +4,7 @@
 
 PowerFlow is a tiny, tray-first Windows power-plan traffic cop. **Saver sips. Balanced cruises. Performance gets the green light.** Games can hold Performance until they actually leave, while ordinary desktop use settles back down without turning your power plan into a metronome.
 
-![PowerFlow dashboard](docs/assets/powerflow-dashboard.png)
+![PowerFlow compressed dashboard](docs/assets/powerflow-compressed.png)
 
 > [!WARNING]
 > **Vibe Coding Alert:** AI was absolutely in the loop. The power-plan decisions are not powered by vibes. The current build has deterministic policy tests, a red-to-green regression proof for the last WinUI crash, a clean Release build, native plan-switch verification, and a live tray/dashboard acceptance run. Vibes proposed. Tests disposed.
@@ -24,6 +24,16 @@ The important part is not the three buttons. It is the behavior between them: hy
 PowerFlow lives in the tray. The full dashboard only appears when invited.
 
 The dashboard is trajectory-first: recent behavior, **NOW**, policy pressure, thresholds, and actual state transitions share one compact field. Hover gives local detail. Click expands context in place. Rules and settings stay out of the way until you ask for them.
+
+### Three levels, one instrument
+
+- **Hover glance - 320 x 176.** Tiny, non-activating, and just enough: state, one telemetry line, trajectory, next action.
+- **Compressed - 760 x 440.** The default working instrument. Same trajectory and policy anchors, readable rather than miniaturized.
+- **Expanded - 1120 x 720.** The same instrument grows into a full cockpit with richer context, Rules, and Settings. No surprise card-wall sequel.
+
+![PowerFlow expanded cockpit](docs/assets/powerflow-expanded.png)
+
+Compressed and expanded modes evolve through a short bounded resize/content transition. Reduced Motion turns the flourish off without changing the information hierarchy. Manual resizing maps onto the same two dashboard modes.
 
 Telemetry also survives a closed dashboard without becoming its own space heater:
 
@@ -86,16 +96,18 @@ Per-user configuration lives at:
 
 The UI exposes resting state, CPU promotion/quiet thresholds and hold times, game/app rules, startup behavior, theme, reduced motion, and power-plan mappings.
 
+`AVG CLOCK` is Windows-reported average processor frequency across active processors. It is a power-state diagnostic, not the peak boost clock of the fastest core.
+
 ## Current qualification
 
 The September 9, 2026 candidate passed:
 
-- **165/165 automated tests** across Core, Windows, and App;
+- **169/169 automated tests** across Core, Windows, and App;
 - Release build with **0 warnings / 0 errors**;
 - WinUI dynamic-theme crash regression proven **red -> green** against the pre-fix commit;
 - real production `WindowsPowerPlanController` switch **Power Saver -> Balanced -> Power Saver**, with Windows confirming each active GUID;
 - hidden startup with **no dashboard window**;
-- dashboard open -> close-to-tray -> reopen -> close-to-tray;
+- dashboard opens compressed at **760 x 440**, evolves to **1120 x 720** expanded, and collapses cleanly back to **760 x 440**;
 - **0 new PowerFlow crash events** during the live acceptance run;
 - exactly **one** background PowerFlow process afterward.
 
