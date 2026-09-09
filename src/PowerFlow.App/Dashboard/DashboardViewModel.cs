@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using PowerFlow.App.Controller;
+using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -62,6 +63,19 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         RaiseAll(historyChanged: false);
     }
 
+    public void UpdateContinuity(ControllerSnapshot snapshot, IReadOnlyList<ContinuitySample> continuity, DashboardTelemetry? telemetry)
+    {
+        var projectedHistory = snapshot.History.Reverse().ToArray();
+        var historyChanged = projectedHistory.Length != _history.Count || !projectedHistory.SequenceEqual(_history);
+        if (historyChanged) _history = projectedHistory;
+        _snapshot = snapshot;
+        _telemetry = telemetry;
+        _samples.Clear();
+        foreach (var sample in continuity.OrderBy(x => x.At))
+            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State));
+        _lastSampleAt = _samples.Count > 0 ? _samples[^1].At : null;
+        RaiseAll(historyChanged);
+    }
     public void Update(ControllerSnapshot snapshot, DashboardTelemetry? telemetry)
     {
         var projectedHistory = snapshot.History.Reverse().ToArray();

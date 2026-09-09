@@ -24,14 +24,16 @@ public sealed class DashboardClosePolicyTests
     }
 
     [Fact]
-    public void MainWindow_InterceptsRealCloseAndStopsHiddenTelemetry()
+    public void MainWindow_InterceptsRealCloseAndReleasesVisibleTelemetryLease()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
         Assert.Contains("AppWindow.Closing += OnAppWindowClosing", source);
         Assert.Contains("args.Cancel = true", source);
         Assert.Contains("AppWindow.Hide()", source);
-        Assert.Contains("StopDashboardTelemetryAsync", source);
+        Assert.Contains("ReleaseDashboardVisibility", source);
+        Assert.Contains("AcquireVisibility", source);
         Assert.Contains("CloseForShutdown", source);
+        Assert.DoesNotContain("new DashboardTelemetrySession", source);
     }
 
     [Fact]

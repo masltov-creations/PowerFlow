@@ -12,87 +12,32 @@
                 <NavigationViewItem Content="Settings" Tag="settings"/>
             </NavigationView.MenuItems>
             <Grid>
-                <Grid x:Name="DashboardPanel" Padding="12,6,12,9" RowSpacing="5">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <Grid Grid.Row="0" ColumnSpacing="8">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.05*"/><ColumnDefinition Width="1.35*"/></Grid.ColumnDefinitions>
-                        <StackPanel Spacing="0">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="POWERFLOW" FontSize="11" CharacterSpacing="180" Opacity="0.45" VerticalAlignment="Center"/>
-                                <Border x:Name="PreviewModeBadge" Visibility="Collapsed" Padding="6,1" CornerRadius="7" Background="#164DE7D3" BorderBrush="#504DE7D3" BorderThickness="1"><TextBlock Text="PREVIEW · READ ONLY" FontSize="11" CharacterSpacing="50" Foreground="#FF42CDBA"/></Border>
+                <Grid x:Name="DashboardPanel" Padding="14,8,14,12" RowSpacing="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+                        <StackPanel Spacing="1">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock Text="POWERFLOW" FontSize="11" CharacterSpacing="180" Opacity="0.46" VerticalAlignment="Center"/>
+                                <Border x:Name="PreviewModeBadge" Visibility="Collapsed" Padding="6,1" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1"><TextBlock Text="PREVIEW · READ ONLY" FontSize="11" CharacterSpacing="50"/></Border>
                                 <Border Padding="6,1" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding BadgeLabel}" FontSize="11" CharacterSpacing="45"/></Border>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding StateLabel}" FontSize="18" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding Reason}" FontSize="12" Opacity="0.58" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="360"/>
+                                <TextBlock Text="{Binding Reason}" FontSize="12" Opacity="0.58" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="420"/>
                             </StackPanel>
-                            <TextBlock Text="{Binding NextActionLabel}" FontSize="11" Opacity="0.38"/>
                         </StackPanel>
-                        <Border Grid.Column="1" CornerRadius="10" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="9,6">
-                            <Grid ColumnSpacing="10">
-                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="1.45*"/></Grid.ColumnDefinitions>
-                                <StackPanel><TextBlock Text="CPU" FontSize="11" CharacterSpacing="70" Opacity="0.42"/><TextBlock Text="{Binding CpuLabel}" FontSize="14" FontWeight="SemiBold"/></StackPanel>
-                                <StackPanel Grid.Column="1"><TextBlock Text="PACKAGE W" FontSize="11" CharacterSpacing="55" Opacity="0.42"/><TextBlock Text="{Binding WattsLabel}" FontSize="14" FontWeight="SemiBold"/></StackPanel>
-                                <StackPanel Grid.Column="2"><TextBlock Text="GHz" FontSize="11" CharacterSpacing="70" Opacity="0.42"/><TextBlock Text="{Binding FrequencyLabel}" FontSize="14" FontWeight="SemiBold"/></StackPanel>
-                                <StackPanel Grid.Column="3"><TextBlock Text="TRIGGER" FontSize="11" CharacterSpacing="65" Opacity="0.42"/><TextBlock Text="{Binding TriggerApplication}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/></StackPanel>
+                        <Border Grid.Column="1" CornerRadius="10" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="10,6">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel><TextBlock Text="CPU" FontSize="11" CharacterSpacing="70" Opacity="0.44"/><TextBlock Text="{Binding CpuLabel}" FontSize="15" FontWeight="SemiBold"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="PACKAGE W" FontSize="11" CharacterSpacing="55" Opacity="0.44"/><TextBlock Text="{Binding WattsLabel}" FontSize="15" FontWeight="SemiBold"/></StackPanel>
+                                <StackPanel Grid.Column="2"><TextBlock Text="GHz" FontSize="11" CharacterSpacing="70" Opacity="0.44"/><TextBlock Text="{Binding FrequencyLabel}" FontSize="15" FontWeight="SemiBold"/></StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
-
-                    <Border Grid.Row="1" CornerRadius="9" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="7,5">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <TextBlock Text="MODE" FontSize="11" CharacterSpacing="85" Opacity="0.42" VerticalAlignment="Center" Margin="2,0,2,0"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                                <ToggleButton x:Name="AutoOverrideButton" Content="AUTO" Click="OnAutoOverride" Padding="11,4" FontSize="12" AutomationProperties.Name="Automatic power policy"/>
-                                <ToggleButton x:Name="SaverOverrideButton" Content="SAVER" Click="OnSaverOverride" Padding="11,4" FontSize="12" AutomationProperties.Name="Lock Power Saver"/>
-                                <ToggleButton x:Name="BalancedOverrideButton" Content="BALANCED" Click="OnBalancedOverride" Padding="11,4" FontSize="12" AutomationProperties.Name="Lock Balanced"/>
-                                <ToggleButton x:Name="PerformanceOverrideButton" Content="PERFORMANCE" Click="OnPerformanceOverride" Padding="11,4" FontSize="12" AutomationProperties.Name="Lock High Performance"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="2" Text="Click a mode to lock it · AUTO releases manual lock" FontSize="11" Opacity="0.38" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                        </Grid>
-                    </Border>
-
-                    <Grid Grid.Row="2" ColumnSpacing="8" MinHeight="270">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="2.45*"/><ColumnDefinition Width="1.05*"/></Grid.ColumnDefinitions>
-                        <Border CornerRadius="11" Background="{ThemeResource PowerFlowPanelBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="8">
-                            <Grid RowSpacing="4">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="CPU + PACKAGE POWER" FontSize="11" FontWeight="SemiBold" CharacterSpacing="55"/><TextBlock Text="drag QUIET / PROMOTE · hover values" FontSize="11" Opacity="0.38" VerticalAlignment="Center"/></StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <ToggleButton x:Name="Range60Button" Content="60s" IsChecked="True" Click="OnRange60" Padding="8,3" FontSize="11"/>
-                                        <ToggleButton x:Name="Range120Button" Content="2m" Click="OnRange120" Padding="8,3" FontSize="11"/>
-                                    </StackPanel>
-                                </Grid>
-                                <dash:TelemetryGraphControl x:Name="TelemetryGraph" Grid.Row="1"/>
-                            </Grid>
-                        </Border>
-                        <Border Grid.Column="1" CornerRadius="11" Background="{ThemeResource PowerFlowPanelBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="8">
-                            <Grid RowSpacing="4">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <TextBlock Text="AUTOMATIC RULES" FontSize="11" FontWeight="SemiBold" CharacterSpacing="55"/>
-                                <dash:RuleFlowControl x:Name="RuleFlow" Grid.Row="1" Margin="0,3,0,0"/>
-                            </Grid>
-                        </Border>
-                    </Grid>
-
-                    <Grid Grid.Row="3" ColumnSpacing="7">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="2.45*"/><ColumnDefinition Width="1.05*"/></Grid.ColumnDefinitions>
-                        <Border CornerRadius="9" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="8"><dash:DecisionPressureControl x:Name="DecisionPressure"/></Border>
-                        <Border Grid.Column="1" CornerRadius="9" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="8,6">
-                            <StackPanel><TextBlock Text="RECENT" FontSize="11" CharacterSpacing="70" Opacity="0.44"/><ListView ItemsSource="{Binding History}" MaxHeight="52" Background="Transparent" BorderThickness="0" SelectionMode="None"><ListView.ItemTemplate><DataTemplate><Grid Margin="0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="{Binding To}" FontSize="11" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding Reason}" FontSize="11" Opacity="0.43" TextTrimming="CharacterEllipsis"/></Grid></DataTemplate></ListView.ItemTemplate></ListView></StackPanel>
-                        </Border>
-                    </Grid>
+                    <dash:TrajectoryControl x:Name="Trajectory" Grid.Row="1"/>
                 </Grid>
-
                 <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                 <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
             </Grid>

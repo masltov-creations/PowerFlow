@@ -41,14 +41,17 @@ public sealed partial class MainWindow : Window
         ApplyTheme(config.Theme);
         ViewModel.Configure(config);
         Root.DataContext = ViewModel;
-        ViewModel.Update(controller.Snapshot, recorder.LatestRichTelemetry);
+        ViewModel.UpdateContinuity(controller.Snapshot, recorder.History, recorder.LatestRichTelemetry);
         ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
-        TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
-        TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
+        Trajectory.AutoRequested += OnTrajectoryAutoRequested;
+        Trajectory.ManualStateRequested += OnTrajectoryManualStateRequested;
+        Trajectory.RangeChanged += OnTrajectoryRangeChanged;
+        Trajectory.ThresholdsPreviewed += OnThresholdsPreviewed;
+        Trajectory.ThresholdsCommitted += OnThresholdsCommitted;
         AppWindow.Closing += OnAppWindowClosing;
         Closed += OnClosed;
         AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
@@ -59,7 +62,7 @@ public sealed partial class MainWindow : Window
     public Task ShowAsync(bool showSettings = false)
     {
         _visibilityLease ??= _recorder.AcquireVisibility();
-        ViewModel.Update(_controller.Snapshot, _recorder.LatestRichTelemetry);
+        ViewModel.UpdateContinuity(_controller.Snapshot, _recorder.History, _recorder.LatestRichTelemetry);
         ApplyVisualState(_controller.Snapshot);
         SelectSection(showSettings ? "settings" : "flow");
         Activate();
@@ -88,61 +91,35 @@ public sealed partial class MainWindow : Window
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() =>
     {
-        ViewModel.Update(snapshot, _recorder.LatestRichTelemetry);
+        ViewModel.UpdateContinuity(snapshot, _recorder.History, _recorder.LatestRichTelemetry);
         ApplyVisualState(snapshot);
     });
 
     private void OnContinuityChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(() =>
     {
         var snapshot = _controller.Snapshot;
-        ViewModel.Update(snapshot, _recorder.LatestRichTelemetry);
-        TelemetryGraph.Apply(ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
-        DecisionPressure.Apply(_config, snapshot);
+        ViewModel.UpdateContinuity(snapshot, _recorder.History, _recorder.LatestRichTelemetry);
+        ApplyVisualState(snapshot);
     });
+
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
-        ApplyOverrideVisual(snapshot);
-        RuleFlow.Apply(_config, snapshot);
-        DecisionPressure.Apply(_config, snapshot);
-        TelemetryGraph.Apply(ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
+        var model = TrajectoryProjection.Create(_recorder.History, snapshot, _config);
+        Trajectory.Apply(model, ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
     }
 
-    private void ApplyOverrideVisual(ControllerSnapshot snapshot)
-    {
-        var manual = string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
-        var game = string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase);
-        AutoOverrideButton.IsChecked = !manual;
-        SaverOverrideButton.IsChecked = snapshot.State == PowerState.PowerSaver;
-        BalancedOverrideButton.IsChecked = snapshot.State == PowerState.Balanced;
-        PerformanceOverrideButton.IsChecked = snapshot.State == PowerState.HighPerformance;
-        SaverOverrideButton.IsEnabled = !game;
-        BalancedOverrideButton.IsEnabled = !game;
-    }
-
-    private async void OnAutoOverride(object sender, RoutedEventArgs e)
+    private async void OnTrajectoryAutoRequested(object? sender, EventArgs e)
     {
         if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
             await _controller.ReleaseManualLatchAsync();
-        ApplyOverrideVisual(_controller.Snapshot);
-    }
-
-    private async void OnSaverOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.PowerSaver);
-    private async void OnBalancedOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.Balanced);
-    private async void OnPerformanceOverride(object sender, RoutedEventArgs e) => await _controller.SetManualStateAsync(PowerState.HighPerformance);
-
-    private void OnRange60(object sender, RoutedEventArgs e)
-    {
-        _graphWindowSeconds = 60;
-        Range60Button.IsChecked = true;
-        Range120Button.IsChecked = false;
         ApplyVisualState(_controller.Snapshot);
     }
 
-    private void OnRange120(object sender, RoutedEventArgs e)
+    private async void OnTrajectoryManualStateRequested(object? sender, TrajectoryManualStateEventArgs e) => await _controller.SetManualStateAsync(e.State);
+
+    private void OnTrajectoryRangeChanged(object? sender, TrajectoryRangeChangedEventArgs e)
     {
-        _graphWindowSeconds = 120;
-        Range60Button.IsChecked = false;
-        Range120Button.IsChecked = true;
+        _graphWindowSeconds = e.Seconds;
         ApplyVisualState(_controller.Snapshot);
     }
 
@@ -150,8 +127,7 @@ public sealed partial class MainWindow : Window
     {
         _config = _config with { QuietThresholdPercent = e.QuietPercent, CpuPromotionThresholdPercent = e.PromotionPercent };
         ViewModel.Configure(_config);
-        RuleFlow.Apply(_config, _controller.Snapshot);
-        DecisionPressure.Apply(_config, _controller.Snapshot);
+        ApplyVisualState(_controller.Snapshot);
     }
 
     private async void OnThresholdsCommitted(object? sender, ThresholdsChangedEventArgs e)
@@ -216,8 +192,11 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing -= OnAppWindowClosing;
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
-        TelemetryGraph.ThresholdsPreviewed -= OnThresholdsPreviewed;
-        TelemetryGraph.ThresholdsCommitted -= OnThresholdsCommitted;
+        Trajectory.AutoRequested -= OnTrajectoryAutoRequested;
+        Trajectory.ManualStateRequested -= OnTrajectoryManualStateRequested;
+        Trajectory.RangeChanged -= OnTrajectoryRangeChanged;
+        Trajectory.ThresholdsPreviewed -= OnThresholdsPreviewed;
+        Trajectory.ThresholdsCommitted -= OnThresholdsCommitted;
         ReleaseDashboardVisibility();
     }
 }

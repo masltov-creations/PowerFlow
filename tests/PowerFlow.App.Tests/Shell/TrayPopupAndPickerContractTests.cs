@@ -29,8 +29,9 @@ public sealed class TrayPopupAndPickerContractTests
         Assert.Contains("GHz", popup, StringComparison.Ordinal);
         Assert.Contains("NextAction", popup, StringComparison.Ordinal);
         Assert.Contains("TraySparkline", popup, StringComparison.Ordinal);
-        Assert.Contains("WS_EX_NOACTIVATE", popupCode, StringComparison.Ordinal);
-        Assert.Contains("DashboardTelemetrySession", popupCode, StringComparison.Ordinal);
+        Assert.Contains("WS_EX_NOACTIVATE", popupCode, StringComparison.Ordinal);        Assert.Contains("TelemetryContinuityRecorder", popupCode, StringComparison.Ordinal);
+        Assert.Contains("AcquireVisibility", popupCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("DashboardTelemetrySession", popupCode, StringComparison.Ordinal);
         Assert.Contains("WmMouseMove", trayHost, StringComparison.Ordinal);
         Assert.Contains("Shell_NotifyIconGetRect", trayHost, StringComparison.Ordinal);
     }

@@ -5,21 +5,25 @@ namespace PowerFlow.App.Tests.Shell;
 public sealed class CompactShellContractTests
 {
     [Fact]
-    public void Dashboard_UsesCompactManualOverrideButtonsInsteadOfLargeStateRail()
+    public void Dashboard_UsesIntegratedTrajectoryModeNodesInsteadOfLargeStateRail()
     {
         var root = FindRepoRoot();
         var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
         var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
+        var trajectoryXaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
+        var trajectoryCode = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs"));
 
         Assert.DoesNotContain("StateRailControl", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"AutoOverrideButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"SaverOverrideButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"BalancedOverrideButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PerformanceOverrideButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TrajectoryControl", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"AutoNode\"", trajectoryXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SaverNode\"", trajectoryXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"BalancedNode\"", trajectoryXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PerformanceNode\"", trajectoryXaml, StringComparison.Ordinal);
         Assert.Contains("ReleaseManualLatchAsync", code, StringComparison.Ordinal);
-        Assert.Contains("SetManualStateAsync(PowerState.PowerSaver)", code, StringComparison.Ordinal);
-        Assert.Contains("SetManualStateAsync(PowerState.Balanced)", code, StringComparison.Ordinal);
-        Assert.Contains("SetManualStateAsync(PowerState.HighPerformance)", code, StringComparison.Ordinal);
+        Assert.Contains("SetManualStateAsync(e.State)", code, StringComparison.Ordinal);
+        Assert.Contains("PowerState.PowerSaver", trajectoryCode, StringComparison.Ordinal);
+        Assert.Contains("PowerState.Balanced", trajectoryCode, StringComparison.Ordinal);
+        Assert.Contains("PowerState.HighPerformance", trajectoryCode, StringComparison.Ordinal);
     }
 
     [Fact]
