@@ -10,6 +10,7 @@ public sealed class TrayIconHost : IDisposable
     private const uint WmTray = WmApp + 0x31;
     private const uint WmMouseMove = 0x0200;
     private const uint WmRButtonUp = 0x0205;
+    private const uint WmLButtonUp = 0x0202;
     private const uint WmLButtonDblClk = 0x0203;
     private const uint WmContextMenu = 0x007B;
     private const uint WmCommand = 0x0111;
@@ -53,6 +54,7 @@ public sealed class TrayIconHost : IDisposable
     }
 
     public event EventHandler<TrayCommandInvokedEventArgs>? CommandInvoked;
+    public event EventHandler<TrayInteractionRequestedEventArgs>? InteractionRequested;
     public event EventHandler? HoverActivity;
 
     public void Update(ControllerSnapshot snapshot)
@@ -113,16 +115,27 @@ public sealed class TrayIconHost : IDisposable
         if (msg == WmTray)
         {
             var mouseMessage = unchecked((uint)(lParam.ToInt64() & 0xffff));
-            if (mouseMessage is WmMouseMove or NinPopupOpen)
+            var interaction = TrayInteractionIntent.Project(mouseMessage);
+            if (interaction == TrayInteractionKind.Hover)
             {
                 if (GetCursorPos(out var hoverPoint))
                     _observedHoverRect = TrayHoverAnchorProjection.AroundPoint(hoverPoint.X, hoverPoint.Y, 40);
                 HoverActivity?.Invoke(this, EventArgs.Empty);
+                InteractionRequested?.Invoke(this, new TrayInteractionRequestedEventArgs(TrayInteractionKind.Hover));
             }
-            if (mouseMessage == WmLButtonDblClk)
+            else if (interaction == TrayInteractionKind.SingleClick && mouseMessage == WmLButtonUp)
+            {
+                InteractionRequested?.Invoke(this, new TrayInteractionRequestedEventArgs(TrayInteractionKind.SingleClick));
+            }
+            else if (interaction == TrayInteractionKind.DoubleClick && mouseMessage == WmLButtonDblClk)
+            {
+                InteractionRequested?.Invoke(this, new TrayInteractionRequestedEventArgs(TrayInteractionKind.DoubleClick));
                 RaiseCommand(TrayMenuCommands.OpenDashboard);
+            }
             else if (mouseMessage is WmRButtonUp or WmContextMenu)
+            {
                 ShowContextMenu();
+            }
             return IntPtr.Zero;
         }
 
