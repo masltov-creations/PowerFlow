@@ -200,7 +200,7 @@ public partial class App : Application
         _shuttingDown = true;
         try
         {
-            _dashboardWindow?.Close();
+            _dashboardWindow?.CloseForShutdown();
             _dashboardWindow = null;
             if (_controller is not null)
             {

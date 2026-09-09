@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -16,6 +17,8 @@ public sealed partial class MainWindow : Window
     private readonly Func<PowerFlowConfig, Task> _applyConfig;
     private readonly DashboardTelemetrySession _telemetrySession;
     private readonly DispatcherQueue _dispatcher;
+    private readonly bool _previewMode;
+    private bool _explicitShutdown;
     private PowerFlowConfig _config;
     private bool _sessionStarted;
     private bool _closed;
@@ -29,6 +32,7 @@ public sealed partial class MainWindow : Window
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
         PreviewModeBadge.Visibility = previewMode ? Visibility.Visible : Visibility.Collapsed;
         _controller = controller;
+        _previewMode = previewMode;
         _config = config;
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
@@ -44,6 +48,7 @@ public sealed partial class MainWindow : Window
         _telemetrySession.TelemetryChanged += OnTelemetryChanged;
         TelemetryGraph.ThresholdsPreviewed += OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted += OnThresholdsCommitted;
+        AppWindow.Closing += OnAppWindowClosing;
         Closed += OnClosed;
         AppWindow.Resize(new global::Windows.Graphics.SizeInt32(960, 620));
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
@@ -59,6 +64,27 @@ public sealed partial class MainWindow : Window
         }
         SelectSection(showSettings ? "settings" : "flow");
         Activate();
+    }
+
+    public void CloseForShutdown()
+    {
+        _explicitShutdown = true;
+        Close();
+    }
+
+    private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (DashboardClosePolicy.Decide(_previewMode, _explicitShutdown) == DashboardCloseDisposition.Close) return;
+        args.Cancel = true;
+        AppWindow.Hide();
+        await StopDashboardTelemetryAsync();
+    }
+
+    private async Task StopDashboardTelemetryAsync()
+    {
+        if (!_sessionStarted) return;
+        _sessionStarted = false;
+        await _telemetrySession.StopAsync();
     }
 
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() =>
@@ -189,10 +215,12 @@ public sealed partial class MainWindow : Window
     {
         if (_closed) return;
         _closed = true;
+        AppWindow.Closing -= OnAppWindowClosing;
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _telemetrySession.TelemetryChanged -= OnTelemetryChanged;
         TelemetryGraph.ThresholdsPreviewed -= OnThresholdsPreviewed;
         TelemetryGraph.ThresholdsCommitted -= OnThresholdsCommitted;
+        await StopDashboardTelemetryAsync();
         await _telemetrySession.DisposeAsync();
     }
 }
