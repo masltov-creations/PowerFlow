@@ -5,30 +5,35 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class ProgressivePresentationContractTests
 {
     [Fact]
-    public void Shell_DefinesThreeConnectedCanonicalPresentationSizes()
+    public void Shell_DefinesConnectedCanonicalPresentationStatesAndSizes()
     {
-        var main = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        var tray = Read("src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml.cs");
+        var state = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellState.cs");
+        var layout = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellLayout.cs");
+        var geometry = Read("src", "PowerFlow.App", "Dashboard", "ShellTransitionGeometry.cs");
 
-        Assert.Contains("CompressedWidth = 760", main, StringComparison.Ordinal);
-        Assert.Contains("CompressedHeight = 440", main, StringComparison.Ordinal);
-        Assert.Contains("ExpandedWidth = 1120", main, StringComparison.Ordinal);
-        Assert.Contains("ExpandedHeight = 720", main, StringComparison.Ordinal);
-        Assert.Contains("SizeInt32(CompressedWidth, CompressedHeight)", main, StringComparison.Ordinal);
-        Assert.Contains("PopupWidth = 320", tray, StringComparison.Ordinal);
-        Assert.Contains("PopupHeight = 176", tray, StringComparison.Ordinal);
+        Assert.Contains("Hidden", state, StringComparison.Ordinal);
+        Assert.Contains("Glance", state, StringComparison.Ordinal);
+        Assert.Contains("Compact", state, StringComparison.Ordinal);
+        Assert.Contains("Expanded", state, StringComparison.Ordinal);
+        Assert.Contains("FullScreen", state, StringComparison.Ordinal);
+        Assert.Contains("(320, 176)", geometry, StringComparison.Ordinal);
+        Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
+        Assert.Contains("(1280, 800)", geometry, StringComparison.Ordinal);
+        Assert.Contains("ShowNavigationRail", layout, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Dashboard_HasExplicitCompressedExpandedEvolutionControls()
+    public void Shell_HasExplicitGrowShrinkControlsAndSameWindowGeometryMotion()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
         Assert.Contains("x:Name=\"PresentationToggleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ExpandedContextRail\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ApplyPresentationMode", code, StringComparison.Ordinal);
-        Assert.Contains("AnimateWindowTo", code, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceTapTarget\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TransitionToAsync", code, StringComparison.Ordinal);
+        Assert.Contains("AnimateShellBoundsAsync", code, StringComparison.Ordinal);
+        Assert.Contains("AppWindow.MoveAndResize", code, StringComparison.Ordinal);
         Assert.Contains("ReducedMotionOverride", code, StringComparison.Ordinal);
     }
 
@@ -44,16 +49,20 @@ public sealed class ProgressivePresentationContractTests
     }
 
     [Fact]
-    public void Hover_IsAGlanceNotASecondDashboard()
+    public void Glance_IsDensityOfTheSameShellNotASecondRuntimeWindow()
     {
-        var xaml = Read("src", "PowerFlow.App", "Tray", "TrayHoverWindow.xaml");
-        Assert.Contains("x:Name=\"CompactTelemetryLine\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Grid.Row=\"1\" ColumnSpacing=\"16\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("RowDefinition Height=\"96\"", xaml, StringComparison.Ordinal);
+        var app = Read("src", "PowerFlow.App", "App.xaml.cs");
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+
+        Assert.DoesNotContain("new TrayHoverWindow", app, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellRoot\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellState.Glance", code, StringComparison.Ordinal);
+        Assert.Contains("ShellActivationMode.TransientNoActivate", app, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Dashboard_ReflowsAndSupportsARealFullScreenState()
+    public void Shell_ReflowsAndSupportsARealFullScreenExtension()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
@@ -62,10 +71,12 @@ public sealed class ProgressivePresentationContractTests
         Assert.Contains("x:Name=\"CompactTelemetryStrip\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"TelemetryCard\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FullScreenContext\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ApplyResponsiveLayout", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout", code, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellLayout.Resolve", code, StringComparison.Ordinal);
         Assert.Contains("AppWindowPresenterKind.FullScreen", code, StringComparison.Ordinal);
         Assert.Contains("SetLayoutProfile", trajectory, StringComparison.Ordinal);
     }
+
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

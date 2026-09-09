@@ -2,9 +2,9 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Dashboard;
-using PowerFlow.App.Tray;
-using PowerFlow.App.Telemetry;
 using PowerFlow.App.Startup;
+using PowerFlow.App.Telemetry;
+using PowerFlow.App.Tray;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -17,8 +17,8 @@ namespace PowerFlow.App;
 
 public partial class App : Application
 {
-    private SingleInstanceGuard? _instanceGuard;
     private const string DashboardOpenSignalName = @"Local\PowerFlow.OpenDashboard.v1";
+    private SingleInstanceGuard? _instanceGuard;
     private SingleInstanceSignal? _dashboardOpenSignal;
     private int _dashboardOpenRequested;
     private int _dashboardFullScreenRequested;
@@ -27,11 +27,10 @@ public partial class App : Application
     private TelemetryContinuityRecorder? _telemetryRecorder;
     private GameLifecycleMonitor? _games;
     private TrayIconHost? _tray;
-    private TrayHoverWindow? _trayHoverWindow;
     private DispatcherQueueTimer? _trayHoverTimer;
     private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
     private DispatcherQueue? _dispatcher;
-    private MainWindow? _dashboardWindow;
+    private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private StartupRegistration? _startupRegistration;
@@ -53,6 +52,7 @@ public partial class App : Application
             Exit();
             return;
         }
+
         if (!_previewMode) _dashboardOpenSignal = SingleInstanceSignal.Listen(DashboardOpenSignalName, OnDashboardOpenSignal);
         try
         {
@@ -74,19 +74,18 @@ public partial class App : Application
             _controller.SnapshotChanged += OnSnapshotChanged;
             await _controller.StartAsync();
             await _telemetryRecorder.StartAsync();
+
             if (LaunchIntent.ShouldCreateTray(launchArgs))
             {
                 _tray = new TrayIconHost(_controller.Snapshot);
                 _tray.CommandInvoked += OnTrayCommandInvoked;
-                _tray.HoverActivity += OnTrayHoverActivity;
+                _tray.InteractionRequested += OnTrayInteractionRequested;
             }
+
             if (LaunchIntent.ShouldOpenDashboard(launchArgs)) Interlocked.Exchange(ref _dashboardOpenRequested, 1);
             if (LaunchIntent.ShouldOpenFullScreen(launchArgs)) Interlocked.Exchange(ref _dashboardFullScreenRequested, 1);
             Volatile.Write(ref _runtimeReady, 1);
-            if (LaunchIntent.ShouldOpenPopupPreview(launchArgs))
-            {
-                await ShowTrayHoverPreviewAsync();
-            }
+            if (LaunchIntent.ShouldOpenPopupPreview(launchArgs)) await ShowTrayHoverPreviewAsync();
             await DrainDashboardOpenRequestAsync();
         }
         catch (Exception ex)
@@ -120,14 +119,31 @@ public partial class App : Application
         _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
     }
 
-
-    private void OnTrayHoverActivity(object? sender, EventArgs e)
+    private void OnTrayInteractionRequested(object? sender, TrayInteractionRequestedEventArgs e)
     {
-        _dispatcher?.TryEnqueue(() =>
+        _dispatcher?.TryEnqueue(async () =>
         {
             if (_shuttingDown || _tray is null) return;
-            _trayHoverPolicy.BeginHover(DateTimeOffset.UtcNow);
-            EnsureTrayHoverTimer();
+            try
+            {
+                switch (e.Kind)
+                {
+                    case TrayInteractionKind.Hover:
+                        if (_shellWindow?.ActivationMode == ShellActivationMode.PinnedActive && _shellWindow.IsShellVisible) return;
+                        _trayHoverPolicy.BeginHover(DateTimeOffset.UtcNow);
+                        EnsureTrayHoverTimer();
+                        break;
+                    case TrayInteractionKind.SingleClick:
+                        ResetTransientHoverState();
+                        await ShowShellFromTrayAsync(PowerFlowShellState.Glance, ShellActivationMode.PinnedActive, waitForTrayRect: false, animate: true);
+                        break;
+                    case TrayInteractionKind.DoubleClick:
+                        ResetTransientHoverState();
+                        await ShowShellFromTrayAsync(PowerFlowShellState.Compact, ShellActivationMode.PinnedActive, waitForTrayRect: false, animate: true);
+                        break;
+                }
+            }
+            catch (Exception ex) { await WriteStartupFailureAsync(ex); }
         });
     }
 
@@ -148,71 +164,66 @@ public partial class App : Application
     {
         if (_tray is null || _shuttingDown) { StopTrayHoverTimer(); return; }
         var overIcon = _tray.IsPointerOverIcon();
-        var overPopup = _trayHoverWindow?.ContainsCursor() == true;
-        var action = _trayHoverPolicy.Evaluate(DateTimeOffset.UtcNow, overIcon, overPopup);
-        switch (action)
+        var overShell = _shellWindow?.ShellState == PowerFlowShellState.Glance && _shellWindow.ContainsCursor();
+        var action = _trayHoverPolicy.Evaluate(DateTimeOffset.UtcNow, overIcon, overShell);
+        try
         {
-            case TrayHoverAction.Show:
-                await ShowTrayHoverAsync();
-                break;
-            case TrayHoverAction.Hide:
-            case TrayHoverAction.Cancel:
-                await HideTrayHoverAsync();
-                StopTrayHoverTimer();
-                break;
+            switch (action)
+            {
+                case TrayHoverAction.Show:
+                    await ShowShellFromTrayAsync(PowerFlowShellState.Glance, ShellActivationMode.TransientNoActivate, waitForTrayRect: false, animate: true);
+                    break;
+                case TrayHoverAction.Hide:
+                case TrayHoverAction.Cancel:
+                    if (_shellWindow?.ActivationMode == ShellActivationMode.TransientNoActivate)
+                        await _shellWindow.HideShellAsync();
+                    StopTrayHoverTimer();
+                    break;
+            }
         }
+        catch (Exception ex) { await WriteStartupFailureAsync(ex); }
     }
 
     private async Task ShowTrayHoverPreviewAsync()
+        => await ShowShellFromTrayAsync(PowerFlowShellState.Glance, ShellActivationMode.TransientNoActivate, waitForTrayRect: true, animate: false);
+
+    private async Task ShowShellFromTrayAsync(PowerFlowShellState state, ShellActivationMode activation, bool waitForTrayRect, bool animate)
     {
-        if (_controller is null || _tray is null || _telemetryRecorder is null) return;
-        for (var attempt = 0; attempt < 20; attempt++)
+        if (_tray is null) { await ShowShellAsync(state, activation, null, null, "flow", animate); return; }
+        var attempts = waitForTrayRect ? 20 : 1;
+        for (var attempt = 0; attempt < attempts; attempt++)
         {
-            if (_tray.TryGetIconRect(out var iconRect) && _tray.TryGetWorkArea(iconRect, out var workArea))
+            if (TryResolveTrayGeometry(out var iconRect, out var workArea))
             {
-                if (_trayHoverWindow is null)
-                {
-                    _trayHoverWindow = new TrayHoverWindow(_controller, _telemetryRecorder, _config);
-                    _trayHoverWindow.OpenDashboardRequested += OnTrayHoverOpenDashboardRequested;
-                }
-                _trayHoverWindow.UpdateConfig(_config);
-                await _trayHoverWindow.ShowAsync(iconRect, workArea);
+                await ShowShellAsync(state, activation, iconRect, workArea, "flow", animate);
                 return;
             }
-            await Task.Delay(250);
+            if (attempt + 1 < attempts) await Task.Delay(150);
         }
-        throw new InvalidOperationException("Tray icon rectangle did not become available for popup preview.");
-    }
-    private async Task ShowTrayHoverAsync()
-    {
-        if (_controller is null || _tray is null) return;
-        if (!_tray.TryGetHoverAnchorRect(out var iconRect) || !_tray.TryGetWorkArea(iconRect, out var workArea)) return;
-        if (_trayHoverWindow is null)
-        {
-            if (_telemetryRecorder is null) return;
-            _trayHoverWindow = new TrayHoverWindow(_controller, _telemetryRecorder, _config);
-            _trayHoverWindow.OpenDashboardRequested += OnTrayHoverOpenDashboardRequested;
-        }
-        _trayHoverWindow.UpdateConfig(_config);
-        await _trayHoverWindow.ShowAsync(iconRect, workArea);
+        if (waitForTrayRect) throw new InvalidOperationException("Tray icon rectangle did not become available for shell preview.");
+        await ShowShellAsync(state, activation, null, null, "flow", animate);
     }
 
-    private async Task HideTrayHoverAsync()
+    private bool TryResolveTrayGeometry(out TrayRect iconRect, out TrayRect workArea)
     {
-        if (_trayHoverWindow is not null) await _trayHoverWindow.HideAsync();
+        iconRect = default;
+        workArea = default;
+        if (_tray is null) return false;
+        if (_tray.TryGetIconRect(out iconRect) && _tray.TryGetWorkArea(iconRect, out workArea)) return true;
+        return _tray.TryGetHoverAnchorRect(out iconRect) && _tray.TryGetWorkArea(iconRect, out workArea);
     }
 
-    private async void OnTrayHoverOpenDashboardRequested(object? sender, EventArgs e)
+    private void ResetTransientHoverState()
     {
-        await HideTrayHoverAsync();
+        _ = _trayHoverPolicy.Evaluate(DateTimeOffset.UtcNow, false, false);
         StopTrayHoverTimer();
-        await OpenDashboardAsync(false);
     }
 
     private void StopTrayHoverTimer()
     {
         if (_trayHoverTimer?.IsRunning == true) _trayHoverTimer.Stop();
     }
+
     private async void OnTrayCommandInvoked(object? sender, TrayIconHost.TrayCommandInvokedEventArgs e)
     {
         if (_controller is null || _shuttingDown) return;
@@ -234,20 +245,29 @@ public partial class App : Application
         catch (Exception ex) { await WriteStartupFailureAsync(ex); }
     }
 
+    private (TrayRect? icon, TrayRect? work) TrayGeometry()
+        => TryResolveTrayGeometry(out var icon, out var work) ? (icon, work) : (null, null);
+
     private async Task OpenDashboardAsync(bool showSettings, bool fullScreen = false)
     {
-        if (_controller is null) return;
-        if (_dashboardWindow is null)
+        var geometry = TrayGeometry();
+        var state = fullScreen ? PowerFlowShellState.FullScreen : showSettings ? PowerFlowShellState.Expanded : PowerFlowShellState.Compact;
+        await ShowShellAsync(state, ShellActivationMode.PinnedActive, geometry.icon, geometry.work, showSettings ? "settings" : "flow", animate: true);
+    }
+
+    private async Task ShowShellAsync(PowerFlowShellState state, ShellActivationMode activation, TrayRect? trayAnchor, TrayRect? workArea, string section, bool animate)
+    {
+        if (_controller is null || _telemetryRecorder is null) return;
+        if (_shellWindow is null)
         {
-            if (_telemetryRecorder is null) return;
-            _dashboardWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode);
-            _dashboardWindow.Closed += async (_, _) =>
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode);
+            _shellWindow.Closed += async (_, _) =>
             {
-                _dashboardWindow = null;
+                _shellWindow = null;
                 if (_previewMode) await ShutdownAsync(true);
             };
         }
-        await _dashboardWindow.ShowAsync(showSettings, fullScreen);
+        await _shellWindow.ShowShellAsync(state, activation, trayAnchor, workArea, section, animate);
     }
 
     private async Task ApplyConfigAsync(PowerFlowConfig updated)
@@ -256,7 +276,6 @@ public partial class App : Application
         if (!_previewMode) await _configStore.SaveAsync(updated);
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
         _config = updated;
-        _trayHoverWindow?.UpdateConfig(updated);
         _games?.UpdateRules(updated.AppRules);
         if (!_previewMode) _startupRegistration?.SetEnabled(updated.StartWithWindows);
     }
@@ -267,8 +286,8 @@ public partial class App : Application
         _shuttingDown = true;
         try
         {
-            _dashboardWindow?.CloseForShutdown();
-            _dashboardWindow = null;
+            _shellWindow?.CloseForShutdown();
+            _shellWindow = null;
             if (_controller is not null)
             {
                 _controller.SnapshotChanged -= OnSnapshotChanged;
@@ -284,8 +303,7 @@ public partial class App : Application
         {
             StopTrayHoverTimer();
             if (_trayHoverTimer is not null) { _trayHoverTimer.Tick -= OnTrayHoverTick; _trayHoverTimer = null; }
-            if (_trayHoverWindow is not null) { _trayHoverWindow.OpenDashboardRequested -= OnTrayHoverOpenDashboardRequested; await _trayHoverWindow.DisposeAsync(); _trayHoverWindow = null; }
-            if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.HoverActivity -= OnTrayHoverActivity; _tray.Dispose(); _tray = null; }
+            if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.InteractionRequested -= OnTrayInteractionRequested; _tray.Dispose(); _tray = null; }
             _games?.Dispose(); _games = null;
             Volatile.Write(ref _runtimeReady, 0);
             _dashboardOpenSignal?.Dispose(); _dashboardOpenSignal = null;

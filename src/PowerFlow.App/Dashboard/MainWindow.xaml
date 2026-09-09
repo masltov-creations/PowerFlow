@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:dash="using:PowerFlow.App.Dashboard"
     xmlns:settings="using:PowerFlow.App.Settings">
-    <Grid x:Name="Root" Background="{ThemeResource PowerFlowWindowBackgroundBrush}">
+    <Grid x:Name="ShellRoot" Background="{ThemeResource PowerFlowWindowBackgroundBrush}">
         <NavigationView x:Name="Navigation" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" PaneDisplayMode="Top" SelectionChanged="OnNavigationChanged" Background="Transparent">
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="Dashboard" Tag="flow"/>
@@ -63,5 +63,6 @@
                 <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
             </Grid>
         </NavigationView>
+        <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" AutomationProperties.Name="Open PowerFlow dashboard"/>
     </Grid>
 </Window>
