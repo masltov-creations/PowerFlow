@@ -17,6 +17,12 @@
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#18FFFFFF"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1FFFFFFF"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#F21A2330"/>
+                    <SolidColorBrush x:Key="PowerFlowCpuBrush" Color="#FF54E0CF"/>
+                    <SolidColorBrush x:Key="PowerFlowPowerBrush" Color="#FF7DA8FF"/>
+                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF42CDBA"/>
+                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF659DFF"/>
+                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFC989F4"/>
+                    <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FFF2F6FA"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF0A0F16"/>
@@ -26,6 +32,12 @@
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#18FFFFFF"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1FFFFFFF"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#F21A2330"/>
+                    <SolidColorBrush x:Key="PowerFlowCpuBrush" Color="#FF54E0CF"/>
+                    <SolidColorBrush x:Key="PowerFlowPowerBrush" Color="#FF7DA8FF"/>
+                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF42CDBA"/>
+                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF659DFF"/>
+                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFC989F4"/>
+                    <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FFF2F6FA"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FFF3F6F9"/>
@@ -35,6 +47,12 @@
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1423384D"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#1823384D"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FCFFFFFF"/>
+                    <SolidColorBrush x:Key="PowerFlowCpuBrush" Color="#FF169284"/>
+                    <SolidColorBrush x:Key="PowerFlowPowerBrush" Color="#FF4970CE"/>
+                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF118A7D"/>
+                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF3E6DBA"/>
+                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FF8654AA"/>
+                    <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FF142637"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

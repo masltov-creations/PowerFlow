@@ -1,13 +1,11 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using XamlPath = Microsoft.UI.Xaml.Shapes.Path;
 using PowerFlow.App.Controller;
@@ -15,10 +13,8 @@ using PowerFlow.App.Dashboard;
 using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
-using PowerFlow.Windows.Activity;
 using Windows.Foundation;
 using Windows.Graphics;
-using Windows.UI;
 using Windows.UI.ViewManagement;
 
 namespace PowerFlow.App.Tray;
@@ -30,17 +26,16 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     private const long WS_EX_NOACTIVATE = 0x08000000L;
     private const int SW_HIDE = 0;
     private const int SW_SHOWNOACTIVATE = 4;
-    private const int PopupWidth = 380;
-    private const int PopupHeight = 236;
+    private const int PopupWidth = 400;
+    private const int PopupHeight = 260;
 
     private readonly PowerFlowController _controller;
     private readonly TelemetryContinuityRecorder _recorder;
     private TelemetryVisibilityLease? _visibilityLease;
     private readonly DispatcherQueue _dispatcher;
     private readonly IntPtr _hwnd;
-    private readonly List<(DateTimeOffset At, double Cpu)> _samples = [];
     private PowerFlowConfig _config;
-    private DashboardTelemetry? _telemetry;
+    private TrayMiniTrajectoryModel? _model;
     private bool _disposed;
 
     public TrayHoverWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config)
@@ -56,7 +51,8 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         ApplyNonActivatingToolWindowStyle();
         ConfigurePresenter();
         ApplyTheme();
-        UpdateUi(_controller.Snapshot);
+        Root.ActualThemeChanged += (_, _) => DrawTrajectory();
+        Refresh(_controller.Snapshot);
         Root.Opacity = 0;
     }
 
@@ -77,7 +73,7 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
     {
         _config = config;
         ApplyTheme();
-        UpdateUi(_controller.Snapshot);
+        Refresh(_controller.Snapshot);
     }
 
     public Task ShowAsync(TrayRect iconRect, TrayRect workArea)
@@ -85,8 +81,7 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         if (_disposed) return Task.CompletedTask;
         var placement = TrayPopupPlacement.AboveIcon(iconRect, workArea, PopupWidth, PopupHeight, 10);
         AppWindow.MoveAndResize(new RectInt32(placement.Left, placement.Top, PopupWidth, PopupHeight));
-        _telemetry = _recorder.LatestRichTelemetry;
-        UpdateUi(_controller.Snapshot);
+        Refresh(_controller.Snapshot);
         _visibilityLease ??= _recorder.AcquireVisibility();
         ShowWindow(_hwnd, SW_SHOWNOACTIVATE);
         IsVisible = true;
@@ -138,49 +133,34 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         };
     }
 
-    private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() => UpdateUi(snapshot));
+    private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot) => _dispatcher.TryEnqueue(() => Refresh(snapshot));
 
     private void OnContinuityChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(() =>
     {
-        if (!IsVisible) return;
-        _telemetry = _recorder.LatestRichTelemetry;
-        _samples.Clear();
-        foreach (var sample in _recorder.History.TakeLast(30)) _samples.Add((sample.At, sample.CpuPercent));
-        UpdateUi(_controller.Snapshot);
-        DrawSparkline();
+        if (IsVisible) Refresh(_controller.Snapshot);
     });
+
+    private void Refresh(ControllerSnapshot snapshot)
+    {
+        _model = TrayMiniTrajectoryProjection.Create(_recorder.History, snapshot, _config, _recorder.LatestRichTelemetry);
+        StateText.Text = _model.StateLabel;
+        ModeBadge.Text = _model.ModeBadge;
+        CpuText.Text = _model.CpuLabel;
+        WattsText.Text = _model.WattsLabel;
+        FrequencyText.Text = _model.FrequencyLabel;
+        DirectionText.Text = _model.DirectionLabel;
+        NextAction.Text = _model.NextAction;
+
+        SaverNode.Opacity = snapshot.State == PowerState.PowerSaver ? 1 : 0.42;
+        BalancedNode.Opacity = snapshot.State == PowerState.Balanced ? 1 : 0.42;
+        PerformanceNode.Opacity = snapshot.State == PowerState.HighPerformance ? 1 : 0.42;
+        DrawTrajectory();
+    }
 
     private void ReleaseVisibility()
     {
         _visibilityLease?.Dispose();
         _visibilityLease = null;
-    }
-    private void UpdateUi(ControllerSnapshot snapshot)
-    {
-        StateText.Text = snapshot.State switch
-        {
-            PowerState.PowerSaver => "POWER SAVER",
-            PowerState.Balanced => "BALANCED",
-            PowerState.HighPerformance => "PERFORMANCE",
-            _ => snapshot.State.ToString().ToUpperInvariant()
-        };
-        ModeBadge.Text = snapshot.LatchType switch
-        {
-            "Manual" => "MANUAL LOCK",
-            "Game" => "GAME LOCK",
-            _ => "AUTO"
-        };
-        CpuText.Text = $"{snapshot.CpuPercent:0.0}%";
-        WattsText.Text = _telemetry?.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
-        FrequencyText.Text = _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00}" : "—";
-        NextAction.Text = snapshot switch
-        {
-            { IsLatched: true, LatchType: "Manual" } => $"{StateText.Text} held until AUTO",
-            { IsLatched: true, LatchType: "Game" } => "Held until tracked game exits",
-            { State: PowerState.PowerSaver } => $"Balanced above {_config.CpuPromotionThresholdPercent:0.#}% for {_config.CpuPromotionWindow.TotalSeconds:0.#}s",
-            { State: PowerState.Balanced } => $"Saver below {_config.QuietThresholdPercent:0.#}% for {_config.QuietWindow.TotalSeconds:0.#}s",
-            _ => "Open PowerFlow for policy details"
-        };
     }
 
     private void AnimateIn()
@@ -203,21 +183,86 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         visual.StartAnimation("Offset", offset);
     }
 
-    private void OnSparklineSizeChanged(object sender, SizeChangedEventArgs e) => DrawSparkline();
+    private void OnTrajectorySizeChanged(object sender, SizeChangedEventArgs e) => DrawTrajectory();
 
-    private void DrawSparkline()
+    private void DrawTrajectory()
     {
-        TraySparkline.Children.Clear();
-        var width = TraySparkline.ActualWidth;
-        var height = TraySparkline.ActualHeight;
-        if (width <= 0 || height <= 0 || _samples.Count < 2) return;
+        TrayTrajectoryCanvas.Children.Clear();
+        if (_model is null) return;
+        var width = TrayTrajectoryCanvas.ActualWidth;
+        var height = TrayTrajectoryCanvas.ActualHeight;
+        if (width <= 1 || height <= 1) return;
 
-        var points = _samples.Select((sample, i) => new Point(
-            i * width / Math.Max(1, _samples.Count - 1),
-            height - (Math.Clamp(sample.Cpu, 0, 100) / 100d * (height - 6)) - 3)).ToArray();
+        var samples = _model.Samples;
+        var plotHeight = Math.Max(20, height - 13);
+        var bandTop = Math.Max(0, height - 9);
+        var cpuBrush = BrushResource("PowerFlowCpuBrush");
+        var powerBrush = BrushResource("PowerFlowPowerBrush");
+        var nowBrush = BrushResource("PowerFlowNowBrush");
 
+        if (samples.Count > 0)
+        {
+            var firstAt = samples[0].At;
+            var lastAt = samples[^1].At;
+            var span = Math.Max(1, (lastAt - firstAt).TotalMilliseconds);
+            double X(DateTimeOffset at) => Math.Clamp((at - firstAt).TotalMilliseconds / span, 0, 1) * width;
+
+            foreach (var segment in _model.Trajectory.StateSegments)
+            {
+                var left = X(segment.From);
+                var right = X(segment.To);
+                var rect = new Rectangle
+                {
+                    Width = Math.Max(3, right - left),
+                    Height = 6,
+                    RadiusX = 2,
+                    RadiusY = 2,
+                    Fill = StateBrush(segment.State),
+                    Opacity = 0.72
+                };
+                Canvas.SetLeft(rect, left);
+                Canvas.SetTop(rect, bandTop);
+                TrayTrajectoryCanvas.Children.Add(rect);
+            }
+
+            if (samples.Count >= 2)
+            {
+                AddSmoothPath(samples.Select(s => new Point(X(s.At), plotHeight - Math.Clamp(s.CpuPercent / 100d, 0, 1) * (plotHeight - 5))).ToArray(), cpuBrush, 2.2, 0.95);
+                var watts = samples.Where(s => s.PackageWatts.HasValue).ToArray();
+                if (watts.Length >= 2)
+                {
+                    var maxPower = Math.Max(100, watts.Max(s => s.PackageWatts!.Value));
+                    AddSmoothPath(watts.Select(s => new Point(X(s.At), plotHeight - Math.Clamp(s.PackageWatts!.Value / maxPower, 0, 1) * (plotHeight - 5))).ToArray(), powerBrush, 1.4, 0.55);
+                }
+            }
+
+            foreach (var marker in _model.Transitions)
+            {
+                if (marker.At < firstAt || marker.At > lastAt) continue;
+                var x = X(marker.At);
+                var line = new Line { X1 = x, X2 = x, Y1 = 2, Y2 = bandTop + 5, Stroke = nowBrush, StrokeThickness = 1, Opacity = marker.Success ? 0.28 : 0.70 };
+                TrayTrajectoryCanvas.Children.Add(line);
+            }
+
+            var last = samples[^1];
+            var nowX = X(last.At);
+            var nowY = plotHeight - Math.Clamp(last.CpuPercent / 100d, 0, 1) * (plotHeight - 5);
+            var halo = new Ellipse { Width = 13, Height = 13, Stroke = cpuBrush, StrokeThickness = 1.4, Opacity = 0.38 };
+            Canvas.SetLeft(halo, nowX - 6.5);
+            Canvas.SetTop(halo, nowY - 6.5);
+            TrayTrajectoryCanvas.Children.Add(halo);
+            var dot = new Ellipse { Width = 6, Height = 6, Fill = nowBrush, Stroke = cpuBrush, StrokeThickness = 1 };
+            Canvas.SetLeft(dot, nowX - 3);
+            Canvas.SetTop(dot, nowY - 3);
+            TrayTrajectoryCanvas.Children.Add(dot);
+        }
+    }
+
+    private void AddSmoothPath(IReadOnlyList<Point> points, Brush stroke, double thickness, double opacity)
+    {
+        if (points.Count < 2) return;
         var figure = new PathFigure { StartPoint = points[0] };
-        for (var i = 1; i < points.Length; i++)
+        for (var i = 1; i < points.Count; i++)
         {
             var a = points[i - 1];
             var b = points[i];
@@ -231,26 +276,26 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         }
         var geometry = new PathGeometry();
         geometry.Figures.Add(figure);
-        TraySparkline.Children.Add(new XamlPath
+        TrayTrajectoryCanvas.Children.Add(new XamlPath
         {
             Data = geometry,
-            Stroke = new SolidColorBrush(Color.FromArgb(255, 65, 214, 197)),
-            StrokeThickness = 2.2,
+            Stroke = stroke,
+            StrokeThickness = thickness,
             StrokeLineJoin = PenLineJoin.Round,
-            Opacity = 0.95
+            Opacity = opacity
         });
-
-        var end = points[^1];
-        var dot = new Ellipse
-        {
-            Width = 7,
-            Height = 7,
-            Fill = new SolidColorBrush(Color.FromArgb(255, 65, 214, 197))
-        };
-        Canvas.SetLeft(dot, end.X - 3.5);
-        Canvas.SetTop(dot, end.Y - 3.5);
-        TraySparkline.Children.Add(dot);
     }
+
+    private Brush StateBrush(PowerState state) => state switch
+    {
+        PowerState.PowerSaver => BrushResource("PowerFlowStateSaverBrush"),
+        PowerState.Balanced => BrushResource("PowerFlowStateBalancedBrush"),
+        PowerState.HighPerformance => BrushResource("PowerFlowStatePerformanceBrush"),
+        _ => BrushResource("PowerFlowTrackBrush")
+    };
+
+    private Brush BrushResource(string key) =>
+        Root.Resources[key] as Brush ?? Application.Current.Resources[key] as Brush ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
     private void OnRootTapped(object sender, TappedRoutedEventArgs e) => OpenDashboardRequested?.Invoke(this, EventArgs.Empty);
 
@@ -260,6 +305,7 @@ public sealed partial class TrayHoverWindow : Window, IAsyncDisposable
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
         if (IsVisible) await HideAsync();
+        ReleaseVisibility();
         _disposed = true;
         Close();
     }
