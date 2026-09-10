@@ -1,5 +1,6 @@
 using PowerFlow.App.Controller;
 using PowerFlow.Core.Policy;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
 using PowerFlow.Windows.Games;
@@ -211,9 +212,66 @@ public sealed class PowerFlowControllerTests
         Assert.Contains(PowerPlanIds.Balanced, f.Plans.Activations);
         await f.Controller.StopAsync();
     }
+    [Fact]
+    public async Task AdaptiveGovernorDecision_DefaultDisabledDoesNotChangeLegacyBehavior()
+    {
+        var f = new Fixture(PowerPlanIds.PowerSaver);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Empty(f.Plans.Activations);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_ExplicitlyEnabledAndQualifiedCrossesExistingActuatorBoundary()
+    {
+        var config = PowerFlowConfig.Default with { AdaptiveActuationEnabled = true };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(new[] { PowerPlanIds.HighPerformance }, f.Plans.Activations);
+        Assert.Equal(PowerState.HighPerformance, f.Controller.Snapshot.State);
+        Assert.False(f.Controller.Snapshot.IsLatched);
+        Assert.Contains("adaptive", f.Controller.Snapshot.Reason, StringComparison.OrdinalIgnoreCase);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_ManualLatchStillWinsWhenEnabled()
+    {
+        var config = PowerFlowConfig.Default with { AdaptiveActuationEnabled = true };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        await f.Controller.SetManualStateAsync(PowerState.Balanced);
+        f.Plans.Activations.Clear();
+
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Empty(f.Plans.Activations);
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        Assert.True(f.Controller.Snapshot.IsLatched);
+        Assert.Equal("Manual", f.Controller.Snapshot.LatchType);
+        await f.Controller.StopAsync();
+    }
+
+    private static GovernorDecision BoostDecision(EnvelopeConfidence confidence) =>
+        new(EnvelopeZone.Boost, EnvelopeZone.Boost, EnvelopeDecisionKind.Lease, 1, T0.AddSeconds(12), "qualified boost lease", confidence);
+
+    private static PerformanceEntitlement BoostEntitlement() =>
+        new(EnvelopeZone.Boost, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(6), true);
     private sealed class Fixture
     {
-        public Fixture(Guid active, bool observePlans = false)
+        public Fixture(Guid active, bool observePlans = false, PowerFlowConfig? config = null)
         {
             Plans = new FakePlans(active);
             Activity = new FakeActivity();
@@ -221,7 +279,7 @@ public sealed class PowerFlowControllerTests
             TickFactory = new FakeTickFactory();
             Delay = new FakeDelay();
             Clock = new FakeClock(T0);
-            Config = PowerFlowConfig.Default;
+            Config = config ?? PowerFlowConfig.Default;
             Observer = observePlans ? new FakePlanObserver() : null;
             Controller = new PowerFlowController(Config, Plans, Activity, Games, TickFactory, Delay, Clock, Observer);
         }

@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Apps;
 using Windows.Storage;
@@ -17,11 +18,22 @@ public sealed partial class RulesPage : Page
         public string ExecutablePath => App.ExecutablePath;
     }
 
+    private sealed record RuleCardItem(AppRule Rule)
+    {
+        public string DisplayName => Rule.DisplayName ?? Path.GetFileNameWithoutExtension(Rule.ExecutablePath);
+        public string ExecutablePath => Rule.ExecutablePath;
+        public PerformanceEntitlement EffectiveEntitlement => Rule.EffectiveEntitlement;
+        public string CeilingLabel => $"MAX {EffectiveEntitlement.MaximumZone}".ToUpperInvariant();
+        public string TimingLabel => $"QUALIFY {EffectiveEntitlement.QualificationDuration.TotalSeconds:0.#}s · LEASE {EffectiveEntitlement.LeaseDuration.TotalSeconds:0.#}s · RELEASE {EffectiveEntitlement.ReleaseHysteresis.TotalSeconds:0.#}s";
+    }
+
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private Func<PowerFlowConfig, Task>? _apply;
     private Func<Task<string?>>? _browseExecutable;
     private readonly RunningAppCatalog _catalog = new();
     private IReadOnlyList<AppPickerItem> _pickerItems = Array.Empty<AppPickerItem>();
+    private AppRule? _editingRule;
+    private bool _refreshing;
 
     public RulesPage() => InitializeComponent();
 
@@ -35,7 +47,23 @@ public sealed partial class RulesPage : Page
     public void RefreshConfig(PowerFlowConfig config)
     {
         _config = config;
-        RulesRepeater.ItemsSource = config.AppRules.ToArray();
+        _refreshing = true;
+        try
+        {
+            AdaptiveActuationToggle.IsOn = config.AdaptiveActuationEnabled;
+            RulesRepeater.ItemsSource = config.AppRules.Select(rule => new RuleCardItem(rule)).ToArray();
+        }
+        finally { _refreshing = false; }
+    }
+
+    private async void OnAdaptiveActuationToggled(object sender, RoutedEventArgs e)
+    {
+        if (_refreshing) return;
+        var enabled = AdaptiveActuationToggle.IsOn;
+        await ApplyAsync(_config with { AdaptiveActuationEnabled = enabled });
+        StatusText.Text = enabled
+            ? "Adaptive actuation enabled; Auto still requires confidence and latch safety gates."
+            : "Adaptive governor is advisory only.";
     }
 
     private async void OnAddAppRule(object sender, RoutedEventArgs e)
@@ -87,11 +115,70 @@ public sealed partial class RulesPage : Page
         finally { deferral.Complete(); }
     }
 
+    private async void OnEditEntitlementFromCard(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
+        _editingRule = selected;
+        var entitlement = selected.EffectiveEntitlement;
+        EntitlementAppText.Text = selected.DisplayName ?? Path.GetFileNameWithoutExtension(selected.ExecutablePath);
+        MaximumZoneBox.SelectedIndex = entitlement.MaximumZone switch { EnvelopeZone.Eco => 0, EnvelopeZone.Efficient => 1, EnvelopeZone.Responsive => 2, _ => 3 };
+        QualificationSecondsBox.Value = entitlement.QualificationDuration.TotalSeconds;
+        LeaseSecondsBox.Value = entitlement.LeaseDuration.TotalSeconds;
+        ReleaseHysteresisSecondsBox.Value = entitlement.ReleaseHysteresis.TotalSeconds;
+        FollowChildrenCheck.IsChecked = entitlement.FollowChildren;
+        LegacyModeText.Text = $"Legacy schema mode remains {selected.Mode}; an explicit entitlement now overrides that compatibility mapping.";
+        EntitlementDialog.XamlRoot = XamlRoot;
+        await EntitlementDialog.ShowAsync();
+    }
+
+    private async void OnEntitlementPrimary(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        if (_editingRule is not AppRule selected) { args.Cancel = true; return; }
+        var deferral = args.GetDeferral();
+        try
+        {
+            var zone = MaximumZoneBox.SelectedIndex switch { 0 => EnvelopeZone.Eco, 1 => EnvelopeZone.Efficient, 2 => EnvelopeZone.Responsive, _ => EnvelopeZone.Boost };
+            var qualification = TimeSpan.FromSeconds(NumberValue(QualificationSecondsBox, 4, min: 0));
+            var lease = TimeSpan.FromSeconds(NumberValue(LeaseSecondsBox, 12, min: 1));
+            var release = TimeSpan.FromSeconds(NumberValue(ReleaseHysteresisSecondsBox, 10, min: 0));
+            var followChildren = FollowChildrenCheck.IsChecked != false;
+            var entitlement = new PerformanceEntitlement(zone, qualification, lease, release, followChildren);
+            var rules = _config.AppRules.Select(rule => string.Equals(rule.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase)
+                ? rule with { FollowChildren = followChildren, Entitlement = entitlement }
+                : rule).ToArray();
+            await ApplyAsync(_config with { AppRules = rules });
+            StatusText.Text = $"Saved {EntitlementAppText.Text}: max {zone}, qualify {qualification.TotalSeconds:0.#}s, lease {lease.TotalSeconds:0.#}s.";
+        }
+        finally
+        {
+            _editingRule = null;
+            deferral.Complete();
+        }
+    }
+
+    private static double NumberValue(NumberBox box, double fallback, double min)
+        => double.IsFinite(box.Value) ? Math.Max(min, box.Value) : fallback;
+
+    private async void OnRemoveFromCard(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
+        var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase)).ToArray();
+        await ApplyAsync(_config with { AppRules = rules });
+        StatusText.Text = "Rule removed.";
+    }
+
+    private async Task AddOrReplaceRuleAsync(string path, string displayName, AppRuleMode mode)
+    {
+        var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, path, StringComparison.OrdinalIgnoreCase)).ToList();
+        rules.Add(new AppRule(path, mode, displayName, true));
+        await ApplyAsync(_config with { AppRules = rules });
+        StatusText.Text = $"Saved {displayName} with legacy {mode} starting entitlement. Use Edit entitlement for semantic tuning.";
+    }
+
     private static async Task<IReadOnlyList<AppPickerItem>> BuildPickerItemsAsync(IReadOnlyList<RunningAppOption> apps)
     {
         var items = new List<AppPickerItem>(apps.Count);
-        foreach (var app in apps)
-            items.Add(new AppPickerItem(app, await LoadAppIconAsync(app.ExecutablePath)));
+        foreach (var app in apps) items.Add(new AppPickerItem(app, await LoadAppIconAsync(app.ExecutablePath)));
         return items;
     }
 
@@ -106,37 +193,7 @@ public sealed partial class RulesPage : Page
             await image.SetSourceAsync(thumbnail);
             return image;
         }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private async Task AddOrReplaceRuleAsync(string path, string displayName, AppRuleMode mode)
-    {
-        var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, path, StringComparison.OrdinalIgnoreCase)).ToList();
-        rules.Add(new AppRule(path, mode, displayName, true));
-        await ApplyAsync(_config with { AppRules = rules });
-        StatusText.Text = $"Saved {displayName} as {mode}.";
-    }
-
-    private async void OnSetPerformanceFromCard(object sender, RoutedEventArgs e) => await ChangeRuleFromCardAsync(sender, AppRuleMode.Performance);
-    private async void OnSetBalancedFromCard(object sender, RoutedEventArgs e) => await ChangeRuleFromCardAsync(sender, AppRuleMode.Balanced);
-
-    private async void OnRemoveFromCard(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
-        var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase)).ToArray();
-        await ApplyAsync(_config with { AppRules = rules });
-        StatusText.Text = "Rule removed.";
-    }
-
-    private async Task ChangeRuleFromCardAsync(object sender, AppRuleMode mode)
-    {
-        if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
-        var rules = _config.AppRules.Select(x => string.Equals(x.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase) ? x with { Mode = mode } : x).ToArray();
-        await ApplyAsync(_config with { AppRules = rules });
-        StatusText.Text = $"{selected.DisplayName ?? Path.GetFileName(selected.ExecutablePath)} → {mode}.";
+        catch { return null; }
     }
 
     private async Task ApplyAsync(PowerFlowConfig updated)

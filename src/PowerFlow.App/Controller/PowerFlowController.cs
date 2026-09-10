@@ -1,4 +1,5 @@
 using PowerFlow.Core.Policy;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
 using PowerFlow.Windows.Games;
@@ -159,6 +160,35 @@ public sealed class PowerFlowController : IAsyncDisposable
         if (!_games.IsLatched) StartSampling();
     });
 
+    public Task ApplyAdaptiveGovernorDecisionAsync(
+        GovernorDecision decision,
+        PerformanceEntitlement entitlement,
+        string? trigger = null) => EnqueueAsync(async () =>
+    {
+        ArgumentNullException.ThrowIfNull(decision);
+        ArgumentNullException.ThrowIfNull(entitlement);
+
+        var manualLatched = Snapshot.IsLatched && string.Equals(Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        var gameLatched = _games.IsLatched || (Snapshot.IsLatched && string.Equals(Snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase));
+        var autoEnabled = !Snapshot.IsLatched && !_games.IsLatched;
+        var actuation = EnvelopeActuationPolicy.Evaluate(
+            _config.AdaptiveActuationEnabled,
+            autoEnabled,
+            decision.Confidence,
+            manualLatched,
+            gameLatched,
+            decision,
+            entitlement);
+
+        if (!actuation.Eligible || actuation.TargetState is not PowerState target)
+            return;
+
+        await ActivateDirectAsync(
+            target,
+            $"Adaptive governor: {actuation.Reason}",
+            trigger,
+            latched: false);
+    });
     public Task<IReadOnlyList<PowerPlanInfo>> ListPowerPlansAsync(CancellationToken cancellationToken = default) => _plans.ListAsync(cancellationToken);
 
     public Task DrainAsync()

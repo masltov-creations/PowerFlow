@@ -16,7 +16,8 @@ public sealed record PowerFlowConfig(
     IReadOnlyList<AppRule> AppRules,
     bool StartWithWindows,
     bool? ReducedMotionOverride,
-    ThemePreference Theme = ThemePreference.System)
+    ThemePreference Theme = ThemePreference.System,
+    bool AdaptiveActuationEnabled = false)
 {
     public static PowerFlowConfig Default { get; } = new(
         SchemaVersion: 1,

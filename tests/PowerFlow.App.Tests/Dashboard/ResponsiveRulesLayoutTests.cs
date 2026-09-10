@@ -19,8 +19,10 @@ public sealed class ResponsiveRulesLayoutTests
         Assert.DoesNotContain("MaxWidth=\"1080\"", xaml);
         Assert.DoesNotContain("Orientation=\"Horizontal\" Spacing=\"9\"", xaml);
         Assert.DoesNotContain("RulesList.SelectedItem", code);
-        Assert.Contains("OnSetPerformanceFromCard", code);
-        Assert.Contains("OnSetBalancedFromCard", code);
+        Assert.Contains("OnEditEntitlementFromCard", code);
+        Assert.Contains("PerformanceEntitlement", code);
+        Assert.Contains("CeilingLabel", xaml);
+        Assert.Contains("TimingLabel", xaml);
         Assert.Contains("OnRemoveFromCard", code);
     }
 
