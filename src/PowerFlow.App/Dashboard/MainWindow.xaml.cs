@@ -326,7 +326,7 @@ public sealed partial class MainWindow : Window
         TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
         var tuning = string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase);
         AdaptiveControlRowDefinition.Height = tuning
-            ? new GridLength(state == PowerFlowShellState.FullScreen ? 228 : 208)
+            ? GridLength.Auto
             : profile.GovernorControls switch
             {
                 GovernorControlPresentation.Summary => new GridLength(0),

@@ -66,6 +66,15 @@ public sealed class AdaptiveTuningContractTests
             Assert.DoesNotContain($"FontSize=\"{size}\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void TuneBand_UsesNaturalHeightInsteadOfFixedPixelCap()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+
+        Assert.Contains("AdaptiveControlRowDefinition.Height = tuning", code, StringComparison.Ordinal);
+        Assert.Contains("? GridLength.Auto", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("state == PowerFlowShellState.FullScreen ? 228 : 208", code, StringComparison.Ordinal);
+    }
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;
