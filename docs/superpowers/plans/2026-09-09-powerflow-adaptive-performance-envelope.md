@@ -293,11 +293,11 @@
 - Explicit semantic `AppRule.Entitlement` must not silently become a legacy Performance latch merely because its compatibility `Mode` is `Performance`.
 - All plan mutations continue through the existing `EnvelopeActuationPolicy` + `ApplyAdaptiveGovernorDecisionAsync` guard; no new actuator bypass.
 
-- [ ] **Step 1: Write failing controller tests** proving adaptive-enabled sampling publishes fresh CPU pressure without legacy CPU-plan switching, while adaptive-disabled behavior is unchanged and manual/game latches still win.
-- [ ] **Step 2: Write failing runtime tests** proving one decision per `ActivitySampleCount`, learned-envelope/tuning application, truthful null-actor fallback, and no snapshot feedback loop.
-- [ ] **Step 3: Write failing game-monitor tests** proving explicit semantic entitlements do not create legacy Performance latches while old schema-1 Performance rules still do.
-- [ ] **Step 4: Implement the minimal background adaptive runtime and legacy-engine ownership switch; wire it in `App` without UI dependence or extra sampling.**
-- [ ] **Step 5: Verify focused GREEN and run full Core/Windows/App tests + Release build.**
+- [x] **Step 1: Write failing controller tests** proving adaptive-enabled sampling publishes fresh CPU pressure without legacy CPU-plan switching, while adaptive-disabled behavior is unchanged and manual/game latches still win.
+- [x] **Step 2: Write failing runtime tests** proving one decision per `ActivitySampleCount`, learned-envelope/tuning application, truthful null-actor fallback, and no snapshot feedback loop.
+- [x] **Step 3: Write failing game-monitor tests** proving explicit semantic entitlements do not create legacy Performance latches while old schema-1 Performance rules still do.
+- [x] **Step 4: Implement the minimal background adaptive runtime and legacy-engine ownership switch; wire it in `App` without UI dependence or extra sampling.**
+- [x] **Step 5: Verify focused GREEN and run full Core/Windows/App tests + Release build.**
 
 ### Task 12: Persist Tune / Override / Pause Learning and make UI/runtime share one policy
 
@@ -320,17 +320,17 @@
 - Background runtime and Dashboard dry-run must consume the same effective learned/frozen envelope + saved tuning + entitlement semantics.
 - Enabling adaptive actuation remains explicit and defaults off.
 
-- [ ] **Step 1: Write failing Core/Windows config tests** for adaptive-settings round trip and old schema-1 omitted-field compatibility.
-- [ ] **Step 2: Write failing VM/UI contracts** for restore/save semantics, override selector, pause learning, and no raw actuator leakage.
-- [ ] **Step 3: Implement backward-compatible persistence and Tune controls.**
-- [ ] **Step 4: Refactor dry-run/runtime policy context only as much as needed to guarantee they consume the same effective settings.**
-- [ ] **Step 5: Run full Core/Windows/App tests + exact Release build + diff/source hygiene.**
-- [ ] **Step 6: Commit Tasks 11-12 in independently reviewable commits.**
+- [x] **Step 1: Write failing Core/Windows config tests** for adaptive-settings round trip and old schema-1 omitted-field compatibility.
+- [x] **Step 2: Write failing VM/UI contracts** for restore/save semantics, override selector, pause learning, and no raw actuator leakage.
+- [x] **Step 3: Implement backward-compatible persistence and Tune controls.**
+- [x] **Step 4: Refactor dry-run/runtime policy context only as much as needed to guarantee they consume the same effective settings.**
+- [x] **Step 5: Run full Core/Windows/App tests + exact Release build + diff/source hygiene.**
+- [x] **Step 6: Commit Tasks 11-12 in independently reviewable commits.**
 
 ### Task 13: Re-qualify and return to the human visual gate
 
-- [ ] Run the exact full headless qualification again after Tasks 11-12.
-- [ ] Verify no PowerFlow process is running and the Windows plan was not changed by validation.
-- [ ] Do **not** launch UI unless the user provides a new, fresh authorization; the prior bounded UI window is expired.
-- [ ] Report the prior authorized evidence separately: real Glance geometry/no-focus passed; same-HWND Compact -> Expanded -> Full Screen -> Restore passed; Model and Tune surfaces loaded; live-found Atlas initialization and DPI bugs were fixed and regression-tested.
-- [ ] Stop for user aesthetic/behavioral acceptance before README screenshot promotion, merge, tag, or publish.
+- [x] Run the exact full headless qualification again after Tasks 11-12.
+- [x] Verify no PowerFlow process is running and the Windows plan was not changed by validation.
+- [x] Do **not** launch UI unless the user provides a new, fresh authorization; the prior bounded UI window is expired.
+- [x] Report the prior authorized evidence separately: real Glance geometry/no-focus passed; same-HWND Compact -> Expanded -> Full Screen -> Restore passed; Model and Tune surfaces loaded; live-found Atlas initialization and DPI bugs were fixed and regression-tested.
+- [x] Stop for user aesthetic/behavioral acceptance before README screenshot promotion, merge, tag, or publish.
