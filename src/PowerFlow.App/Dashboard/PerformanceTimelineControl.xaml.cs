@@ -264,16 +264,16 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var learnedBrush = PolicyBrush(rail.Kind, false);
             var candidateBrush = PolicyBrush(rail.Kind, true);
 
-            if (Math.Abs(learnedY - candidateY) > .5)
+            if (_tuneMode && Math.Abs(learnedY - candidateY) > .5)
             {
-                var ghost = AddLine(PolicyValueLayer, 0, learnedY, _plotWidth, learnedY, learnedBrush, 1);
-                ghost.StrokeDashArray = new DoubleCollection { 2, 5 };
+                var ghost = AddLine(PolicyValueLayer, 0, learnedY, _plotWidth, learnedY, learnedBrush, .75);
+                ghost.StrokeDashArray = new DoubleCollection { 1, 6 };
+                ghost.Opacity = .42;
             }
-            var line = AddLine(PolicyValueLayer, 0, candidateY, _plotWidth, candidateY, candidateBrush, rail.Editable ? 1.6 : 1.1);
-            line.StrokeDashArray = rail.Editable ? new DoubleCollection { 5, 4 } : new DoubleCollection { 2, 5 };
-            var suffix = rail.Metric == PerformanceTimelineMetric.PackagePower ? $" {rail.CandidateValue:0}W" : $" {rail.CandidateValue:0}%";
-            suffix += rail.Editable && _tuneMode ? "  [DRAG]" : !rail.Editable ? "  [LEARNED]" : string.Empty;
-            AddText(PolicyValueLayer, rail.Label + suffix, 4, Math.Max(laneIndex * laneHeight, candidateY - 14), 11, candidateBrush);
+
+            // Policy is context, not the data. Keep it quiet and solid so telemetry remains dominant.
+            var line = AddLine(PolicyValueLayer, 0, candidateY, _plotWidth, candidateY, candidateBrush, rail.Editable ? 1.15 : .7);
+            line.Opacity = rail.Editable ? (_tuneMode ? .72 : .30) : .18;
 
             if (_tuneMode && rail.Editable)
             {
@@ -290,18 +290,16 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var learnedX = band.LearnedStartX * _plotWidth;
             var candidateX = band.CandidateStartX * _plotWidth;
             var brush = PolicyBrush(band.Kind, true);
-            if (Math.Abs(learnedX - candidateX) > .5)
+            if (_tuneMode && Math.Abs(learnedX - candidateX) > .5)
             {
-                var ghost = AddLine(PolicyTimeLayer, learnedX, 0, learnedX, _plotHeight, PolicyBrush(band.Kind, false), 1);
-                ghost.StrokeDashArray = new DoubleCollection { 2, 5 };
+                var ghost = AddLine(PolicyTimeLayer, learnedX, 0, learnedX, _plotHeight, PolicyBrush(band.Kind, false), .75);
+                ghost.StrokeDashArray = new DoubleCollection { 1, 6 };
+                ghost.Opacity = .38;
             }
-            var region = new Rectangle { Width = Math.Max(1, _plotWidth - candidateX), Height = _plotHeight, Fill = PolicyFill(band.Kind), IsHitTestVisible = false };
-            Canvas.SetLeft(region, candidateX);
-            Canvas.SetTop(region, 0);
-            PolicyTimeLayer.Children.Add(region);
-            var edge = AddLine(PolicyTimeLayer, candidateX, 0, candidateX, _plotHeight, brush, 1.25);
-            edge.StrokeDashArray = new DoubleCollection { 3, 4 };
-            AddText(PolicyTimeLayer, $"{band.Label} {band.CandidateDuration.TotalSeconds:0.#}s{(_tuneMode && band.Editable ? "  [DRAG]" : string.Empty)}", Math.Clamp(candidateX + 4, 4, Math.Max(4, _plotWidth - 110)), 3 + bandIndex * 15, 11, brush);
+
+            // Timing policy is a clean vertical edge. Full-height overlapping fills obscured the traces.
+            var edge = AddLine(PolicyTimeLayer, candidateX, 0, candidateX, _plotHeight, brush, _tuneMode ? 1.15 : .8);
+            edge.Opacity = _tuneMode ? .62 : .24;
 
             if (_tuneMode && band.Editable)
             {
@@ -395,13 +393,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
                 EnvelopeDecisionKind.Qualifying => light ? Brush(163, 128, 33, 175) : Brush(245, 204, 92, 195),
                 _ => light ? Brush(40, 61, 76, 90) : Brush(255, 255, 255, 80)
             };
-            var line = AddLine(ActorDecisionLayer, x, 0, x, height, brush, marker.Decision == EnvelopeDecisionKind.Brake ? 1.5 : 1);
-            line.StrokeDashArray = new DoubleCollection { 2, 4 };
-            if (!string.IsNullOrWhiteSpace(marker.Actor) || marker.Decision != EnvelopeDecisionKind.None)
-            {
-                var caption = string.Join(" · ", new[] { ShortActor(marker.Actor), marker.Decision == EnvelopeDecisionKind.None ? marker.Zone.ToString() : marker.Decision.ToString().ToUpperInvariant() }.Where(x => !string.IsNullOrWhiteSpace(x)));
-                AddText(ActorDecisionLayer, caption, Math.Clamp(x + 3, 3, Math.Max(3, _plotWidth - 120)), 3, 11, brush);
-            }
+            // Events remain visible without slicing through every telemetry lane.
+            var tickHeight = marker.Decision == EnvelopeDecisionKind.Brake ? 12d : 8d;
+            var tick = AddLine(ActorDecisionLayer, x, Math.Max(0, height - tickHeight), x, height, brush, marker.Decision == EnvelopeDecisionKind.Brake ? 2.5 : 2);
+            tick.Opacity = marker.Decision == EnvelopeDecisionKind.None ? .38 : .72;
         }
     }
 
