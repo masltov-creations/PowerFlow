@@ -11,7 +11,8 @@ public sealed class PerformanceTimelineContractTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
 
         Assert.Contains("x:Name=\"TimelineRoot\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PlotCanvas\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GridLayer\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TraceLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CursorLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"EnvelopeRailLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ActorDecisionLayer\"", xaml, StringComparison.Ordinal);
@@ -39,4 +40,18 @@ public sealed class PerformanceTimelineContractTests
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException();
         return File.ReadAllText(Path.Combine(new[] { dir }.Concat(parts).ToArray()));
     }
-}
+
+    [Fact]
+    public void TimelineRenderer_UsesPersistentClippedPathsInsteadOfRebuildingPolylines()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+
+        foreach (var name in new[] { "CpuTracePath", "PowerTracePath", "ClockTracePath", "CoresTracePath" })
+            Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<Polyline", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("new Polyline", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("PlotCanvas.Children.Clear()", code, StringComparison.Ordinal);
+        Assert.Contains("RectangleGeometry", code, StringComparison.Ordinal);
+        Assert.Contains("ShapePreservingCurve.Build", code, StringComparison.Ordinal);
+    }}

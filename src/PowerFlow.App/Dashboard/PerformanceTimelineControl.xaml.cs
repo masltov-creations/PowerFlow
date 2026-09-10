@@ -93,13 +93,13 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     private void Redraw()
     {
-        var width = PlotCanvas.ActualWidth;
-        var height = PlotCanvas.ActualHeight;
+        var width = GridLayer.ActualWidth;
+        var height = GridLayer.ActualHeight;
         if (width < 80 || height < 80) return;
 
         _plotWidth = width;
         _plotHeight = height;
-        PlotCanvas.Children.Clear();
+        GridLayer.Children.Clear();
         EnvelopeRailLayer.Children.Clear();
         ActorDecisionLayer.Children.Clear();
         SelectionLayer.Children.Clear();
@@ -119,10 +119,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
         for (var lane = 0; lane < 4; lane++)
         {
             var top = lane * laneHeight;
-            if (lane > 0) AddLine(PlotCanvas, 0, top, width, top, grid, 1);
-            AddLine(PlotCanvas, 0, top + laneHeight * .5, width, top + laneHeight * .5, grid, 1);
-            DrawLane(_data.Lanes[lane], top + 4, Math.Max(1, laneHeight - 8), series[lane]);
-            AddText(PlotCanvas, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 65), top + 2, 11, text);
+            if (lane > 0) AddLine(GridLayer, 0, top, width, top, grid, 1);
+            AddLine(GridLayer, 0, top + laneHeight * .5, width, top + laneHeight * .5, grid, 1);
+            UpdateTracePath(lane, _data.Lanes[lane], top + 4, Math.Max(1, laneHeight - 8), series[lane]);
+            AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 65), top + 2, 11, text);
         }
 
         DrawEnvelopeRails(laneHeight);
@@ -130,48 +130,54 @@ public sealed partial class PerformanceTimelineControl : UserControl
         RedrawSelection();
     }
 
-    private void DrawLane(TimelineLaneProjection lane, double top, double height, Brush stroke)
+    private void UpdateTracePath(int laneIndex, TimelineLaneProjection lane, double top, double height, Brush stroke)
     {
-        var group = new List<Point>();
-        foreach (var point in lane.Points)
-        {
-            if (point.Y is not double y)
-            {
-                Flush(group, stroke);
-                continue;
-            }
-            group.Add(new Point(point.X * _plotWidth, top + (1 - y) * height));
-        }
-        Flush(group, stroke);
+        var path = TracePath(laneIndex);
+        path.Stroke = stroke;
+        path.Clip = new RectangleGeometry { Rect = new Rect(0, top, _plotWidth, height) };
+        var samples = lane.Points
+            .Select(point => point.Y is double y
+                ? (Point?)new Point(point.X * _plotWidth, top + (1 - y) * height)
+                : null)
+            .ToArray();
+        path.Data = ToPathGeometry(ShapePreservingCurve.Build(samples));
+    }
 
-        void Flush(List<Point> points, Brush brush)
+    private Microsoft.UI.Xaml.Shapes.Path TracePath(int laneIndex) => laneIndex switch
+    {
+        0 => CpuTracePath,
+        1 => PowerTracePath,
+        2 => ClockTracePath,
+        3 => CoresTracePath,
+        _ => throw new ArgumentOutOfRangeException(nameof(laneIndex))
+    };
+
+    private static PathGeometry ToPathGeometry(IReadOnlyList<CurveFigure> figures)
+    {
+        var geometry = new PathGeometry();
+        foreach (var model in figures)
         {
-            if (points.Count == 0) return;
-            if (points.Count == 1)
+            var figure = new PathFigure { StartPoint = model.Start, IsClosed = false };
+            if (model.Segments.Count == 0)
             {
-                var dot = new Ellipse { Width = 4, Height = 4, Fill = brush, IsHitTestVisible = false };
-                Canvas.SetLeft(dot, points[0].X - 2);
-                Canvas.SetTop(dot, points[0].Y - 2);
-                PlotCanvas.Children.Add(dot);
+                figure.Segments.Add(new LineSegment { Point = model.Start });
             }
             else
             {
-                var polyline = new Polyline
+                foreach (var segment in model.Segments)
                 {
-                    Stroke = brush,
-                    StrokeThickness = 1.9,
-                    StrokeLineJoin = PenLineJoin.Round,
-                    StrokeStartLineCap = PenLineCap.Round,
-                    StrokeEndLineCap = PenLineCap.Round,
-                    IsHitTestVisible = false
-                };
-                foreach (var p in points) polyline.Points.Add(p);
-                PlotCanvas.Children.Add(polyline);
+                    figure.Segments.Add(new BezierSegment
+                    {
+                        Point1 = segment.Control1,
+                        Point2 = segment.Control2,
+                        Point3 = segment.End
+                    });
+                }
             }
-            points.Clear();
+            geometry.Figures.Add(figure);
         }
+        return geometry;
     }
-
     private void DrawEnvelopeRails(double cpuLaneHeight)
     {
         var light = ActualTheme == ElementTheme.Light;

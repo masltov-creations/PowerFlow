@@ -62,7 +62,13 @@
                 </Grid>
 
                 <Grid Grid.Column="1" x:Name="TimelinePlotHost" MinWidth="120" MinHeight="132">
-                    <Canvas x:Name="PlotCanvas" SizeChanged="OnSizeChanged" IsHitTestVisible="False"/>
+                    <Canvas x:Name="GridLayer" SizeChanged="OnSizeChanged" IsHitTestVisible="False"/>
+                    <Canvas x:Name="TraceLayer" IsHitTestVisible="False">
+                        <Path x:Name="CpuTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Path x:Name="PowerTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Path x:Name="ClockTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Path x:Name="CoresTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Canvas>
                     <Canvas x:Name="EnvelopeRailLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="ActorDecisionLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="SelectionLayer" IsHitTestVisible="False"/>
