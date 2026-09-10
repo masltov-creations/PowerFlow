@@ -235,6 +235,7 @@ public sealed partial class MainWindow : Window
 
         SystemHeaderHost.Presentation = profile.Header;
         PerformanceTimeline.SetPresentation(profile.Timeline);
+        ApplyAnalyticalInstrumentLayout(state);
         ApplyNavigationPresentation(profile.Navigation, profile.Geometry.NavigationWidth);
         ApplyCockpitGeometry(profile, state, width, height);
 
@@ -279,6 +280,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void ApplyAnalyticalInstrumentLayout(PowerFlowShellState state)
+    {
+        var paired = state == PowerFlowShellState.FullScreen;
+        var atlasOnly = !paired && string.Equals(_currentSection, "model", StringComparison.OrdinalIgnoreCase);
+        if (paired)
+        {
+            TimelineInstrumentColumn.Width = new GridLength(1, GridUnitType.Star);
+            AtlasInstrumentColumn.Width = new GridLength(1, GridUnitType.Star);
+            PerformanceTimeline.Visibility = Visibility.Visible;
+            PerformanceAtlas.Visibility = Visibility.Visible;
+            return;
+        }
+
+        TimelineInstrumentColumn.Width = atlasOnly ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        AtlasInstrumentColumn.Width = atlasOnly ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        PerformanceTimeline.Visibility = atlasOnly ? Visibility.Collapsed : Visibility.Visible;
+        PerformanceAtlas.Visibility = atlasOnly ? Visibility.Visible : Visibility.Collapsed;
+    }
     private void ApplyCockpitGeometry(ShellPresentationProfile profile, PowerFlowShellState state, int width, int height)
     {
         CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
@@ -494,6 +513,7 @@ public sealed partial class MainWindow : Window
     {
         var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, calibration.Envelope, _graphWindowSeconds);
+        PerformanceAtlas.Apply(ViewModel.OperatingHistory, calibration.Envelope);
         ModelConfidenceText.Text = calibration.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
             : $"{calibration.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
@@ -570,6 +590,7 @@ public sealed partial class MainWindow : Window
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
+        if (cockpitSection) ApplyAnalyticalInstrumentLayout(_shellState);
     }
     private void SelectSection(string tag)
     {

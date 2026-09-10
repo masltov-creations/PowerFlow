@@ -57,7 +57,14 @@
                             </StackPanel>
                         </Grid>
 
-                        <dash:PerformanceTimelineControl x:Name="PerformanceTimeline" Grid.Row="1"/>
+                        <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="1" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="TimelineInstrumentColumn" Width="*"/>
+                                <ColumnDefinition x:Name="AtlasInstrumentColumn" Width="0"/>
+                            </Grid.ColumnDefinitions>
+                            <dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/>
+                            <dash:PerformanceAtlasControl x:Name="PerformanceAtlas" Grid.Column="1" Visibility="Collapsed"/>
+                        </Grid>
 
                         <Grid x:Name="AdaptiveControlRegion" Grid.Row="2" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
