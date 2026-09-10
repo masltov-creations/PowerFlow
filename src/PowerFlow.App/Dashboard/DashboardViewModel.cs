@@ -37,6 +37,10 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public string CpuLabel => _snapshot is null ? "—" : $"{_snapshot.CpuPercent:0.0}%";
     public string WattsLabel => _telemetry?.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
     public string FrequencyLabel => _telemetry?.AverageMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
+    public double? MemoryPercent => _telemetry?.MemoryUsedPercent;
+    public string MemoryLabel => MemoryPercent is double value ? $"{value:0}%" : "-";
+    public string MachineLabel => string.IsNullOrWhiteSpace(_telemetry?.MachineName) ? string.Empty : _telemetry!.MachineName!;
+    public bool HasMachineLabel => !string.IsNullOrWhiteSpace(MachineLabel);
     public bool IsPowerSaverSelected => _snapshot?.State == PowerState.PowerSaver;
     public bool IsBalancedSelected => _snapshot?.State == PowerState.Balanced;
     public bool IsPerformanceSelected => _snapshot?.State == PowerState.HighPerformance;
@@ -160,6 +164,10 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CpuLabel));
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
+        OnPropertyChanged(nameof(MemoryPercent));
+        OnPropertyChanged(nameof(MemoryLabel));
+        OnPropertyChanged(nameof(MachineLabel));
+        OnPropertyChanged(nameof(HasMachineLabel));
         OnPropertyChanged(nameof(IsPowerSaverSelected));
         OnPropertyChanged(nameof(IsBalancedSelected));
         OnPropertyChanged(nameof(IsPerformanceSelected));

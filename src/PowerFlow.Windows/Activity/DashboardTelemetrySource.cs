@@ -5,8 +5,23 @@ namespace PowerFlow.Windows.Activity;
 public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
 {
     private readonly EnergyMeterReader _energy = new();
+    private readonly ISystemMetricsProvider _system;
 
-    public DashboardTelemetry Read(DateTimeOffset at) => new(_energy.TryReadWatts(), TryReadAverageMhz(), at);
+    public DashboardTelemetrySource(ISystemMetricsProvider? system = null)
+    {
+        _system = system ?? new WindowsSystemMetricsProvider();
+    }
+
+    public DashboardTelemetry Read(DateTimeOffset at)
+    {
+        var system = _system.Read();
+        return new DashboardTelemetry(
+            _energy.TryReadWatts(),
+            TryReadAverageMhz(),
+            at,
+            system.MemoryUsedPercent,
+            system.MachineName);
+    }
 
     public void Dispose() => _energy.Dispose();
 

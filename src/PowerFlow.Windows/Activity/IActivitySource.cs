@@ -7,4 +7,9 @@ public interface IActivitySource
     ActivitySample Sample(DateTimeOffset at);
 }
 
-public sealed record DashboardTelemetry(double? PackageWatts, double? AverageMhz, DateTimeOffset At);
+public sealed record DashboardTelemetry(
+    double? PackageWatts,
+    double? AverageMhz,
+    DateTimeOffset At,
+    double? MemoryUsedPercent = null,
+    string? MachineName = null);

@@ -60,5 +60,31 @@ public sealed class DashboardViewModelTests
         Assert.Equal("Held until game exits", vm.NextActionLabel);
         Assert.Equal("—", vm.WattsLabel);
     }
-}
 
+    [Fact]
+    public void MemoryAndMachineTelemetry_ProjectsTruthfullyWhenAvailable()
+    {
+        var vm = new DashboardViewModel();
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new ControllerSnapshot(PowerState.Balanced, "test", false, null, 20, 0, null, null, now, [], 0, 0);
+
+        vm.Update(snapshot, new DashboardTelemetry(42, 2200, now, 67.4, "reference-host"));
+
+        Assert.Equal(67.4, vm.MemoryPercent);
+        Assert.Equal("67%", vm.MemoryLabel);
+        Assert.Equal("reference-host", vm.MachineLabel);
+    }
+
+    [Fact]
+    public void MemoryAndMachineTelemetry_ShowsUnavailableInsteadOfInventingValues()
+    {
+        var vm = new DashboardViewModel();
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new ControllerSnapshot(PowerState.Balanced, "test", false, null, 20, 0, null, null, now, [], 0, 0);
+
+        vm.Update(snapshot, new DashboardTelemetry(42, 2200, now));
+
+        Assert.Null(vm.MemoryPercent);
+        Assert.Equal("-", vm.MemoryLabel);
+        Assert.Equal(string.Empty, vm.MachineLabel);
+    }}

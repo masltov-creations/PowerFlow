@@ -49,6 +49,7 @@
                     <TextBlock Text="Flow" FontSize="18" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
                 </StackPanel>
                 <TextBlock Text="POWER CONTROL" FontSize="11" CharacterSpacing="100" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                <TextBlock Text="{Binding MachineLabel}" Visibility="{Binding HasMachineLabel, Converter={StaticResource BoolToVisibility}}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
             <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1" Margin="12,0,0,0">
                 <TextBlock Text="{Binding StateLabel}" FontSize="13" FontWeight="SemiBold"/>
