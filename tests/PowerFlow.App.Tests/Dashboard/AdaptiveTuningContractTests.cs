@@ -26,20 +26,26 @@ public sealed class AdaptiveTuningContractTests
     }
 
     [Fact]
-    public void TuneSurface_UsesSemanticRailsWithAccessibleNonDragAlternatives()
+    public void TuneSurface_UsesGraphRailsWithAccessiblePrecisionAlternatives()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         foreach (var name in new[]
         {
-            "TuneControlRegion", "TuningLayerBadge", "EcoBoundarySlider", "EcoBoundaryNumber",
-            "EfficientBoundarySlider", "EfficientBoundaryNumber", "ResponsiveBoundarySlider", "ResponsiveBoundaryNumber",
-            "LeaseDurationSlider", "LeaseDurationNumber", "MaximumZoneSelector", "ReplaySummaryText", "ResetLearnedButton"
+            "TuneControlRegion", "TuningLayerBadge", "EcoBoundaryNumber",
+            "EfficientBoundaryNumber", "ResponsiveBoundaryNumber", "QualificationDurationNumber",
+            "LeaseDurationNumber", "ReleaseHysteresisNumber", "MaximumZoneSelector", "ReplaySummaryText", "ResetLearnedButton"
         })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
 
-        foreach (var accessibleName in new[] { "Eco boundary", "Efficient boundary", "Responsive boundary", "Boost lease duration", "Maximum semantic zone" })
+        foreach (var accessibleName in new[]
+        {
+            "Eco boundary", "Efficient boundary", "Responsive boundary", "Boost qualification duration",
+            "Boost lease duration", "Release quiet duration", "Maximum semantic zone"
+        })
             Assert.Contains($"AutomationProperties.Name=\"{accessibleName}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<Slider", xaml, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("<Slider", xaml, StringComparison.Ordinal);
+        Assert.Contains("Drag the rails", xaml, StringComparison.Ordinal);
         Assert.Contains("<NumberBox", xaml, StringComparison.Ordinal);
         Assert.Contains("LEARNED", xaml, StringComparison.Ordinal);
         Assert.Contains("COUNTERFACTUAL", xaml, StringComparison.Ordinal);
@@ -82,4 +88,28 @@ public sealed class AdaptiveTuningContractTests
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException();
         return File.ReadAllText(Path.Combine(new[] { dir }.Concat(parts).ToArray()));
     }
-}
+
+    [Fact]
+    public void TuneSurface_UsesTheTimelineAsPrimaryControlSurface()
+    {
+        var timelineXaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
+        var timelineCode = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        var mainXaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var mainCode = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+
+        foreach (var layer in new[] { "PolicyValueLayer", "PolicyTimeLayer", "PolicyHandleLayer" })
+            Assert.Contains($"x:Name=\"{layer}\"", timelineXaml, StringComparison.Ordinal);
+        Assert.Contains("SetTuneMode(bool", timelineCode, StringComparison.Ordinal);
+        Assert.Contains("PolicyHandleChanged", timelineCode, StringComparison.Ordinal);
+        Assert.Contains("TimelinePolicyInteraction.ApplyDrag", timelineCode, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.SetTuneMode", mainCode, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.SetPolicyContext", mainCode, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.PolicyHandleChanged", mainCode, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("x:Name=\"EcoBoundarySlider\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"EfficientBoundarySlider\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"ResponsiveBoundarySlider\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LeaseDurationSlider\"", mainXaml, StringComparison.Ordinal);
+        foreach (var precision in new[] { "EcoBoundaryNumber", "EfficientBoundaryNumber", "ResponsiveBoundaryNumber", "QualificationDurationNumber", "LeaseDurationNumber", "ReleaseHysteresisNumber" })
+            Assert.Contains($"x:Name=\"{precision}\"", mainXaml, StringComparison.Ordinal);
+    }}

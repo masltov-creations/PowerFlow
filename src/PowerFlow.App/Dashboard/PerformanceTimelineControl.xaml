@@ -69,10 +69,12 @@
                         <Path x:Name="ClockTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                         <Path x:Name="CoresTracePath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
-                    <Canvas x:Name="EnvelopeRailLayer" IsHitTestVisible="False"/>
+                    <Canvas x:Name="PolicyValueLayer" IsHitTestVisible="False"/>
+                    <Canvas x:Name="PolicyTimeLayer" IsHitTestVisible="False"/>
+                    <Canvas x:Name="PolicyHandleLayer" IsHitTestVisible="False" Visibility="Collapsed"/>
                     <Canvas x:Name="ActorDecisionLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="SelectionLayer" IsHitTestVisible="False"/>
-                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed">
+                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed" PointerReleased="OnPointerReleased" PointerCanceled="OnPointerCanceled">
                         <Line x:Name="InspectionCursor" Stroke="#8294A6" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
                     </Canvas>
                     <Border x:Name="CursorCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"

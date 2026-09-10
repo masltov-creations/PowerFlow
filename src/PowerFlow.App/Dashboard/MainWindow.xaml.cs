@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Telemetry;
@@ -84,6 +83,7 @@ public sealed partial class MainWindow : Window
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
+        PerformanceTimeline.PolicyHandleChanged += OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged += OnAtlasSelectionChanged;
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
@@ -537,12 +537,15 @@ public sealed partial class MainWindow : Window
     {
         var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
         var learningModel = _config.EffectiveAdaptiveGovernorSettings.ResolveLearningModel(calibration);
-        PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
-        PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
         _analyticalSelection = AnalyticalSelection.FromObservationIndices(ViewModel.OperatingHistory, _analyticalSelection.ObservationIndices);
+        var tuningEntitlement = ResolveTuningEntitlement(snapshot);
+        _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, tuningEntitlement, ViewModel.OperatingHistory, _analyticalSelection);
+        PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
+        PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
+        PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
+        PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
         PerformanceTimeline.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
         PerformanceAtlas.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, ResolveTuningEntitlement(snapshot), ViewModel.OperatingHistory, _analyticalSelection);
         ApplyTuningPresentation();
         ModelConfidenceText.Text = learningModel.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
@@ -594,20 +597,27 @@ public sealed partial class MainWindow : Window
 
     private void ApplyTuningPresentation()
     {
-        if (!string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase)) return;
+        var tuning = string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase);
+        PerformanceTimeline.SetTuneMode(tuning);
+        if (!tuning) return;
+
         var envelope = _tuningViewModel.CurrentEnvelope;
         var entitlement = _tuningViewModel.CurrentEntitlement;
+        PerformanceTimeline.SetPolicyContext(_tuningViewModel.LearnedEnvelope, _tuningViewModel.LearnedEntitlement, _tuningViewModel.CandidateTuning);
+
         _suppressTuningControlSync = true;
         try
         {
-            EcoBoundarySlider.Maximum = EcoBoundaryNumber.Maximum = Math.Max(0, envelope.EfficientCeilingPressure - 1);
-            EfficientBoundarySlider.Minimum = EfficientBoundaryNumber.Minimum = Math.Min(99, envelope.EcoCeilingPressure + 1);
-            EfficientBoundarySlider.Maximum = EfficientBoundaryNumber.Maximum = Math.Max(1, envelope.ResponsiveCeilingPressure - 1);
-            ResponsiveBoundarySlider.Minimum = ResponsiveBoundaryNumber.Minimum = Math.Min(100, envelope.EfficientCeilingPressure + 1);
-            EcoBoundarySlider.Value = EcoBoundaryNumber.Value = envelope.EcoCeilingPressure;
-            EfficientBoundarySlider.Value = EfficientBoundaryNumber.Value = envelope.EfficientCeilingPressure;
-            ResponsiveBoundarySlider.Value = ResponsiveBoundaryNumber.Value = envelope.ResponsiveCeilingPressure;
-            LeaseDurationSlider.Value = LeaseDurationNumber.Value = Math.Clamp(entitlement.LeaseDuration.TotalSeconds, 1, 60);
+            EcoBoundaryNumber.Maximum = Math.Max(0, envelope.EfficientCeilingPressure - 1);
+            EfficientBoundaryNumber.Minimum = Math.Min(99, envelope.EcoCeilingPressure + 1);
+            EfficientBoundaryNumber.Maximum = Math.Max(1, envelope.ResponsiveCeilingPressure - 1);
+            ResponsiveBoundaryNumber.Minimum = Math.Min(100, envelope.EfficientCeilingPressure + 1);
+            EcoBoundaryNumber.Value = envelope.EcoCeilingPressure;
+            EfficientBoundaryNumber.Value = envelope.EfficientCeilingPressure;
+            ResponsiveBoundaryNumber.Value = envelope.ResponsiveCeilingPressure;
+            QualificationDurationNumber.Value = Math.Clamp(entitlement.QualificationDuration.TotalSeconds, 0, 60);
+            LeaseDurationNumber.Value = Math.Clamp(entitlement.LeaseDuration.TotalSeconds, 1, 60);
+            ReleaseHysteresisNumber.Value = Math.Clamp(entitlement.ReleaseHysteresis.TotalSeconds, 0, 60);
             MaximumZoneSelector.SelectedIndex = entitlement.MaximumZone switch
             {
                 EnvelopeZone.Eco => 0,
@@ -616,14 +626,6 @@ public sealed partial class MainWindow : Window
                 _ => 3
             };
             PauseLearningToggle.IsOn = _candidateLearningPaused;
-            ManualOverrideSelector.SelectedIndex = _tuningViewModel.CandidateTuning.ManualOverrideZone switch
-            {
-                null => 0,
-                EnvelopeZone.Eco => 1,
-                EnvelopeZone.Efficient => 2,
-                EnvelopeZone.Responsive => 3,
-                _ => 4
-            };
             TuningLayerBadgeText.Text = _tuningViewModel.LayerLabel;
             TuneContextText.Text = _tuningViewModel.ActorSummary;
             ReplaySummaryText.Text = _tuningViewModel.ReplaySummary;
@@ -632,14 +634,18 @@ public sealed partial class MainWindow : Window
         finally { _suppressTuningControlSync = false; }
     }
 
-    private void OnEcoBoundarySliderChanged(object sender, RangeBaseValueChangedEventArgs e) { if (!_suppressTuningControlSync) { _tuningViewModel.SetEcoCeilingPressure(e.NewValue); ApplyTuningPresentation(); } }
-    private void OnEfficientBoundarySliderChanged(object sender, RangeBaseValueChangedEventArgs e) { if (!_suppressTuningControlSync) { _tuningViewModel.SetEfficientCeilingPressure(e.NewValue); ApplyTuningPresentation(); } }
-    private void OnResponsiveBoundarySliderChanged(object sender, RangeBaseValueChangedEventArgs e) { if (!_suppressTuningControlSync) { _tuningViewModel.SetResponsiveCeilingPressure(e.NewValue); ApplyTuningPresentation(); } }
-    private void OnLeaseDurationSliderChanged(object sender, RangeBaseValueChangedEventArgs e) { if (!_suppressTuningControlSync) { _tuningViewModel.SetLeaseDuration(TimeSpan.FromSeconds(Math.Max(1, e.NewValue))); ApplyTuningPresentation(); } }
+    private void OnTimelinePolicyHandleChanged(object? sender, PolicyHandleChangedEventArgs e)
+    {
+        _tuningViewModel.ApplyCandidateTuning(e.CandidateTuning);
+        ApplyTuningPresentation();
+    }
+
     private void OnEcoBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetEcoCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
     private void OnEfficientBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetEfficientCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
     private void OnResponsiveBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetResponsiveCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
+    private void OnQualificationDurationNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetQualificationDuration(TimeSpan.FromSeconds(Math.Max(0, args.NewValue))); ApplyTuningPresentation(); } }
     private void OnLeaseDurationNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetLeaseDuration(TimeSpan.FromSeconds(Math.Max(1, args.NewValue))); ApplyTuningPresentation(); } }
+    private void OnReleaseHysteresisNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetReleaseHysteresis(TimeSpan.FromSeconds(Math.Max(0, args.NewValue))); ApplyTuningPresentation(); } }
     private void OnMaximumZoneChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressTuningControlSync || MaximumZoneSelector.SelectedIndex < 0) return;
@@ -662,22 +668,6 @@ public sealed partial class MainWindow : Window
             _candidateFrozenLearnedEnvelope = null;
             _candidateFrozenConfidence = null;
         }
-        ApplyTuningPresentation();
-    }
-
-    private void OnManualOverrideChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressTuningControlSync || ManualOverrideSelector.SelectedIndex < 0) return;
-        if (ManualOverrideSelector.SelectedIndex == 0)
-            _tuningViewModel.ClearManualOverride();
-        else
-            _tuningViewModel.SetManualOverride(ManualOverrideSelector.SelectedIndex switch
-            {
-                1 => EnvelopeZone.Eco,
-                2 => EnvelopeZone.Efficient,
-                3 => EnvelopeZone.Responsive,
-                _ => EnvelopeZone.Boost
-            });
         ApplyTuningPresentation();
     }
 
@@ -747,6 +737,7 @@ public sealed partial class MainWindow : Window
     {
         var tag = (args.SelectedItemContainer?.Tag as string) ?? "flow";
         _currentSection = tag;
+        PerformanceTimeline.SetTuneMode(tag == "tune");
         if (tag != "flow" && _shellState is PowerFlowShellState.Glance or PowerFlowShellState.Compact)
             await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
         var cockpitSection = tag is "flow" or "model" or "tune";
@@ -782,6 +773,7 @@ public sealed partial class MainWindow : Window
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
         PerformanceTimeline.SelectionChanged -= OnTimelineSelectionChanged;
+        PerformanceTimeline.PolicyHandleChanged -= OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged -= OnAtlasSelectionChanged;
         ReleaseDashboardVisibility();
     }

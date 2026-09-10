@@ -18,6 +18,11 @@ public sealed class TimelineSelectionChangedEventArgs(IReadOnlyList<int> observa
     public IReadOnlyList<int> ObservationIndices { get; } = observationIndices;
 }
 
+public sealed class PolicyHandleChangedEventArgs(TimelinePolicyHandleKind kind, EnvelopeTuning candidateTuning) : EventArgs
+{
+    public TimelinePolicyHandleKind Kind { get; } = kind;
+    public EnvelopeTuning CandidateTuning { get; } = candidateTuning;
+}
 public sealed partial class PerformanceTimelineControl : UserControl
 {
     private static readonly OperatingEnvelope DefaultEnvelope = new(25, 55, 80, null, null, null);
@@ -28,6 +33,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private double _plotWidth = 1;
     private double _plotHeight = 1;
     private HashSet<int> _selectedObservationIndices = [];
+    private OperatingEnvelope _learnedEnvelope = DefaultEnvelope;
+    private PerformanceEntitlement _learnedEntitlement = PerformanceEntitlement.LegacyPerformance;
+    private EnvelopeTuning _candidateTuning = EnvelopeTuning.Learned;
+    private bool _tuneMode;
+    private TimelinePolicyHandleKind? _draggingPolicyHandle;
 
     public PerformanceTimelineControl()
     {
@@ -64,6 +74,27 @@ public sealed partial class PerformanceTimelineControl : UserControl
     }
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
+    public event EventHandler<PolicyHandleChangedEventArgs>? PolicyHandleChanged;
+
+    public void SetPolicyContext(OperatingEnvelope learnedEnvelope, PerformanceEntitlement learnedEntitlement, EnvelopeTuning candidateTuning)
+    {
+        ArgumentNullException.ThrowIfNull(learnedEnvelope);
+        ArgumentNullException.ThrowIfNull(learnedEntitlement);
+        ArgumentNullException.ThrowIfNull(candidateTuning);
+        _learnedEnvelope = learnedEnvelope;
+        _learnedEntitlement = learnedEntitlement;
+        _candidateTuning = candidateTuning;
+        _envelope = candidateTuning.ApplyTo(learnedEnvelope);
+        RedrawPolicy();
+    }
+
+    public void SetTuneMode(bool enabled)
+    {
+        _tuneMode = enabled;
+        PolicyHandleLayer.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        if (!enabled) _draggingPolicyHandle = null;
+        RedrawPolicy();
+    }
 
     public void SetSelectedObservationIndices(IEnumerable<int>? observationIndices)
     {
@@ -100,7 +131,6 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _plotWidth = width;
         _plotHeight = height;
         GridLayer.Children.Clear();
-        EnvelopeRailLayer.Children.Clear();
         ActorDecisionLayer.Children.Clear();
         SelectionLayer.Children.Clear();
 
@@ -125,7 +155,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 65), top + 2, 11, text);
         }
 
-        DrawEnvelopeRails(laneHeight);
+        RedrawPolicy();
         DrawDecisionEvents(height);
         RedrawSelection();
     }
@@ -178,24 +208,140 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
         return geometry;
     }
-    private void DrawEnvelopeRails(double cpuLaneHeight)
+    private void RedrawPolicy()
     {
-        var light = ActualTheme == ElementTheme.Light;
-        var rails = new[]
+        if (_plotWidth <= 1 || _plotHeight <= 1) return;
+        PolicyValueLayer.Children.Clear();
+        PolicyTimeLayer.Children.Clear();
+        PolicyHandleLayer.Children.Clear();
+
+        var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
+        var laneHeight = _plotHeight / 4d;
+        foreach (var rail in overlay.ValueRails)
         {
-            (_envelope.EcoCeilingPressure, "ECO", light ? Brush(52, 139, 88, 150) : Brush(104, 211, 142, 165)),
-            (_envelope.EfficientCeilingPressure, "EFFICIENT", light ? Brush(24, 130, 161, 165) : Brush(75, 202, 235, 175)),
-            (_envelope.ResponsiveCeilingPressure, "RESPONSIVE", light ? Brush(142, 92, 189, 165) : Brush(203, 148, 255, 175))
-        };
-        foreach (var rail in rails)
+            var laneIndex = LaneIndex(rail.Metric);
+            var learnedY = PolicyValueY(laneIndex, laneHeight, rail.LearnedNormalizedY);
+            var candidateY = PolicyValueY(laneIndex, laneHeight, rail.CandidateNormalizedY);
+            var learnedBrush = PolicyBrush(rail.Kind, false);
+            var candidateBrush = PolicyBrush(rail.Kind, true);
+
+            if (Math.Abs(learnedY - candidateY) > .5)
+            {
+                var ghost = AddLine(PolicyValueLayer, 0, learnedY, _plotWidth, learnedY, learnedBrush, 1);
+                ghost.StrokeDashArray = new DoubleCollection { 2, 5 };
+            }
+            var line = AddLine(PolicyValueLayer, 0, candidateY, _plotWidth, candidateY, candidateBrush, rail.Editable ? 1.6 : 1.1);
+            line.StrokeDashArray = rail.Editable ? new DoubleCollection { 5, 4 } : new DoubleCollection { 2, 5 };
+            var suffix = rail.Metric == PerformanceTimelineMetric.PackagePower ? $" {rail.CandidateValue:0}W" : $" {rail.CandidateValue:0}%";
+            AddText(PolicyValueLayer, rail.Label + suffix, 4, Math.Max(laneIndex * laneHeight, candidateY - 14), 11, candidateBrush);
+
+            if (_tuneMode && rail.Editable)
+            {
+                var handle = new Ellipse { Width = 11, Height = 11, Fill = candidateBrush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
+                Canvas.SetLeft(handle, Math.Max(0, _plotWidth - 11));
+                Canvas.SetTop(handle, candidateY - 5.5);
+                PolicyHandleLayer.Children.Add(handle);
+            }
+        }
+
+        var bandIndex = 0;
+        foreach (var band in overlay.TimeBands)
         {
-            var y = 4 + (1 - Math.Clamp(rail.Item1 / 100d, 0, 1)) * Math.Max(1, cpuLaneHeight - 8);
-            var line = AddLine(EnvelopeRailLayer, 0, y, _plotWidth, y, rail.Item3, 1);
-            line.StrokeDashArray = new DoubleCollection { 4, 5 };
-            AddText(EnvelopeRailLayer, rail.Item2, 4, Math.Max(0, y - 14), 11, rail.Item3);
+            var learnedX = band.LearnedStartX * _plotWidth;
+            var candidateX = band.CandidateStartX * _plotWidth;
+            var brush = PolicyBrush(band.Kind, true);
+            if (Math.Abs(learnedX - candidateX) > .5)
+            {
+                var ghost = AddLine(PolicyTimeLayer, learnedX, 0, learnedX, _plotHeight, PolicyBrush(band.Kind, false), 1);
+                ghost.StrokeDashArray = new DoubleCollection { 2, 5 };
+            }
+            var region = new Rectangle { Width = Math.Max(1, _plotWidth - candidateX), Height = _plotHeight, Fill = PolicyFill(band.Kind), IsHitTestVisible = false };
+            Canvas.SetLeft(region, candidateX);
+            Canvas.SetTop(region, 0);
+            PolicyTimeLayer.Children.Add(region);
+            var edge = AddLine(PolicyTimeLayer, candidateX, 0, candidateX, _plotHeight, brush, 1.25);
+            edge.StrokeDashArray = new DoubleCollection { 3, 4 };
+            AddText(PolicyTimeLayer, $"{band.Label} {band.CandidateDuration.TotalSeconds:0.#}s", Math.Clamp(candidateX + 4, 4, Math.Max(4, _plotWidth - 110)), 3 + bandIndex * 15, 11, brush);
+
+            if (_tuneMode && band.Editable)
+            {
+                var handle = new Rectangle { Width = 9, Height = 17, RadiusX = 4.5, RadiusY = 4.5, Fill = brush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
+                Canvas.SetLeft(handle, Math.Clamp(candidateX - 4.5, 0, Math.Max(0, _plotWidth - 9)));
+                Canvas.SetTop(handle, Math.Max(0, _plotHeight - 20 - bandIndex * 18));
+                PolicyHandleLayer.Children.Add(handle);
+            }
+            bandIndex++;
         }
     }
 
+    private int LaneIndex(PerformanceTimelineMetric metric)
+    {
+        for (var i = 0; i < _data.Lanes.Count; i++)
+            if (_data.Lanes[i].Metric == metric) return i;
+        return 0;
+    }
+
+    private double PolicyValueY(int laneIndex, double laneHeight, double normalizedY)
+        => laneIndex * laneHeight + 4 + Math.Clamp(normalizedY, 0d, 1d) * Math.Max(1, laneHeight - 8);
+
+    private TimelinePolicyHandleKind? HitTestPolicyHandle(Point point)
+    {
+        if (!_tuneMode || _plotWidth <= 1 || _plotHeight <= 1) return null;
+        var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
+        var laneHeight = _plotHeight / 4d;
+        TimelinePolicyHandleKind? winner = null;
+        var best = 14d;
+        foreach (var rail in overlay.ValueRails.Where(rail => rail.Editable))
+        {
+            var distance = Math.Abs(point.Y - PolicyValueY(LaneIndex(rail.Metric), laneHeight, rail.CandidateNormalizedY));
+            if (distance <= best) { best = distance; winner = rail.Kind; }
+        }
+        foreach (var band in overlay.TimeBands.Where(band => band.Editable))
+        {
+            var distance = Math.Abs(point.X - band.CandidateStartX * _plotWidth);
+            if (distance <= best) { best = distance; winner = band.Kind; }
+        }
+        return winner;
+    }
+
+    private void ApplyPolicyDrag(Point point)
+    {
+        if (_draggingPolicyHandle is not TimelinePolicyHandleKind kind) return;
+        var updated = TimelinePolicyInteraction.ApplyDrag(
+            _candidateTuning,
+            kind,
+            point.X / Math.Max(1, _plotWidth),
+            point.Y / Math.Max(1, _plotHeight),
+            _learnedEnvelope,
+            _learnedEntitlement,
+            _data.WindowSeconds);
+        if (updated == _candidateTuning) return;
+        _candidateTuning = updated;
+        _envelope = updated.ApplyTo(_learnedEnvelope);
+        RedrawPolicy();
+        PolicyHandleChanged?.Invoke(this, new PolicyHandleChangedEventArgs(kind, updated));
+    }
+
+    private SolidColorBrush PolicyBrush(TimelinePolicyHandleKind kind, bool strong)
+    {
+        var light = ActualTheme == ElementTheme.Light;
+        var alpha = (byte)(strong ? 210 : 90);
+        return kind switch
+        {
+            TimelinePolicyHandleKind.EcoPressure or TimelinePolicyHandleKind.EcoPowerFrontier => light ? Brush(40, 132, 82, alpha) : Brush(91, 214, 139, alpha),
+            TimelinePolicyHandleKind.EfficientPressure or TimelinePolicyHandleKind.EfficientPowerFrontier => light ? Brush(21, 126, 157, alpha) : Brush(75, 202, 235, alpha),
+            TimelinePolicyHandleKind.ResponsivePressure or TimelinePolicyHandleKind.ResponsivePowerFrontier => light ? Brush(132, 83, 181, alpha) : Brush(203, 148, 255, alpha),
+            TimelinePolicyHandleKind.QualificationDuration => light ? Brush(157, 119, 28, alpha) : Brush(245, 204, 92, alpha),
+            TimelinePolicyHandleKind.LeaseDuration => light ? Brush(70, 81, 181, alpha) : Brush(148, 153, 255, alpha),
+            _ => light ? Brush(177, 92, 53, alpha) : Brush(255, 151, 108, alpha)
+        };
+    }
+
+    private SolidColorBrush PolicyFill(TimelinePolicyHandleKind kind)
+    {
+        var color = PolicyBrush(kind, true).Color;
+        return new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(10, color.R, color.G, color.B));
+    }
     private void DrawDecisionEvents(double height)
     {
         var light = ActualTheme == ElementTheme.Light;
@@ -222,6 +368,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var point = e.GetCurrentPoint(CursorLayer).Position;
+        if (_tuneMode && HitTestPolicyHandle(point) is TimelinePolicyHandleKind handle)
+        {
+            _draggingPolicyHandle = handle;
+            CursorLayer.CapturePointer(e.Pointer);
+            ApplyPolicyDrag(point);
+            e.Handled = true;
+            return;
+        }
         var index = ObservationIndexAt(point);
         _selectedObservationIndices = index is int observationIndex ? [observationIndex] : [];
         RedrawSelection();
@@ -256,8 +410,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (_data.Lanes.Count == 0 || _data.Lanes[0].Points.Count == 0) return;
         var p = e.GetCurrentPoint(CursorLayer).Position;
+        if (_draggingPolicyHandle is not null)
+        {
+            ApplyPolicyDrag(p);
+            e.Handled = true;
+            return;
+        }
+        if (_data.Lanes.Count == 0 || _data.Lanes[0].Points.Count == 0) return;
         if (p.X < 0 || p.X > _plotWidth || p.Y < 0 || p.Y > _plotHeight)
         {
             HideCursor();
@@ -283,8 +443,25 @@ public sealed partial class PerformanceTimelineControl : UserControl
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(observationIndex));
     }
 
-    private void OnPointerExited(object sender, PointerRoutedEventArgs e) => HideCursor();
+    private void OnPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (_draggingPolicyHandle is null) HideCursor();
+    }
 
+    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_draggingPolicyHandle is null) return;
+        ApplyPolicyDrag(e.GetCurrentPoint(CursorLayer).Position);
+        _draggingPolicyHandle = null;
+        CursorLayer.ReleasePointerCapture(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnPointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        _draggingPolicyHandle = null;
+        CursorLayer.ReleasePointerCapture(e.Pointer);
+    }
     private void HideCursor()
     {
         InspectionCursor.Visibility = Visibility.Collapsed;

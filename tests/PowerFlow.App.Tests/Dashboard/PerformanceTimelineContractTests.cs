@@ -14,7 +14,9 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("x:Name=\"GridLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"TraceLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CursorLayer\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"EnvelopeRailLayer\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PolicyValueLayer\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PolicyTimeLayer\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PolicyHandleLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ActorDecisionLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CPU PRESSURE", xaml, StringComparison.Ordinal);
         Assert.Contains("PACKAGE POWER", xaml, StringComparison.Ordinal);

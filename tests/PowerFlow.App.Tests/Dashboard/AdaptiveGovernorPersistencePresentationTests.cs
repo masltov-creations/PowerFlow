@@ -38,39 +38,35 @@ public sealed class AdaptiveGovernorPersistencePresentationTests
     }
 
     [Fact]
-    public void TuneSurface_ExposesExplicitSavePauseAndMachineOverrideControls()
+    public void TuneSurface_ExposesExplicitSavePauseAndPrecisionPolicyControls()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
-        foreach (var name in new[] { "SaveTuningButton", "PauseLearningToggle", "ManualOverrideSelector" })
+        foreach (var name in new[] { "SaveTuningButton", "PauseLearningToggle", "QualificationDurationNumber", "ReleaseHysteresisNumber" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
 
         Assert.Contains("Content=\"SAVE TUNING\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Pause learning\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.Name=\"Machine override\"", xaml, StringComparison.Ordinal);
-        foreach (var label in new[] { "AUTO", "ECO", "EFFICIENT", "RESPONSIVE", "BOOST" })
-            Assert.Contains($"Content=\"{label}\"", xaml, StringComparison.Ordinal);
-
         Assert.Contains("OnSaveTuningClicked", code, StringComparison.Ordinal);
         Assert.Contains("OnPauseLearningToggled", code, StringComparison.Ordinal);
-        Assert.Contains("OnManualOverrideChanged", code, StringComparison.Ordinal);
         Assert.Contains("EffectiveAdaptiveGovernorSettings", code, StringComparison.Ordinal);
         Assert.Contains("FrozenLearnedEnvelope", code, StringComparison.Ordinal);
         Assert.Contains("FrozenConfidence", code, StringComparison.Ordinal);
     }
-
     [Fact]
     public void TuneEditsStayCandidateUntilExplicitSaveHandler()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        var sliderHandler = Slice(code, "private void OnEcoBoundarySliderChanged", "private void OnEfficientBoundarySliderChanged");
-        Assert.DoesNotContain("_applyConfig", sliderHandler, StringComparison.Ordinal);
+        var precisionHandler = Slice(code, "private void OnEcoBoundaryNumberChanged", "private void OnEfficientBoundaryNumberChanged");
+        var graphHandler = Slice(code, "private void OnTimelinePolicyHandleChanged", "private void OnEcoBoundaryNumberChanged");
+        Assert.DoesNotContain("_applyConfig", precisionHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("_applyConfig", graphHandler, StringComparison.Ordinal);
+        Assert.Contains("ApplyCandidateTuning", graphHandler, StringComparison.Ordinal);
         var saveHandler = Slice(code, "OnSaveTuningClicked", "OnResetLearnedClicked");
         Assert.Contains("_applyConfig", saveHandler, StringComparison.Ordinal);
         Assert.Contains("AdaptiveGovernor", saveHandler, StringComparison.Ordinal);
     }
-
     [Fact]
     public void VisualModel_UsesSameEffectiveLearnedOrFrozenPolicyModel()
     {

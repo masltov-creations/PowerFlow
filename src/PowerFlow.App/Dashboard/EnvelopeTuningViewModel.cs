@@ -32,6 +32,9 @@ public sealed class EnvelopeTuningViewModel : INotifyPropertyChanged
         _ => "Explicit semantic override of the adaptive model"
     };
 
+    public OperatingEnvelope LearnedEnvelope => _learnedEnvelope;
+    public PerformanceEntitlement LearnedEntitlement => _learnedEntitlement;
+
     public EnvelopeTuning CandidateTuning => new(
         _layer,
         _ecoCeilingPressure,
@@ -99,6 +102,21 @@ public sealed class EnvelopeTuningViewModel : INotifyPropertyChanged
         Recompute();
     }
 
+    public void ApplyCandidateTuning(EnvelopeTuning tuning)
+    {
+        ArgumentNullException.ThrowIfNull(tuning);
+        _layer = tuning.ManualOverrideZone is not null ? EnvelopeTuningLayer.Override : tuning.Layer;
+        _ecoCeilingPressure = tuning.EcoCeilingPressure;
+        _efficientCeilingPressure = tuning.EfficientCeilingPressure;
+        _responsiveCeilingPressure = tuning.ResponsiveCeilingPressure;
+        _maximumZone = tuning.MaximumZone;
+        _qualificationDuration = tuning.QualificationDuration;
+        _leaseDuration = tuning.LeaseDuration;
+        _releaseHysteresis = tuning.ReleaseHysteresis;
+        _manualOverrideZone = tuning.ManualOverrideZone;
+        NormalizeBoundaryOverrides();
+        Recompute();
+    }
     public void RestorePersistedTuning(EnvelopeTuning tuning)
     {
         ArgumentNullException.ThrowIfNull(tuning);

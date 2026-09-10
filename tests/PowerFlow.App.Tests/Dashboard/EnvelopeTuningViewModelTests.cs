@@ -131,7 +131,28 @@ public sealed class EnvelopeTuningViewModelTests
         Assert.Equal(new[] { 2 }, vm.Selection.ObservationIndices);
         Assert.Contains("60", vm.BoundarySummary, StringComparison.Ordinal);
     }
-    private static EnvelopeTuningViewModel LoadedVm()
+
+    [Fact]
+    public void ApplyCandidateTuning_ReplacesUnsavedCandidateAndRecomputesReplay()
+    {
+        var vm = LoadedVm();
+        var candidate = new EnvelopeTuning(
+            EnvelopeTuningLayer.Tuned,
+            efficientCeilingPressure: 62,
+            qualificationDuration: TimeSpan.FromSeconds(2),
+            leaseDuration: TimeSpan.FromSeconds(9),
+            releaseHysteresis: TimeSpan.FromSeconds(4));
+
+        vm.ApplyCandidateTuning(candidate);
+
+        Assert.Equal(62, vm.CandidateTuning.EfficientCeilingPressure);
+        Assert.Equal(TimeSpan.FromSeconds(2), vm.CandidateTuning.QualificationDuration);
+        Assert.Equal(TimeSpan.FromSeconds(9), vm.CandidateTuning.LeaseDuration);
+        Assert.Equal(TimeSpan.FromSeconds(4), vm.CandidateTuning.ReleaseHysteresis);
+        Assert.Equal(EnvelopeTuningLayer.Tuned, vm.Layer);
+        Assert.Equal(62, vm.CurrentEnvelope.EfficientCeilingPressure);
+        Assert.True(vm.Replay.ObservationCount > 0);
+    }    private static EnvelopeTuningViewModel LoadedVm()
     {
         var history = History();
         var selection = AnalyticalSelection.FromObservationIndices(history, new[] { 1, 2 });
