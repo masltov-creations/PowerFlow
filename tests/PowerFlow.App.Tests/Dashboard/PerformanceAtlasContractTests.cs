@@ -49,7 +49,7 @@ public sealed class PerformanceAtlasContractTests
         Assert.Equal(1, Count(xaml, "<dash:PerformanceTimelineControl"));
         Assert.Equal(1, Count(xaml, "<dash:PerformanceAtlasControl"));
         Assert.Contains("ApplyAnalyticalInstrumentLayout", code, StringComparison.Ordinal);
-        Assert.Contains("PerformanceAtlas.Apply(ViewModel.OperatingHistory, calibration.Envelope", code, StringComparison.Ordinal);
+        Assert.Contains("PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope", code, StringComparison.Ordinal);
     }
 
     [Fact]

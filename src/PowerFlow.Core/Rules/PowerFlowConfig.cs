@@ -1,3 +1,4 @@
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 
 namespace PowerFlow.Core.Rules;
@@ -17,8 +18,11 @@ public sealed record PowerFlowConfig(
     bool StartWithWindows,
     bool? ReducedMotionOverride,
     ThemePreference Theme = ThemePreference.System,
-    bool AdaptiveActuationEnabled = false)
+    bool AdaptiveActuationEnabled = false,
+    AdaptiveGovernorSettings? AdaptiveGovernor = null)
 {
+    public AdaptiveGovernorSettings EffectiveAdaptiveGovernorSettings => AdaptiveGovernor ?? AdaptiveGovernorSettings.Default;
+
     public static PowerFlowConfig Default { get; } = new(
         SchemaVersion: 1,
         RestingState: PowerState.PowerSaver,

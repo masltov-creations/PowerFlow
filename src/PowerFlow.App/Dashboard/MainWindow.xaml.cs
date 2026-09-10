@@ -49,6 +49,9 @@ public sealed partial class MainWindow : Window
     private bool _suppressTuningControlSync;
     private AnalyticalSelection _analyticalSelection = AnalyticalSelection.Empty;
     private readonly EnvelopeTuningViewModel _tuningViewModel = new();
+    private bool _candidateLearningPaused;
+    private OperatingEnvelope? _candidateFrozenLearnedEnvelope;
+    private EnvelopeConfidence? _candidateFrozenConfidence;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
@@ -65,6 +68,11 @@ public sealed partial class MainWindow : Window
         _previewMode = previewMode;
         _config = config;
         _applyConfig = applyConfig;
+        var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
+        _candidateLearningPaused = adaptiveSettings.LearningPaused;
+        _candidateFrozenLearnedEnvelope = adaptiveSettings.FrozenLearnedEnvelope;
+        _candidateFrozenConfidence = adaptiveSettings.FrozenConfidence;
+        _tuningViewModel.RestorePersistedTuning(adaptiveSettings.EffectiveTuning);
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         ApplyTheme(config.Theme);
@@ -531,17 +539,18 @@ public sealed partial class MainWindow : Window
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
         var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
-        PerformanceTimeline.Apply(ViewModel.OperatingHistory, calibration.Envelope, _graphWindowSeconds);
-        PerformanceAtlas.Apply(ViewModel.OperatingHistory, calibration.Envelope);
+        var learningModel = _config.EffectiveAdaptiveGovernorSettings.ResolveLearningModel(calibration);
+        PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
+        PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
         _analyticalSelection = AnalyticalSelection.FromObservationIndices(ViewModel.OperatingHistory, _analyticalSelection.ObservationIndices);
         PerformanceTimeline.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
         PerformanceAtlas.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        _tuningViewModel.UpdateLearnedContext(calibration.Envelope, ResolveTuningEntitlement(snapshot), ViewModel.OperatingHistory, _analyticalSelection);
+        _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, ResolveTuningEntitlement(snapshot), ViewModel.OperatingHistory, _analyticalSelection);
         ApplyTuningPresentation();
-        ModelConfidenceText.Text = calibration.Confidence == EnvelopeConfidence.Low
+        ModelConfidenceText.Text = learningModel.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
-            : $"{calibration.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
-        EnvelopeSummaryText.Text = calibration.SustainedEfficiencyFrontierWatts is double frontier
+            : $"{learningModel.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
+        EnvelopeSummaryText.Text = learningModel.Envelope.EfficientPowerFrontierWatts is double frontier
             ? $"{ViewModel.GovernorDryRunLabel} · frontier near {frontier:0} W · {ViewModel.GovernorDryRunExplanation}"
             : $"{ViewModel.GovernorDryRunLabel} · {ViewModel.GovernorDryRunExplanation}";
 
@@ -609,6 +618,15 @@ public sealed partial class MainWindow : Window
                 EnvelopeZone.Responsive => 2,
                 _ => 3
             };
+            PauseLearningToggle.IsOn = _candidateLearningPaused;
+            ManualOverrideSelector.SelectedIndex = _tuningViewModel.CandidateTuning.ManualOverrideZone switch
+            {
+                null => 0,
+                EnvelopeZone.Eco => 1,
+                EnvelopeZone.Efficient => 2,
+                EnvelopeZone.Responsive => 3,
+                _ => 4
+            };
             TuningLayerBadgeText.Text = _tuningViewModel.LayerLabel;
             TuneContextText.Text = _tuningViewModel.ActorSummary;
             ReplaySummaryText.Text = _tuningViewModel.ReplaySummary;
@@ -630,6 +648,56 @@ public sealed partial class MainWindow : Window
         if (_suppressTuningControlSync || MaximumZoneSelector.SelectedIndex < 0) return;
         var zone = MaximumZoneSelector.SelectedIndex switch { 0 => EnvelopeZone.Eco, 1 => EnvelopeZone.Efficient, 2 => EnvelopeZone.Responsive, _ => EnvelopeZone.Boost };
         _tuningViewModel.SetMaximumZone(zone);
+        ApplyTuningPresentation();
+    }
+    private void OnPauseLearningToggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressTuningControlSync) return;
+        _candidateLearningPaused = PauseLearningToggle.IsOn;
+        if (_candidateLearningPaused)
+        {
+            var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
+            _candidateFrozenLearnedEnvelope = calibration.Envelope;
+            _candidateFrozenConfidence = calibration.Confidence;
+        }
+        else
+        {
+            _candidateFrozenLearnedEnvelope = null;
+            _candidateFrozenConfidence = null;
+        }
+        ApplyTuningPresentation();
+    }
+
+    private void OnManualOverrideChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressTuningControlSync || ManualOverrideSelector.SelectedIndex < 0) return;
+        if (ManualOverrideSelector.SelectedIndex == 0)
+            _tuningViewModel.ClearManualOverride();
+        else
+            _tuningViewModel.SetManualOverride(ManualOverrideSelector.SelectedIndex switch
+            {
+                1 => EnvelopeZone.Eco,
+                2 => EnvelopeZone.Efficient,
+                3 => EnvelopeZone.Responsive,
+                _ => EnvelopeZone.Boost
+            });
+        ApplyTuningPresentation();
+    }
+
+    private async void OnSaveTuningClicked(object sender, RoutedEventArgs e)
+    {
+        var settings = new AdaptiveGovernorSettings(
+            _tuningViewModel.CandidateTuning,
+            _candidateLearningPaused,
+            _candidateFrozenLearnedEnvelope,
+            _candidateFrozenConfidence);
+        var updated = _config with { AdaptiveGovernor = settings };
+        await _applyConfig(updated);
+        _config = updated;
+        ViewModel.Configure(updated);
+        RulesPanel.RefreshConfig(updated);
+        SettingsPanel.RefreshConfig(updated);
+        ApplyVisualState(_controller.Snapshot);
         ApplyTuningPresentation();
     }
     private void OnResetLearnedClicked(object sender, RoutedEventArgs e) { _tuningViewModel.ResetToLearned(); ApplyTuningPresentation(); }

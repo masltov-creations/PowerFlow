@@ -41,8 +41,10 @@ public sealed class AdaptiveGovernorRuntime
             .Select(ToObservation)
             .ToArray();
         var calibration = EnvelopeCalibration.Calibrate(raw);
-        var candidate = tuning ?? EnvelopeTuning.Learned;
-        var effectiveEnvelope = candidate.ApplyTo(calibration.Envelope);
+        var settings = config.EffectiveAdaptiveGovernorSettings;
+        var learningModel = settings.ResolveLearningModel(calibration);
+        var candidate = tuning ?? settings.EffectiveTuning;
+        var effectiveEnvelope = candidate.ApplyTo(learningModel.Envelope);
         var actor = string.IsNullOrWhiteSpace(snapshot.TriggerApplication) ? null : snapshot.TriggerApplication;
         var entitlement = candidate.ApplyTo(ResolveEntitlement(config, actor));
         var latestRich = history
@@ -64,15 +66,15 @@ public sealed class AdaptiveGovernorRuntime
             effectiveEnvelope,
             entitlement,
             snapshot.At,
-            calibration.Confidence,
+            learningModel.Confidence,
             candidate.ManualOverrideZone);
 
         return new AdaptiveGovernorRuntimeEvaluation(
             decision,
-            calibration.Envelope,
+            learningModel.Envelope,
             effectiveEnvelope,
             entitlement,
-            calibration.Confidence,
+            learningModel.Confidence,
             actor);
     }
 

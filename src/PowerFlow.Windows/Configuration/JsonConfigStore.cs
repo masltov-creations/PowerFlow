@@ -76,6 +76,9 @@ public sealed class JsonConfigStore
             throw new InvalidDataException("Timing values are invalid.");
         if (config.CpuPromotionThresholdPercent is < 0 or > 100 || config.QuietThresholdPercent is < 0 or > 100)
             throw new InvalidDataException("CPU thresholds must be between 0 and 100.");
+        var adaptive = config.EffectiveAdaptiveGovernorSettings;
+        if (adaptive.LearningPaused && (adaptive.FrozenLearnedEnvelope is null || adaptive.FrozenConfidence is null))
+            throw new InvalidDataException("Paused adaptive learning requires a frozen learned envelope and confidence.");
         return config;
     }
 }

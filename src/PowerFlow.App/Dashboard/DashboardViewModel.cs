@@ -180,12 +180,16 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         }
 
         var calibration = EnvelopeCalibration.Calibrate(raw);
+        var settings = _config.EffectiveAdaptiveGovernorSettings;
+        var learningModel = settings.ResolveLearningModel(calibration);
+        var tuning = settings.EffectiveTuning;
+        var effectiveEnvelope = tuning.ApplyTo(learningModel.Envelope);
         var governor = new EnvelopeGovernor();
         GovernorDecision? latest = null;
         foreach (var observation in raw)
         {
-            var entitlement = ResolveDryRunEntitlement(observation.Actor);
-            var decision = governor.Evaluate(observation, calibration.Envelope, entitlement, observation.At, calibration.Confidence);
+            var entitlement = tuning.ApplyTo(ResolveDryRunEntitlement(observation.Actor));
+            var decision = governor.Evaluate(observation, effectiveEnvelope, entitlement, observation.At, learningModel.Confidence, tuning.ManualOverrideZone);
             latest = decision;
             _operatingHistory.Add(new OperatingObservation(
                 observation.At,
