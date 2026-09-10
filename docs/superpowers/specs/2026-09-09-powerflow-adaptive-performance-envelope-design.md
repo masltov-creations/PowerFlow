@@ -252,43 +252,84 @@ The instrument is dense, compact, and cockpit-like, but not decorative for its o
 - No text below 11 px.
 - No fake telemetry or unlabeled normalized values.
 
-## 15. Shell Density Mapping
+## 15. Canonical Visual Evolution: Tray -> Glance -> Compact -> Expanded -> Full Screen
 
-The existing single-HWND morphing shell remains a valid presentation architecture, but the information inside it is re-centered on the governor model.
+The presentation contract is one physical instrument unfolding from the notification area. These are not separate dashboards and they must not feel like navigation between pages. The same selected actor, telemetry window, policy decision, threshold, and machine state maintain visual lineage as density increases.
 
-### Glance
+### 15.1 Tray
 
-Answers, in minimal form:
+The tray icon is the smallest expression of the governor. Its state treatment communicates whether PowerFlow is calmly governing, actively braking an escalation, granting a temporary lease, paused, or unhealthy. It does not attempt to show numeric telemetry.
 
-- current envelope;
-- current package power / clock / pressure summary;
-- actor creating notable pressure;
-- brake/lease decision;
-- what happens next.
+### 15.2 Glance - approximately 320 x 176
 
-### Compact
+Glance answers the immediate five questions without requiring interpretation:
 
-Shows:
+- what envelope the machine occupies now;
+- current package power, effective clock, and active-core summary;
+- a tiny synchronized trend derived from the same Timeline data;
+- the notable application/workload actor and whether PowerFlow is braking or leasing performance;
+- what PowerFlow expects to do next.
 
-- short synchronized Timeline;
-- current envelope and active actor;
-- current lease/brake state;
-- 2-3 highest-value semantic levers;
-- direct path to deeper analysis.
+Canonical information form:
 
-### Expanded
+```text
+EFFICIENT                         BRAKING
+42 W · 2.0 GHz · 4/16 cores
+CPU/PWR  ▁▂▃▅▆▅▃▂▂▃▅
+Chrome -> held at Efficient
+Next: continue Efficient · qualify 2.1 / 4.0 s
+```
 
-Shows:
+Glance is observational. It may expose one obvious grow affordance but does not become a miniature settings form.
 
-- full central Timeline/Atlas instrument;
-- aligned KPI lanes;
-- policy rails and app entitlement gates;
-- contextual control region for machine/app/lease/boundary selection;
-- explanations and recent decision evidence.
+### 15.3 Compact - approximately 760 x 440
 
-### Full Screen
+Compact reveals the first real analytical instrument. The tiny Glance trend expands into a short synchronized multi-KPI Timeline with a single shared time axis. The default lanes are CPU pressure, package power, effective clock, active/unparked cores, and the envelope/decision lane. App attribution and brake/lease markers remain attached to the same observations.
 
-Uses the same regions with more history, comparison detail, and Atlas resolution. It is not a separate dashboard architecture.
+Compact also exposes one high-value semantic tuning control, typically the overall Efficiency <-> Responsiveness bias, plus the currently active decision and next transition. It preserves all five Glance answers while adding enough history to understand whether the current state is transient or sustained.
+
+### 15.4 Expanded - canonical approximately 1280 x 800
+
+Expanded is the primary PowerFlow cockpit. The synchronized Timeline occupies roughly the upper two-thirds and is the dominant analytical object.
+
+A narrow persistent rail provides Live, Apps, Model, and Tune as progressive analytical modes rather than generic Dashboard/Rules/Settings destinations. Settings remains secondary.
+
+The Timeline requirements are:
+
+- one shared time axis and inspection cursor for all KPI lanes;
+- aligned lanes for CPU pressure, package power, effective clock, active/unparked cores, and envelope/actuator state;
+- application/workload attribution attached to intervals and events;
+- learned Eco / Efficient / Responsive / Boost boundaries drawn as meaningful rails;
+- visible qualification progress, granted boost leases, denied escalation, release hysteresis, manual overrides, and actuator changes;
+- draggable semantic thresholds where safe, with expert actuator values disclosed beneath rather than used as the primary language.
+
+The lower third is a contextual control surface, not a permanent card wall. With nothing selected it shows the learned machine envelope and the few highest-value machine levers. Selecting an app, lease, threshold, or interval morphs the right-side context into that object's entitlement, explanation, tuning, and evidence without replacing the Timeline.
+
+### 15.5 Full Screen
+
+Full Screen earns its extra area by revealing a second projection of the same observations rather than stretching Expanded.
+
+The upper region remains the synchronized Timeline. The lower region exposes the multidimensional Performance Atlas alongside contextual explanation/tuning. Timeline and Atlas remain selection-linked: brushing an inefficient Atlas cluster highlights the exact corresponding time intervals, and selecting a Timeline burst highlights where that episode sits relative to the learned efficiency frontier.
+
+The Atlas default is a two-dimensional density projection such as effective clock x package power, with residency/density plus one additional meaningful encoding such as learned efficiency. Other dimensions can be projected or filtered without turning the default view into an unreadable multi-axis graphic.
+
+Full Screen may provide deeper comparison and counterfactual controls, but it remains the same cockpit architecture and same selected analytical context.
+
+### 15.6 Morph Lineage
+
+Expansion must preserve object identity wherever possible:
+
+- the Glance sparkline physically becomes the synchronized Timeline rather than disappearing and being replaced;
+- `42 W · 2.0 GHz · 4/16` separates into the Package Power, Effective Clock, and Active Cores lanes;
+- `Chrome - brake active` grows into the same actor marker and entitlement gate on the Timeline;
+- the compact Efficiency <-> Responsiveness control unfolds into the machine envelope rails and semantic threshold levers;
+- in Full Screen, selected Timeline observations reorganize into the Performance Atlas while retaining selection and context.
+
+The desired perception is that the user starts with a tiny live instrument near the tray and progressively unfolds it until they are effectively standing inside the machine's control system.
+
+### 15.7 Visual Priority
+
+Named Windows power plans are implementation actuators, not the dominant visual abstraction. Saver, Balanced, High Performance, and similar plan names may appear in Expert/Actuator disclosure, but the primary surfaces prioritize machine state, KPI trajectories, learned performance envelope, application pressure, policy decisions, and user-adjustable semantic levers.
 
 ## 16. Current Windows Actuator Evidence on reference-host
 
