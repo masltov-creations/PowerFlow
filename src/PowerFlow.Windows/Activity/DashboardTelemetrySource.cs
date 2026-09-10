@@ -17,13 +17,19 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
         var system = _system.Read();
         return new DashboardTelemetry(
             _energy.TryReadWatts(),
-            TryReadAverageMhz(system.TotalCores),
+            TryReadAverageMhz(),
             at,
             system.MemoryUsedPercent,
-            system.MachineName);
+            system.MachineName,
+            system.ActiveCores,
+            system.TotalCores);
     }
 
-    public void Dispose() => _energy.Dispose();
+    public void Dispose()
+    {
+        _energy.Dispose();
+        if (_system is IDisposable disposable) disposable.Dispose();
+    }
 
     private static double? TryReadAverageMhz(int? knownTotalCores = null)
     {

@@ -101,7 +101,7 @@ public static class PerformanceAtlasProjection
                 NiceCeiling(observations.Select(o => o.PackageWatts), 25, 25), bins),
             PerformanceAtlasDimension.EffectiveClock => new(dimension, "EFFECTIVE CLOCK", "MHz", 0,
                 NiceCeiling(observations.Select(o => o.EffectiveClockMhz), 500, 1000), bins),
-            PerformanceAtlasDimension.ActiveCores => new(dimension, "ACTIVE CORES", "cores", 0,
+            PerformanceAtlasDimension.ActiveCores => new(dimension, "CORES AWAKE", "cores", 0,
                 Math.Max(1, observations.Select(o => (double?)(o.TotalCores ?? o.ActiveCores)).Where(IsValid).Select(v => v!.Value).DefaultIfEmpty(1).Max()), bins),
             _ => throw new ArgumentOutOfRangeException(nameof(dimension))
         };

@@ -267,7 +267,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
         {
             PerformanceAtlasDimension.PackagePower => "PACKAGE POWER",
             PerformanceAtlasDimension.EffectiveClock => "EFFECTIVE CLOCK",
-            PerformanceAtlasDimension.ActiveCores => "ACTIVE CORES",
+            PerformanceAtlasDimension.ActiveCores => "CORES AWAKE",
             _ => "CPU PRESSURE"
         };
         return axis is null || string.IsNullOrWhiteSpace(axis.Unit) ? label : $"{label} ({axis.Unit})";

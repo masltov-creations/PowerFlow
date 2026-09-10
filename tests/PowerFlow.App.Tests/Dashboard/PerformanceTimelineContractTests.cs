@@ -18,7 +18,7 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("CPU PRESSURE", xaml, StringComparison.Ordinal);
         Assert.Contains("PACKAGE POWER", xaml, StringComparison.Ordinal);
         Assert.Contains("EFFECTIVE CLOCK", xaml, StringComparison.Ordinal);
-        Assert.Contains("ACTIVE CORES", xaml, StringComparison.Ordinal);
+        Assert.Contains("CORES AWAKE", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceTimelineProjection.Build", code, StringComparison.Ordinal);
         Assert.Contains("FindNearestObservationIndex", code, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", code, StringComparison.Ordinal);
