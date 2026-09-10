@@ -672,7 +672,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var pressure = FindDemandPressureNear(observation.At);
         CursorReadout.Text = pressure is null
             ? explanation
-            : $"{explanation}\nPressure {pressure.PressurePercent:0}% ({pressure.Driver}) · demand {pressure.DemandPercent:0}% · awake saturation {pressure.AwakeSaturationPercent:0}% · queue {pressure.QueueLength:0.##} ({pressure.QueuePressurePercent:0}% pressure)";
+            : $"{explanation}\nPressure {pressure.PressurePercent:0}% ({pressure.Driver}) · demand {pressure.DemandPercent:0}% · awake saturation {pressure.CapacitySaturationPercent:0}% · queue {pressure.QueueLength:0.##} ({pressure.QueuePressurePercent:0}% pressure)";
         SetTransient(CursorCard, true);
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(observationIndex));
     }
@@ -812,7 +812,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             ? $"{latest.CpuPressurePercent:0.0}%"
             : $"{observedPressure.PressurePercent:0}% {PressureDriverShort(observedPressure.Driver)}";
         if (observedPressure is not null)
-            ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, awake-core saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, awake saturation {observedPressure.AwakeSaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). Display-only for now; controller actuation still uses legacy CPU busy percent.");
+            ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, available-capacity saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, available capacity {observedPressure.AvailableCapacityPercent:0.0}%, saturation {observedPressure.CapacitySaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). Display-only for now; controller actuation still uses legacy CPU busy percent.");
         UpdatePressureContextLabel();
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
         ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
