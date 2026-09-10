@@ -39,6 +39,7 @@ public sealed partial class MainWindow : Window
     private bool _shellVisible;
     private double _graphWindowSeconds = 60;
     private PowerFlowShellState _shellState = PowerFlowShellState.Hidden;
+    private PowerModeSelection _manualModeSelection = PowerModeSelection.Auto;
     private ShellDensity _layoutDensity = ShellDensity.Compact;
     private ShellActivationMode _activationMode = ShellActivationMode.PinnedActive;
     private TrayRect? _lastTrayAnchor;
@@ -82,6 +83,7 @@ public sealed partial class MainWindow : Window
         ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
+        SystemHeaderHost.ModeRequested += OnModeRequested;
         PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
         PerformanceTimeline.PolicyHandleChanged += OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged += OnAtlasSelectionChanged;
@@ -566,8 +568,42 @@ public sealed partial class MainWindow : Window
                 _ => "OBSERVING"
             };
         DecisionExplanationText.Text = string.IsNullOrWhiteSpace(snapshot.Reason) ? "Observing demand and machine response" : snapshot.Reason;
+        var manualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        var selectedMode = manualAuthority
+            ? _manualModeSelection != PowerModeSelection.Auto
+                ? _manualModeSelection
+                : snapshot.State switch
+                {
+                    PowerState.PowerSaver => PowerModeSelection.Eco,
+                    PowerState.HighPerformance => PowerModeSelection.Boost,
+                    _ => PowerModeSelection.Efficient
+                }
+            : PowerModeSelection.Auto;
+        SystemHeaderHost.SetModeSelection(selectedMode, manualAuthority);
     }
 
+    private async void OnModeRequested(object? sender, PowerModeRequestedEventArgs e)
+    {
+        if (e.Mode == PowerModeSelection.Auto)
+        {
+            _manualModeSelection = PowerModeSelection.Auto;
+            await _controller.ReleaseManualLatchAsync();
+        }
+        else
+        {
+            _manualModeSelection = e.Mode;
+            var state = e.Mode switch
+            {
+                PowerModeSelection.Eco => PowerState.PowerSaver,
+                PowerModeSelection.Efficient => PowerState.Balanced,
+                PowerModeSelection.Responsive => PowerState.Balanced,
+                PowerModeSelection.Boost => PowerState.HighPerformance,
+                _ => PowerState.Balanced
+            };
+            await _controller.SetManualStateAsync(state);
+        }
+        ApplyVisualState(_controller.Snapshot);
+    }
     private void OnTimelineSelectionChanged(object? sender, TimelineSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
     private void OnAtlasSelectionChanged(object? sender, AtlasSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
 
@@ -775,6 +811,7 @@ public sealed partial class MainWindow : Window
         PerformanceTimeline.SelectionChanged -= OnTimelineSelectionChanged;
         PerformanceTimeline.PolicyHandleChanged -= OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged -= OnAtlasSelectionChanged;
+        SystemHeaderHost.ModeRequested -= OnModeRequested;
         ReleaseDashboardVisibility();
     }
     [StructLayout(LayoutKind.Sequential)]

@@ -1,7 +1,8 @@
 <UserControl
     x:Class="PowerFlow.App.Dashboard.ShellHeaderControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dash="using:PowerFlow.App.Dashboard">
     <Grid>
         <Grid x:Name="MinimalHeader" ColumnSpacing="6" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -14,19 +15,17 @@
         </Grid>
 
         <Grid x:Name="CompactHeader" Visibility="Collapsed" ColumnSpacing="9" VerticalAlignment="Center">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Image Source="Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
                 <TextBlock Text="Power" FontSize="17" FontWeight="SemiBold"/>
                 <TextBlock Text="Flow" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
             </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="7" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <TextBlock Text="{Binding StateLabel}" FontSize="12" FontWeight="SemiBold"/>
-                <Border Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}">
-                    <TextBlock Text="{Binding ControlBadgeLabel}" FontSize="11"/>
-                </Border>
-            </StackPanel>
-            <Button x:Name="CompactNavigationButton" Grid.Column="3" Margin="4,0,0,0" Padding="8,4" ToolTipService.ToolTip="PowerFlow menu">
+            <dash:PowerModeStripControl x:Name="CompactModeStrip" Grid.Column="2" HorizontalAlignment="Right" ModeRequested="OnModeRequested"/>
+            <Border Grid.Column="3" Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
+                <TextBlock Text="{Binding StateLabel}" FontSize="11" FontWeight="SemiBold"/>
+            </Border>
+            <Button x:Name="CompactNavigationButton" Grid.Column="4" Margin="4,0,0,0" Padding="8,4" ToolTipService.ToolTip="PowerFlow menu">
                 <FontIcon Glyph="&#xE712;" FontSize="14"/>
                 <Button.Flyout>
                     <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -38,7 +37,7 @@
         </Grid>
 
         <Grid x:Name="SystemHeader" Visibility="Collapsed" ColumnSpacing="10" VerticalAlignment="Center">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Grid Width="34" Height="34">
                 <Ellipse Fill="{ThemeResource PowerFlowGlowBrush}" Opacity="0.65"/>
                 <Image Source="Assets/PowerFlow.png" Width="30" Height="30" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -55,7 +54,8 @@
                 <TextBlock Text="{Binding StateLabel}" FontSize="13" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding Reason}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
-            <Border Grid.Column="3" Padding="7,3" CornerRadius="8" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
+            <dash:PowerModeStripControl x:Name="SystemModeStrip" Grid.Column="3" Margin="8,0" ModeRequested="OnModeRequested"/>
+            <Border Grid.Column="4" Padding="7,3" CornerRadius="8" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
                 <TextBlock Text="{Binding ControlBadgeLabel}" FontSize="11" FontWeight="SemiBold"/>
             </Border>
         </Grid>

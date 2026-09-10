@@ -91,6 +91,28 @@ public sealed class PowerFlowControllerTests
     }
 
     [Fact]
+    public async Task ManualModePath_WorksWhenAdaptiveActuationIsDisabled()
+    {
+        var config = PowerFlowConfig.Default with { AdaptiveActuationEnabled = false };
+        var f = new Fixture(PowerPlanIds.Balanced, config: config);
+        await f.Controller.StartAsync();
+
+        await f.Controller.SetManualStateAsync(PowerState.PowerSaver);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        Assert.True(f.Controller.Snapshot.IsLatched);
+        Assert.Equal("Manual", f.Controller.Snapshot.LatchType);
+        Assert.Equal(PowerPlanIds.PowerSaver, f.Plans.Active);
+
+        await f.Controller.SetManualStateAsync(PowerState.HighPerformance);
+        Assert.Equal(PowerState.HighPerformance, f.Controller.Snapshot.State);
+        Assert.Equal(PowerPlanIds.HighPerformance, f.Plans.Active);
+
+        await f.Controller.ReleaseManualLatchAsync();
+        Assert.False(f.Controller.Snapshot.IsLatched);
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+    [Fact]
     public async Task ActivationFailure_DoesNotPretendStateChanged()
     {
         var f = new Fixture(PowerPlanIds.PowerSaver) { };

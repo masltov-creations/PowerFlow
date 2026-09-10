@@ -16,6 +16,7 @@ public sealed partial class ShellHeaderControl : UserControl
 
     public event EventHandler? RulesRequested;
     public event EventHandler? SettingsRequested;
+    public event EventHandler<PowerModeRequestedEventArgs>? ModeRequested;
 
     public HeaderPresentation Presentation
     {
@@ -100,6 +101,13 @@ public sealed partial class ShellHeaderControl : UserControl
         }
     }
 
+    public void SetModeSelection(PowerModeSelection selection, bool manual)
+    {
+        CompactModeStrip.SetSelection(selection, manual);
+        SystemModeStrip.SetSelection(selection, manual);
+    }
+
+    private void OnModeRequested(object sender, PowerModeRequestedEventArgs e) => ModeRequested?.Invoke(this, e);
     private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
     private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
