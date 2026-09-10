@@ -1,43 +1,22 @@
-# PowerFlow Core / Thread Map v1
+# Core-state timeline v2
 
-## Product intent
+## Purpose
+The fourth PowerFlow timeline lane must answer, at a glance: how many physical CPU cores were active, awake-but-idle, or parked at each moment, and how that changed alongside CPU pressure, package power, and effective clock.
 
-Core and thread state is discrete occupancy, not a continuous scalar. PowerFlow must not render it as a fourth generic telemetry curve. The timeline keeps graceful continuous curves for CPU pressure, package power, and effective clock; the fourth lane becomes a compact live topology map with a subordinate history strip.
+## Visual contract
+- Time remains the horizontal axis shared with the other telemetry lanes.
+- Each vertical time slice represents the machine's physical-core count as a compact stack of microtiles.
+- Microtiles are grouped by state count, not by physical-core identity: Active at the bottom, Awake-idle above it, Parked above that.
+- The vertical extent of each state therefore directly encodes how many physical cores were in that state at that moment.
+- The lane uses three persistent Path elements; it must not create one XAML UIElement per cell or per sample.
+- Sparse horizontal guides may mark quarter counts, but the lane must not become a dense grid or text field.
+- CPU pressure, package power, and effective clock remain graceful curved traces in their own aligned lanes.
 
-## Current-state encoding
+## State semantics
+A physical core is Parked only when all of its logical processors report parked. An unparked core is Active when at least one unparked logical processor has finite utilization at or above the shared activity threshold. Otherwise it is Awake-idle. Missing utilization must never be promoted to Active.
 
-- One visual column represents one physical core.
-- Each small rounded square in that column represents one logical processor (SMT sibling when present).
-- Logical processors are ordered by logical processor index within each physical core.
-- Active: unparked and measured logical-processor utilization is at least 5 percent.
-- Awake / idle: unparked but measured utilization is below 5 percent, or utilization is unavailable.
-- Parked: Windows Parking Status reports parked.
-- Missing utilization must never be promoted to Active.
-- The side summary reports awake physical cores plus active and parked logical threads.
+## Current readout
+The lane's current value is a mutually exclusive physical-core summary such as `8 active · 8 awake · 0 parked`. The three numbers should sum to the known physical-core count.
 
-## History encoding
-
-The existing aggregate awake-physical-core samples remain useful as trajectory. They are rendered only as a thin, low-emphasis, smooth history strip beneath/behind the live square matrix. It must not compete with the square map for attention.
-
-## Visual hierarchy
-
-1. Graceful continuous telemetry curves: CPU pressure, package power, effective clock.
-2. Live core/thread square matrix.
-3. Quiet aggregate core history strip.
-4. Policy and event context behind telemetry; detailed prose remains in hover/inspection.
-
-No point markers, dotted core traces, or in-lane core labels are permitted.
-
-## Data contract
-
-Windows rich telemetry carries, for each logical processor: logical processor index, physical core index, parking state, and optional utilization percent. The governor's OperatingObservation remains aggregate-only; per-thread topology is a presentation/telemetry concern and is not added to the control-plane model.
-
-## Acceptance
-
-- On a 16C/32T system, the live map shows 16 physical-core columns and up to two thread squares per column.
-- Active, awake-idle, and parked states are visually distinct.
-- Per-thread state originates from Windows counters; the UI does not synthesize topology from aggregate counts.
-- The fourth lane contains no CoresTracePath generic graph.
-- The other three lanes remain cubic, round-capped smooth traces.
-- Compact presentation remains legible at 760x440 without overlapping text.
-- Missing per-thread telemetry degrades to aggregate summary/history without fabricated square states.
+## Performance
+The renderer must remain bounded and avoid per-cell XAML controls. Core-state history is retained in the existing bounded continuity history and projected only for the visible timeline window.

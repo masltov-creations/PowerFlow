@@ -1,5 +1,6 @@
 using PowerFlow.App.Controller;
 using PowerFlow.Core.Policy;
+using PowerFlow.Windows.Activity;
 
 namespace PowerFlow.App.Telemetry;
 
@@ -15,4 +16,5 @@ public sealed record ContinuitySample(
     double ThresholdProgress,
     string? TriggerApplication,
     int? ActiveCores = null,
-    int? TotalCores = null);
+    int? TotalCores = null,
+    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null);

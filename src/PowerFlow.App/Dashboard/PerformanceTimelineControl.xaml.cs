@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
+using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Windows.Activity;
 using Windows.Foundation;
@@ -45,8 +46,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
     private bool _redrawQueued;
     private bool _presentationApplied;
-    private IReadOnlyList<LogicalProcessorTelemetry> _logicalProcessors = Array.Empty<LogicalProcessorTelemetry>();
-    private CoreThreadMapSnapshot _coreThreadMap = CoreThreadMapSnapshot.Empty;
+    private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
+    private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
 
     public PerformanceTimelineControl()
     {
@@ -87,11 +88,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
     public event EventHandler<PolicyHandleChangedEventArgs>? PolicyHandleChanged;
 
-    public void SetCoreThreadState(IReadOnlyList<LogicalProcessorTelemetry>? logicalProcessors)
+    public void SetCoreThreadHistory(IReadOnlyList<ContinuitySample>? history)
     {
-        _logicalProcessors = logicalProcessors?.ToArray() ?? Array.Empty<LogicalProcessorTelemetry>();
-        _coreThreadMap = CoreThreadMapProjection.Build(_logicalProcessors);
-        UpdateCoreThreadLabels();
+        _coreThreadHistory = history?.ToArray() ?? Array.Empty<ContinuitySample>();
+        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        UpdateCoreStateLabel();
         RequestRedraw();
     }
 
@@ -150,6 +151,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _envelope = envelope ?? DefaultEnvelope;
         _windowSeconds = Math.Max(1, windowSeconds);
         _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
+        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
         WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
         WindowStartLabel.Text = $"-{_windowSeconds:0}s";
         UpdateLiveLabels();
@@ -206,8 +208,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
         var coreTop = laneHeight * 3;
         AddLine(GridLayer, 0, coreTop, width, coreTop, grid, 1);
-        DrawCoreHistory(_data.Lanes[3], coreTop, laneHeight, series[3]);
-        DrawCoreThreadMap(coreTop, laneHeight, series[3], text);
+        DrawCoreStateTimeline(coreTop, laneHeight, series[3], text);
 
         RedrawPolicy();
         DrawDecisionEvents(height);
@@ -237,73 +238,84 @@ public sealed partial class PerformanceTimelineControl : UserControl
     };
 
 
-    private void DrawCoreHistory(TimelineLaneProjection lane, double top, double laneHeight, Brush stroke)
+    private void DrawCoreStateTimeline(double top, double laneHeight, Brush activeBrush, Brush labelBrush)
     {
-        var historyHeight = Math.Clamp(laneHeight * .22, 5, 14);
-        var historyTop = top + laneHeight - historyHeight - 2;
-        CoreHistoryPath.Stroke = stroke;
-        CoreHistoryPath.Clip = new RectangleGeometry { Rect = new Rect(0, top, _plotWidth, laneHeight) };
-        var samples = lane.Points
-            .Select(point => point.Y is double y
-                ? (Point?)new Point(point.X * _plotWidth, historyTop + (1 - y) * historyHeight)
-                : null)
-            .ToArray();
-        var maximumGapX = Math.Clamp(_plotWidth * 10d / Math.Max(1d, _windowSeconds), 1d, _plotWidth);
-        CoreHistoryPath.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(samples, maximumGapX));
-    }
-
-    private void DrawCoreThreadMap(double top, double laneHeight, Brush activeBrush, Brush labelBrush)
-    {
-        CoreThreadLayer.Children.Clear();
-        if (_coreThreadMap.Cores.Count == 0)
+        var data = _coreStateTimeline;
+        if (data.Samples.Count == 0 || data.TotalCores <= 0)
         {
-            AddText(CoreThreadLayer, "THREAD MAP UNAVAILABLE", 6, top + Math.Max(3, laneHeight * .30), 11, labelBrush);
+            CoreActivePath.Data = CoreAwakePath.Data = CoreParkedPath.Data = null;
             return;
         }
 
-        var columns = _coreThreadMap.Cores.Count;
-        var maxRows = Math.Max(1, _coreThreadMap.Cores.Max(core => core.Threads.Count));
-        var historyReserve = Math.Clamp(laneHeight * .25, 7, 15);
-        var mapHeight = Math.Max(12, laneHeight - historyReserve - 3);
-        var pitch = _plotWidth / Math.Max(1, columns);
-        var cell = Math.Clamp(Math.Min(pitch - 3, (mapHeight - Math.Max(0, maxRows - 1) * 2) / maxRows), 4, 11);
-        var rowGap = Math.Min(2d, Math.Max(1d, (mapHeight - cell * maxRows) / Math.Max(1, maxRows)));
-        var matrixHeight = cell * maxRows + rowGap * Math.Max(0, maxRows - 1);
-        var matrixTop = top + Math.Max(2, (mapHeight - matrixHeight) / 2);
         var light = ActualTheme == ElementTheme.Light;
-        var awakeFill = light ? Brush(194, 112, 43, 82) : Brush(255, 177, 92, 92);
-        var parkedFill = light ? Brush(17, 34, 51, 16) : Brush(255, 255, 255, 12);
-        var parkedStroke = light ? Brush(17, 34, 51, 72) : Brush(255, 255, 255, 58);
+        CoreActivePath.Fill = activeBrush;
+        CoreActivePath.Opacity = .94;
+        CoreAwakePath.Fill = light ? Brush(194, 112, 43, 135) : Brush(255, 177, 92, 125);
+        CoreParkedPath.Fill = light ? Brush(17, 34, 51, 46) : Brush(255, 255, 255, 34);
 
-        for (var columnIndex = 0; columnIndex < columns; columnIndex++)
+        var usableTop = top + 3;
+        var usableHeight = Math.Max(8, laneHeight - 6);
+        var rowPitch = usableHeight / data.TotalCores;
+        var cellGapY = Math.Clamp(rowPitch * .16, .25, .8);
+        var activeCells = new List<Rect>();
+        var awakeCells = new List<Rect>();
+        var parkedCells = new List<Rect>();
+        var samples = data.Samples;
+        var fallbackWidth = samples.Count > 1
+            ? Math.Max(1, Median(samples.Zip(samples.Skip(1), (a, b) => (b.At - a.At).TotalSeconds).Where(seconds => seconds > 0).ToArray()) / Math.Max(1d, _data.WindowSeconds) * _plotWidth)
+            : Math.Max(2, _plotWidth / Math.Max(1d, _data.WindowSeconds));
+
+        for (var i = 0; i < samples.Count; i++)
         {
-            var core = _coreThreadMap.Cores[columnIndex];
-            var x = columnIndex * pitch + (pitch - cell) / 2;
-            var threads = core.Threads.OrderBy(thread => thread.LogicalProcessorIndex).ToArray();
-            for (var row = 0; row < threads.Length; row++)
-            {
-                var thread = threads[row];
-                var square = new Rectangle
-                {
-                    Width = cell,
-                    Height = cell,
-                    RadiusX = Math.Min(2.4, cell * .22),
-                    RadiusY = Math.Min(2.4, cell * .22),
-                    StrokeThickness = thread.State == ThreadOccupancyState.Active ? 0 : 1,
-                    Fill = thread.State switch
-                    {
-                        ThreadOccupancyState.Active => activeBrush,
-                        ThreadOccupancyState.AwakeIdle => awakeFill,
-                        _ => parkedFill
-                    },
-                    Stroke = thread.State == ThreadOccupancyState.Parked ? parkedStroke : activeBrush,
-                    IsHitTestVisible = false
-                };
-                Canvas.SetLeft(square, x);
-                Canvas.SetTop(square, matrixTop + row * (cell + rowGap));
-                CoreThreadLayer.Children.Add(square);
-            }
+            var sample = samples[i];
+            var x = Math.Clamp((sample.At - _data.WindowStart).TotalSeconds / Math.Max(1d, _data.WindowSeconds), 0d, 1d) * _plotWidth;
+            var nextX = i + 1 < samples.Count
+                ? Math.Clamp((samples[i + 1].At - _data.WindowStart).TotalSeconds / Math.Max(1d, _data.WindowSeconds), 0d, 1d) * _plotWidth
+                : Math.Min(_plotWidth, x + fallbackWidth);
+            var sliceSpan = Math.Max(1, nextX - x);
+            var cellWidth = Math.Max(1, sliceSpan - Math.Min(.8, sliceSpan * .10));
+            var row = 0;
+            AddStateCells(activeCells, sample.ActiveCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
+            AddStateCells(awakeCells, sample.AwakeIdleCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
+            AddStateCells(parkedCells, sample.ParkedCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
         }
+
+        CoreActivePath.Data = BuildCoreCellGeometry(activeCells);
+        CoreAwakePath.Data = BuildCoreCellGeometry(awakeCells);
+        CoreParkedPath.Data = BuildCoreCellGeometry(parkedCells);
+
+        // Calm count guides: quarters only, not a dense grid.
+        for (var q = 1; q < 4; q++)
+        {
+            var y = usableTop + usableHeight * (1 - q / 4d);
+            AddLine(GridLayer, 0, y, _plotWidth, y, labelBrush, .45).Opacity = .18;
+        }
+    }
+
+    private static void AddStateCells(List<Rect> target, int count, ref int row, double x, double width, double top, double height, double rowPitch, double gapY, int total)
+    {
+        var bounded = Math.Clamp(count, 0, Math.Max(0, total - row));
+        for (var i = 0; i < bounded; i++, row++)
+        {
+            var y = top + height - (row + 1) * rowPitch + gapY / 2;
+            target.Add(new Rect(x, y, width, Math.Max(.7, rowPitch - gapY)));
+        }
+    }
+
+    private static Geometry BuildCoreCellGeometry(IEnumerable<Rect> cells)
+    {
+        var group = new GeometryGroup();
+        foreach (var rect in cells)
+            group.Children.Add(new RectangleGeometry { Rect = rect });
+        return group;
+    }
+
+    private static double Median(double[] values)
+    {
+        if (values.Length == 0) return 1;
+        Array.Sort(values);
+        var middle = values.Length / 2;
+        return values.Length % 2 == 0 ? (values[middle - 1] + values[middle]) / 2d : values[middle];
     }
     private static PathGeometry ToPathGeometry(IReadOnlyList<CurveFigure> figures)
     {
@@ -710,7 +722,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         CoresValueText.Text = current.ActiveCores is int active
             ? current.TotalCores is int total ? $"{active}/{total} awake" : $"{active} awake"
             : current.TotalCores is int knownTotal ? $"-/{knownTotal} awake" : "-";
-        UpdateCoreThreadLabels();
+        UpdateCoreStateLabel();
         var actor = ShortActor(latest.Actor);
         var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" - {actor}";
         var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" - {latest.Decision.ToString().ToUpperInvariant()}";
@@ -724,18 +736,12 @@ public sealed partial class PerformanceTimelineControl : UserControl
         };
     }
 
-    private void UpdateCoreThreadLabels()
+    private void UpdateCoreStateLabel()
     {
-        if (_coreThreadMap.TotalThreads == 0)
-        {
-            ToolTipService.SetToolTip(CoresValueText, "Per-thread telemetry unavailable; aggregate awake-core history is still shown.");
-            return;
-        }
-
-        CoresValueText.Text = $"{_coreThreadMap.AwakeCores}/{_coreThreadMap.Cores.Count} awake";
-        ToolTipService.SetToolTip(
-            CoresValueText,
-            $"{_coreThreadMap.ActiveThreads} active threads · {_coreThreadMap.AwakeThreads - _coreThreadMap.ActiveThreads} awake/idle · {_coreThreadMap.ParkedThreads} parked");
+        var latest = _coreStateTimeline.Samples.LastOrDefault();
+        if (latest is null) return;
+        CoresValueText.Text = $"{latest.ActiveCores} active · {latest.AwakeIdleCores} awake · {latest.ParkedCores} parked";
+        ToolTipService.SetToolTip(CoresValueText, "Physical-core state at the latest rich telemetry sample. Active means at least one logical thread is above the activity threshold; awake means unparked but below it.");
     }
 
     private static string FormatObservation(OperatingObservation value)
