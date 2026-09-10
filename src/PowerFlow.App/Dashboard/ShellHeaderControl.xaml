@@ -13,7 +13,7 @@
         </Grid>
 
         <Grid x:Name="CompactHeader" Visibility="Collapsed" ColumnSpacing="9" VerticalAlignment="Center">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Image Source="Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
                 <TextBlock Text="Power" FontSize="17" FontWeight="SemiBold"/>
@@ -25,6 +25,15 @@
                     <TextBlock Text="{Binding ControlBadgeLabel}" FontSize="11"/>
                 </Border>
             </StackPanel>
+            <Button x:Name="CompactNavigationButton" Grid.Column="3" Margin="4,0,0,0" Padding="8,4" ToolTipService.ToolTip="PowerFlow menu">
+                <FontIcon Glyph="&#xE712;" FontSize="14"/>
+                <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuFlyoutItem Text="RULES / APPS" Click="OnRulesClicked"/>
+                        <MenuFlyoutItem Text="SETTINGS" Click="OnSettingsClicked"/>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <Grid x:Name="SystemHeader" Visibility="Collapsed" ColumnSpacing="10" VerticalAlignment="Center">

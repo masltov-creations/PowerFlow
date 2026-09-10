@@ -48,7 +48,7 @@
 
                         <Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <dash:ShellHeaderControl x:Name="SystemHeaderHost"/>
+                            <dash:ShellHeaderControl x:Name="SystemHeaderHost" RulesRequested="OnHeaderRulesRequested" SettingsRequested="OnHeaderSettingsRequested"/>
                             <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <Button x:Name="CompactButton" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/>
                                 <Button x:Name="PresentationToggleButton" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/>

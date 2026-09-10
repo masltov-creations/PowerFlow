@@ -12,6 +12,8 @@ public sealed partial class ShellHeaderControl : UserControl
         ApplyPreviewMode();
     }
 
+    public event EventHandler? RulesRequested;
+    public event EventHandler? SettingsRequested;
     public HeaderPresentation Presentation
     {
         get => (HeaderPresentation)GetValue(PresentationProperty);
@@ -52,6 +54,8 @@ public sealed partial class ShellHeaderControl : UserControl
         SystemHeader.Visibility = Presentation == HeaderPresentation.System ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
+    private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
     private void ApplyPreviewMode()
     {
         if (PreviewBadge is null) return;

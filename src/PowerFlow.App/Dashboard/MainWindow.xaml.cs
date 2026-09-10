@@ -277,8 +277,8 @@ public sealed partial class MainWindow : Window
                 NavigationRail.IsPaneOpen = true;
                 break;
             case NavigationPresentation.Overlay:
-                NavigationRail.IsPaneVisible = true;
-                NavigationRail.IsPaneToggleButtonVisible = true;
+                NavigationRail.IsPaneVisible = false;
+                NavigationRail.IsPaneToggleButtonVisible = false;
                 NavigationRail.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
                 NavigationRail.IsPaneOpen = false;
                 break;
@@ -509,6 +509,8 @@ public sealed partial class MainWindow : Window
 
     private async void OnOpenRulesClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("rules");
     private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("settings");
+    private async void OnHeaderRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
+    private async void OnHeaderSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
     private async void OnOperationalRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
     private async void OnOperationalSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
 
