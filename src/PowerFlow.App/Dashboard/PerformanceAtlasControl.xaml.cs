@@ -28,11 +28,15 @@ public sealed partial class PerformanceAtlasControl : UserControl
     private PerformanceAtlasDimension _y = PerformanceAtlasDimension.EffectiveClock;
     private HashSet<int> _selectedObservationIndices = [];
     private bool _suppressDimensionEvents;
+    private bool _initialized;
     private const int BinCount = 12;
 
     public PerformanceAtlasControl()
     {
+        _suppressDimensionEvents = true;
         InitializeComponent();
+        _initialized = true;
+        _suppressDimensionEvents = false;
         ActualThemeChanged += (_, _) => Redraw();
     }
 
@@ -60,7 +64,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
 
     private void OnDimensionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_suppressDimensionEvents || XDimensionSelector is null || YDimensionSelector is null) return;
+        if (!_initialized || _suppressDimensionEvents || XDimensionSelector is null || YDimensionSelector is null) return;
         var requestedX = SelectedDimension(XDimensionSelector, _x);
         var requestedY = SelectedDimension(YDimensionSelector, _y);
         if (requestedX == requestedY)
@@ -81,7 +85,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
         Redraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => Redraw();
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) { if (_initialized) Redraw(); }
 
     private void Redraw()
     {

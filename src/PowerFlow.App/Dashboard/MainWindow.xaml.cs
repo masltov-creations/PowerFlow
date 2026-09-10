@@ -123,7 +123,8 @@ public sealed partial class MainWindow : Window
             AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
             _suppressResizeModeSync = false;
             _shellVisible = true;
-            ApplyShellLayout(state, AppWindow.Size.Width, AppWindow.Size.Height);
+            var logical = CurrentLogicalAppWindowSize();
+            ApplyShellLayout(state, logical.Width, logical.Height);
             Activate();
             return;
         }
@@ -228,10 +229,11 @@ public sealed partial class MainWindow : Window
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if ((!args.DidSizeChange && !args.DidPresenterChange) || _suppressResizeModeSync || !_shellVisible) return;
+        var logical = CurrentLogicalAppWindowSize();
         if (IsFullScreenPresenter()) _shellState = PowerFlowShellState.FullScreen;
         else if (_shellState != PowerFlowShellState.Glance)
-            _shellState = AppWindow.Size.Width >= 900 && AppWindow.Size.Height >= 560 ? PowerFlowShellState.Expanded : PowerFlowShellState.Compact;
-        ApplyShellLayout(_shellState, AppWindow.Size.Width, AppWindow.Size.Height);
+            _shellState = logical.Width >= 900 && logical.Height >= 560 ? PowerFlowShellState.Expanded : PowerFlowShellState.Compact;
+        ApplyShellLayout(_shellState, logical.Width, logical.Height);
     }
 
     private void ApplyShellLayout(PowerFlowShellState state, int width, int height)
@@ -344,6 +346,12 @@ public sealed partial class MainWindow : Window
             _ => (current.Width, current.Height)
         };
         return new RectInt32(current.X, current.Y, width, height);
+    }
+
+    private ShellLogicalSize CurrentLogicalAppWindowSize()
+    {
+        var scale = Content?.XamlRoot?.RasterizationScale ?? 1d;
+        return ShellCoordinateProjection.ToLogicalSize(AppWindow.Size.Width, AppWindow.Size.Height, scale);
     }
 
     private RectInt32 CurrentBounds()
@@ -680,7 +688,11 @@ public sealed partial class MainWindow : Window
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
-        if (cockpitSection) ApplyShellLayout(_shellState, AppWindow.Size.Width, AppWindow.Size.Height);
+        if (cockpitSection)
+        {
+            var logical = CurrentLogicalAppWindowSize();
+            ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        }
     }
     private void SelectSection(string tag)
     {
