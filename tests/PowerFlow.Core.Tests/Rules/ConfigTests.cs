@@ -7,6 +7,17 @@ namespace PowerFlow.Core.Tests.Rules;
 public sealed class ConfigTests
 {
     [Fact]
+    public void LegacyRules_ProjectSemanticEntitlements()
+    {
+        var balanced = new AppRule("c:\\apps\\browser.exe", AppRuleMode.Balanced);
+        var performance = new AppRule("c:\\apps\\game.exe", AppRuleMode.Performance);
+
+        Assert.Equal(PowerFlow.Core.Envelope.EnvelopeZone.Efficient, balanced.EffectiveEntitlement.MaximumZone);
+        Assert.Equal(PowerFlow.Core.Envelope.EnvelopeZone.Boost, performance.EffectiveEntitlement.MaximumZone);
+        Assert.Null(balanced.Entitlement);
+    }
+
+    [Fact]
     public void Defaults_AreConservativeAndMatchDesign()
     {
         var c = PowerFlowConfig.Default;

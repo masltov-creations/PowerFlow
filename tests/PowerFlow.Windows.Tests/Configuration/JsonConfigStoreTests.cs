@@ -39,6 +39,27 @@ public sealed class JsonConfigStoreTests
         finally { Directory.Delete(dir, true); }
     }
 
+    [Fact]
+    public async Task ExplicitEntitlement_RoundTrips()
+    {
+        var dir = NewTemp();
+        try
+        {
+            var store = new JsonConfigStore(dir);
+            var entitlement = new PowerFlow.Core.Envelope.PerformanceEntitlement(PowerFlow.Core.Envelope.EnvelopeZone.Efficient, TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(14), TimeSpan.FromSeconds(20), false);
+            var rule = new AppRule("c:\\apps\\browser.exe", AppRuleMode.Balanced, "Browser", true, entitlement);
+            await store.SaveAsync(PowerFlowConfig.Default with { AppRules = new[] { rule } });
+
+            var loaded = await store.LoadAsync();
+
+            var loadedRule = Assert.Single(loaded.AppRules);
+            Assert.NotNull(loadedRule.Entitlement);
+            Assert.Equal(PowerFlow.Core.Envelope.EnvelopeZone.Efficient, loadedRule.Entitlement!.MaximumZone);
+            Assert.Equal(TimeSpan.FromSeconds(6), loadedRule.Entitlement.QualificationDuration);
+            Assert.False(loadedRule.Entitlement.FollowChildren);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
     private static string NewTemp()
     {
         var p = Path.Combine(Path.GetTempPath(), "PowerFlowTests", Guid.NewGuid().ToString("N"));
