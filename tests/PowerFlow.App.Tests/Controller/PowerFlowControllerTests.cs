@@ -126,6 +126,24 @@ public sealed class PowerFlowControllerTests
     }
 
     [Fact]
+    public async Task ManualActivationFailure_DoesNotPretendLatchAndResumesAutomaticSampling()
+    {
+        var f = new Fixture(PowerPlanIds.Balanced);
+        await f.Controller.StartAsync();
+        f.Plans.FailNext = true;
+
+        await f.Controller.SetManualStateAsync(PowerState.PowerSaver);
+
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        Assert.Equal(PowerPlanIds.Balanced, f.Plans.Active);
+        Assert.False(f.Controller.Snapshot.IsLatched);
+        Assert.Null(f.Controller.Snapshot.LatchType);
+        Assert.True(f.Controller.SamplingEnabled);
+        Assert.Contains("activation failed", f.Controller.Snapshot.Reason, StringComparison.OrdinalIgnoreCase);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
     public async Task StartupOnUnlatchedHighPerformance_RecoversToBalancedBeforeSampling()
     {
         var f = new Fixture(PowerPlanIds.HighPerformance);

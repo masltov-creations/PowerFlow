@@ -48,15 +48,15 @@ public sealed class TelemetryContinuityRecorderTests
     [Theory]
     [InlineData("Game")]
     [InlineData("Manual")]
-    public async Task HiddenLatchTurnsRichTelemetryOffButVisibleLeaseCanTemporarilyEnableIt(string latchType)
+    public async Task HiddenLatchKeepsLowOverheadTelemetryAndVisibleLeaseRaisesCadence(string latchType)
     {
         var source = new FakeTelemetrySource();
         var ticks = new FakeTickFactory();
         await using var sut = NewRecorder(source, ticks, capacity: 8);
         sut.UpdateControllerSnapshot(Snapshot(PowerState.HighPerformance, 4, true, latchType));
         await sut.StartAsync();
-        Assert.Equal(TelemetryCadenceMode.Off, sut.Mode);
-        Assert.Empty(ticks.Periods);
+        Assert.Equal(TelemetryCadenceMode.HiddenAuto, sut.Mode);
+        Assert.Equal(TimeSpan.FromSeconds(5), ticks.Periods[^1]);
 
         using var lease = sut.AcquireVisibility();
         Assert.Equal(TelemetryCadenceMode.Visible, sut.Mode);

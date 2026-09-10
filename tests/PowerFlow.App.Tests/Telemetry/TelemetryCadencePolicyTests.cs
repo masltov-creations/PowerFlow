@@ -10,8 +10,8 @@ public sealed class TelemetryCadencePolicyTests
     [InlineData(true, false, null, TelemetryCadenceMode.Visible)]
     [InlineData(true, true, "Game", TelemetryCadenceMode.Visible)]
     [InlineData(true, true, "Manual", TelemetryCadenceMode.Visible)]
-    [InlineData(false, true, "Game", TelemetryCadenceMode.Off)]
-    [InlineData(false, true, "Manual", TelemetryCadenceMode.Off)]
+    [InlineData(false, true, "Game", TelemetryCadenceMode.HiddenAuto)]
+    [InlineData(false, true, "Manual", TelemetryCadenceMode.HiddenAuto)]
     public void SelectMode_UsesVisibilityAndLatchSemantics(bool anySurfaceVisible, bool isLatched, string? latchType, TelemetryCadenceMode expected)
     {
         Assert.Equal(expected, TelemetryCadencePolicy.SelectMode(anySurfaceVisible, isLatched, latchType));

@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using PowerFlow.Core.Envelope;
 using Windows.Foundation;
@@ -13,6 +14,10 @@ public sealed class AtlasSelectionChangedEventArgs(IReadOnlyList<int> observatio
     public IReadOnlyList<int> ObservationIndices { get; } = observationIndices;
 }
 
+public sealed class AtlasHoverChangedEventArgs(IReadOnlyList<int> observationIndices) : EventArgs
+{
+    public IReadOnlyList<int> ObservationIndices { get; } = observationIndices;
+}
 public sealed class AtlasDimensionsChangedEventArgs(PerformanceAtlasDimension x, PerformanceAtlasDimension y) : EventArgs
 {
     public PerformanceAtlasDimension X { get; } = x;
@@ -27,10 +32,14 @@ public sealed partial class PerformanceAtlasControl : UserControl
     private PerformanceAtlasDimension _x = PerformanceAtlasDimension.PackagePower;
     private PerformanceAtlasDimension _y = PerformanceAtlasDimension.EffectiveClock;
     private HashSet<int> _selectedObservationIndices = [];
+    private HashSet<int> _linkedHoveredObservationIndices = [];
     private Func<OperatingObservation, double?>? _efficiencySelector;
     private ModelExplanation? _modelExplanation;
     private bool _suppressDimensionEvents;
     private bool _initialized;
+    private bool _reducedMotion;
+    private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
+    private bool _redrawQueued;
     private const int BinCount = 12;
 
     public PerformanceAtlasControl()
@@ -39,11 +48,12 @@ public sealed partial class PerformanceAtlasControl : UserControl
         InitializeComponent();
         _initialized = true;
         _suppressDimensionEvents = false;
-        ActualThemeChanged += (_, _) => Redraw();
+        ActualThemeChanged += (_, _) => RequestRedraw();
     }
 
     public event EventHandler<AtlasSelectionChangedEventArgs>? SelectionChanged;
     public event EventHandler<AtlasDimensionsChangedEventArgs>? DimensionsChanged;
+    public event EventHandler<AtlasHoverChangedEventArgs>? HoverChanged;
 
     public void Apply(IReadOnlyList<OperatingObservation> observations, OperatingEnvelope? envelope, Func<OperatingObservation, double?>? efficiencySelector = null)
     {
@@ -68,6 +78,22 @@ public sealed partial class PerformanceAtlasControl : UserControl
     {
         _selectedObservationIndices = observationIndices is null ? [] : observationIndices.Where(index => index >= 0).ToHashSet();
         RedrawSelection();
+    }
+    public void SetHoveredObservationIndices(IEnumerable<int>? observationIndices)
+    {
+        _linkedHoveredObservationIndices = observationIndices is null
+            ? []
+            : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
+        RedrawLinkedHover();
+    }
+
+    public void SetReducedMotion(bool reducedMotion)
+    {
+        _reducedMotion = reducedMotion;
+        if (!reducedMotion) return;
+        foreach (var animation in _transientAnimations.Values) animation.Stop();
+        _transientAnimations.Clear();
+        AtlasHoverCard.Opacity = AtlasHoverCard.Visibility == Visibility.Visible ? 1 : 0;
     }
 
     private void UpdateDimensionAvailability()
@@ -146,7 +172,20 @@ public sealed partial class PerformanceAtlasControl : UserControl
         Redraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) { if (_initialized) Redraw(); }
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) { if (_initialized) RequestRedraw(); }
+
+    private void RequestRedraw()
+    {
+        if (_redrawQueued) return;
+        _redrawQueued = true;
+        if (DispatcherQueue.TryEnqueue(() =>
+            {
+                _redrawQueued = false;
+                Redraw();
+            })) return;
+        _redrawQueued = false;
+        Redraw();
+    }
 
     private void Redraw()
     {
@@ -271,23 +310,130 @@ public sealed partial class PerformanceAtlasControl : UserControl
         return new Point(Normalize(xValue, _data.XAxis) * width, height - Normalize(yValue, _data.YAxis) * height);
     }
 
+    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (_data is null || InteractionLayer.ActualWidth <= 0 || InteractionLayer.ActualHeight <= 0)
+        {
+            HideAtlasHover(true);
+            return;
+        }
+        var point = e.GetCurrentPoint(InteractionLayer).Position;
+        var cell = CellAtPoint(point);
+        if (cell is null)
+        {
+            HideAtlasHover(true);
+            return;
+        }
+        AtlasPointerHoverLayer.Children.Clear();
+        DrawHoverCell(AtlasPointerHoverLayer, cell, Brush(127, 226, 249, 230), 2.2);
+        var observations = cell.ObservationIndices.Where(i => i >= 0 && i < _observations.Count).Select(i => _observations[i]).ToArray();
+        AtlasHoverReadout.Text = InspectionExplanationProjection.ForAtlasCell(observations, cell.Density).AsPlainText();
+        SetTransient(AtlasHoverCard, true);
+        HoverChanged?.Invoke(this, new AtlasHoverChangedEventArgs(cell.ObservationIndices.ToArray()));
+    }
+
+    private void OnPointerExited(object sender, PointerRoutedEventArgs e) => HideAtlasHover(true);
+
+    private void HideAtlasHover(bool notify)
+    {
+        AtlasPointerHoverLayer.Children.Clear();
+        SetTransient(AtlasHoverCard, false);
+        if (notify) HoverChanged?.Invoke(this, new AtlasHoverChangedEventArgs(Array.Empty<int>()));
+    }
+
+    private void SetTransient(UIElement element, bool visible)
+    {
+        if (_transientAnimations.Remove(element, out var running)) running.Stop();
+        if (_reducedMotion)
+        {
+            element.Opacity = visible ? 1 : 0;
+            element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+
+        if (visible) element.Visibility = Visibility.Visible;
+        var animation = new DoubleAnimation
+        {
+            From = element.Opacity,
+            To = visible ? 1 : 0,
+            Duration = new Duration(TimeSpan.FromMilliseconds(90))
+        };
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        Storyboard.SetTarget(animation, element);
+        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
+        _transientAnimations[element] = storyboard;
+        storyboard.Completed += (_, _) =>
+        {
+            if (!_transientAnimations.TryGetValue(element, out var current) || !ReferenceEquals(current, storyboard)) return;
+            _transientAnimations.Remove(element);
+            element.Opacity = visible ? 1 : 0;
+            if (!visible) element.Visibility = Visibility.Collapsed;
+        };
+        storyboard.Begin();
+    }
+    private PerformanceAtlasCell? CellAtPoint(Point point)
+    {
+        if (_data is null || InteractionLayer.ActualWidth <= 0 || InteractionLayer.ActualHeight <= 0) return null;
+        if (point.X < 0 || point.X > InteractionLayer.ActualWidth || point.Y < 0 || point.Y > InteractionLayer.ActualHeight) return null;
+        var xBin = Math.Clamp((int)Math.Floor(point.X / InteractionLayer.ActualWidth * _data.XAxis.BinCount), 0, _data.XAxis.BinCount - 1);
+        var yBinFromTop = Math.Clamp((int)Math.Floor(point.Y / InteractionLayer.ActualHeight * _data.YAxis.BinCount), 0, _data.YAxis.BinCount - 1);
+        var yBin = _data.YAxis.BinCount - 1 - yBinFromTop;
+        return _data.Cells.FirstOrDefault(candidate => candidate.XBin == xBin && candidate.YBin == yBin);
+    }
+
+    private void RedrawLinkedHover()
+    {
+        AtlasLinkedHoverLayer.Children.Clear();
+        if (_data is null || _linkedHoveredObservationIndices.Count == 0 || AtlasHoverLayer.ActualWidth <= 0 || AtlasHoverLayer.ActualHeight <= 0) return;
+        foreach (var cell in _data.Cells.Where(cell => cell.ObservationIndices.Any(_linkedHoveredObservationIndices.Contains)))
+            DrawHoverCell(AtlasLinkedHoverLayer, cell, Brush(110, 224, 245, 135), 1.4);
+    }
+
+    private void DrawHoverCell(Canvas layer, PerformanceAtlasCell cell, Brush stroke, double thickness)
+    {
+        if (_data is null) return;
+        var width = AtlasPlotHost.ActualWidth;
+        var height = AtlasPlotHost.ActualHeight;
+        if (width <= 0 || height <= 0) return;
+        var cellWidth = width / _data.XAxis.BinCount;
+        var cellHeight = height / _data.YAxis.BinCount;
+        var rectangle = new Rectangle
+        {
+            Width = Math.Max(1, cellWidth - 2),
+            Height = Math.Max(1, cellHeight - 2),
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            RadiusX = 4,
+            RadiusY = 4,
+            Fill = Brush(95, 220, 245, 18),
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(rectangle, cell.XBin * cellWidth + 1);
+        Canvas.SetTop(rectangle, height - (cell.YBin + 1) * cellHeight + 1);
+        layer.Children.Add(rectangle);
+    }
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (_data is null || InteractionLayer.ActualWidth <= 0 || InteractionLayer.ActualHeight <= 0) return;
         var point = e.GetCurrentPoint(InteractionLayer).Position;
-        var xBin = Math.Clamp((int)Math.Floor(point.X / InteractionLayer.ActualWidth * _data.XAxis.BinCount), 0, _data.XAxis.BinCount - 1);
-        var yBinFromTop = Math.Clamp((int)Math.Floor(point.Y / InteractionLayer.ActualHeight * _data.YAxis.BinCount), 0, _data.YAxis.BinCount - 1);
-        var yBin = _data.YAxis.BinCount - 1 - yBinFromTop;
-        var cell = _data.Cells.FirstOrDefault(candidate => candidate.XBin == xBin && candidate.YBin == yBin);
+        var cell = CellAtPoint(point);
         if (cell is null)
         {
-            _selectedObservationIndices.Clear(); SelectionCard.Visibility = Visibility.Collapsed; RedrawSelection(); SelectionChanged?.Invoke(this, new AtlasSelectionChangedEventArgs(Array.Empty<int>())); return;
+            _selectedObservationIndices.Clear();
+            SelectionCard.Visibility = Visibility.Collapsed;
+            RedrawSelection();
+            SelectionChanged?.Invoke(this, new AtlasSelectionChangedEventArgs(Array.Empty<int>()));
+            return;
         }
         _selectedObservationIndices = cell.ObservationIndices.ToHashSet();
-        SelectionReadout.Text = $"{cell.SampleCount} observations · time spent here {cell.Density:P0}" + (cell.EfficiencyValue is double efficiency ? $" · evidence {efficiency:0.##}" : string.Empty);
-        SelectionCard.Visibility = Visibility.Visible; RedrawSelection(); SelectionChanged?.Invoke(this, new AtlasSelectionChangedEventArgs(cell.ObservationIndices.ToArray()));
+        SelectionReadout.Text = InspectionExplanationProjection.ForAtlasCell(
+            cell.ObservationIndices.Where(i => i >= 0 && i < _observations.Count).Select(i => _observations[i]).ToArray(),
+            cell.Density).AsPlainText();
+        SelectionCard.Visibility = Visibility.Visible;
+        RedrawSelection();
+        SelectionChanged?.Invoke(this, new AtlasSelectionChangedEventArgs(cell.ObservationIndices.ToArray()));
     }
-
     private void RedrawSelection()
     {
         SelectionLayer.Children.Clear();

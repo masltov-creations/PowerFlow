@@ -101,10 +101,10 @@ public sealed partial class ShellHeaderControl : UserControl
         }
     }
 
-    public void SetModeSelection(PowerModeSelection selection, bool manual)
+    public void SetModeSelection(PowerModeSelection selection, bool manual, string? activationError = null)
     {
-        CompactModeStrip.SetSelection(selection, manual);
-        SystemModeStrip.SetSelection(selection, manual);
+        CompactModeStrip.SetSelection(selection, manual, activationError);
+        SystemModeStrip.SetSelection(selection, manual, activationError);
     }
 
     private void OnModeRequested(object sender, PowerModeRequestedEventArgs e) => ModeRequested?.Invoke(this, e);

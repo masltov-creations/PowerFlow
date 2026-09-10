@@ -45,7 +45,8 @@ public sealed class AdaptiveTuningContractTests
             Assert.Contains($"AutomationProperties.Name=\"{accessibleName}\"", xaml, StringComparison.Ordinal);
 
         Assert.DoesNotContain("<Slider", xaml, StringComparison.Ordinal);
-        Assert.Contains("Drag the rails", xaml, StringComparison.Ordinal);
+        Assert.Contains("[DRAG] CPU pressure rails", xaml, StringComparison.Ordinal);
+        Assert.Contains("Power rails marked [LEARNED]", xaml, StringComparison.Ordinal);
         Assert.Contains("<NumberBox", xaml, StringComparison.Ordinal);
         Assert.Contains("LEARNED", xaml, StringComparison.Ordinal);
         Assert.Contains("COUNTERFACTUAL", xaml, StringComparison.Ordinal);

@@ -77,6 +77,7 @@ public sealed partial class MainWindow : Window
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         ApplyTheme(config.Theme);
+        ApplyInspectionMotionPreference();
         ViewModel.Configure(config);
         ShellRoot.DataContext = ViewModel;
         ViewModel.UpdateContinuity(controller.Snapshot, recorder.History, recorder.LatestRichTelemetry);
@@ -85,8 +86,10 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         SystemHeaderHost.ModeRequested += OnModeRequested;
         PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
+        PerformanceTimeline.CursorChanged += OnTimelineCursorChanged;
         PerformanceTimeline.PolicyHandleChanged += OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged += OnAtlasSelectionChanged;
+        PerformanceAtlas.HoverChanged += OnAtlasHoverChanged;
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
         AppWindow.Closing += OnAppWindowClosing;
@@ -509,6 +512,12 @@ public sealed partial class MainWindow : Window
         try { return new UISettings().AnimationsEnabled; }
         catch { return true; }
     }
+
+    private void ApplyInspectionMotionPreference()
+    {
+        PerformanceTimeline.SetReducedMotion(!ShouldAnimatePresentation());
+        PerformanceAtlas.SetReducedMotion(!ShouldAnimatePresentation());
+    }
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (DashboardClosePolicy.Decide(_previewMode, _explicitShutdown) == DashboardCloseDisposition.Close) return;
@@ -590,7 +599,8 @@ public sealed partial class MainWindow : Window
                     _ => PowerModeSelection.Efficient
                 }
             : PowerModeSelection.Auto;
-        SystemHeaderHost.SetModeSelection(selectedMode, manualAuthority);
+        var activationError = snapshot.Reason.StartsWith("Power plan activation failed:", StringComparison.OrdinalIgnoreCase) ? snapshot.Reason : null;
+        SystemHeaderHost.SetModeSelection(selectedMode, manualAuthority, activationError);
     }
 
     private async void OnModeRequested(object? sender, PowerModeRequestedEventArgs e)
@@ -607,7 +617,6 @@ public sealed partial class MainWindow : Window
             {
                 PowerModeSelection.Eco => PowerState.PowerSaver,
                 PowerModeSelection.Efficient => PowerState.Balanced,
-                PowerModeSelection.Responsive => PowerState.Balanced,
                 PowerModeSelection.Boost => PowerState.HighPerformance,
                 _ => PowerState.Balanced
             };
@@ -615,6 +624,11 @@ public sealed partial class MainWindow : Window
         }
         ApplyVisualState(_controller.Snapshot);
     }
+    private void OnTimelineCursorChanged(object? sender, TimelineCursorChangedEventArgs e)
+        => PerformanceAtlas.SetHoveredObservationIndices(e.ObservationIndex is int index ? new[] { index } : null);
+
+    private void OnAtlasHoverChanged(object? sender, AtlasHoverChangedEventArgs e)
+        => PerformanceTimeline.SetHoveredObservationIndices(e.ObservationIndices);
     private void OnTimelineSelectionChanged(object? sender, TimelineSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
     private void OnAtlasSelectionChanged(object? sender, AtlasSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
 
@@ -762,6 +776,7 @@ public sealed partial class MainWindow : Window
         await _applyConfig(config);
         _config = config;
         ApplyTheme(config.Theme);
+        ApplyInspectionMotionPreference();
         ViewModel.Configure(config);
         ApplyVisualState(_controller.Snapshot);
         RulesPanel.RefreshConfig(config);
@@ -827,8 +842,10 @@ public sealed partial class MainWindow : Window
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
         PerformanceTimeline.SelectionChanged -= OnTimelineSelectionChanged;
+        PerformanceTimeline.CursorChanged -= OnTimelineCursorChanged;
         PerformanceTimeline.PolicyHandleChanged -= OnTimelinePolicyHandleChanged;
         PerformanceAtlas.SelectionChanged -= OnAtlasSelectionChanged;
+        PerformanceAtlas.HoverChanged -= OnAtlasHoverChanged;
         SystemHeaderHost.ModeRequested -= OnModeRequested;
         ReleaseDashboardVisibility();
     }

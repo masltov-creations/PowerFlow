@@ -74,9 +74,12 @@
                     <Canvas x:Name="PolicyHandleLayer" IsHitTestVisible="False" Visibility="Collapsed"/>
                     <Canvas x:Name="ActorDecisionLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="SelectionLayer" IsHitTestVisible="False"/>
-                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed" PointerReleased="OnPointerReleased" PointerCanceled="OnPointerCanceled">
-                        <Line x:Name="InspectionCursor" Stroke="#8294A6" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
-                    </Canvas>
+                    <Grid x:Name="HoverLayer" IsHitTestVisible="False">
+                        <Canvas x:Name="LinkedHoverLayer"/>
+                        <Canvas x:Name="PolicyHoverLayer"/>
+                        <Line x:Name="InspectionCursor" Stroke="#8294A6" StrokeThickness="1" Visibility="Collapsed" Opacity="0.92"/>
+                    </Grid>
+                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed" PointerReleased="OnPointerReleased" PointerCanceled="OnPointerCanceled"/>
                     <Border x:Name="CursorCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
                             Margin="0,5,5,0" Padding="8,5" CornerRadius="7"
                             Background="{ThemeResource PowerFlowHoverBrush}"

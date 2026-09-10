@@ -68,4 +68,38 @@ public sealed class ShapePreservingCurveTests
             Assert.True(double.IsFinite(point.Y));
         }
     }
-}
+
+    [Fact]
+    public void BuildSparseObservations_SkipsControllerOnlyNullsWithoutFragmentingRichTrace()
+    {
+        Point?[] points =
+        [
+            new Point(0.0, 20),
+            null,
+            new Point(0.1, 18),
+            null,
+            new Point(0.2, 16)
+        ];
+
+        var figure = Assert.Single(ShapePreservingCurve.BuildSparseObservations(points, .15));
+        Assert.Equal(2, figure.Segments.Count);
+        Assert.Equal(.2, figure.Segments[^1].End.X, 3);
+    }
+
+    [Fact]
+    public void BuildSparseObservations_SplitsAcrossRealTelemetryOutage()
+    {
+        Point?[] points =
+        [
+            new Point(0.0, 20),
+            null,
+            new Point(0.1, 18),
+            null,
+            new Point(0.5, 16)
+        ];
+
+        var figures = ShapePreservingCurve.BuildSparseObservations(points, .15);
+        Assert.Equal(2, figures.Count);
+        Assert.Single(figures[0].Segments);
+        Assert.Empty(figures[1].Segments);
+    }}

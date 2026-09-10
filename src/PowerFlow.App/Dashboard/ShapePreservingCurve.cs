@@ -28,6 +28,22 @@ public static class ShapePreservingCurve
         return figures;
     }
 
+    public static IReadOnlyList<CurveFigure> BuildSparseObservations(IReadOnlyList<Point?> points, double maximumGapX)
+    {
+        if (points is null || points.Count == 0) return Array.Empty<CurveFigure>();
+        var maxGap = double.IsFinite(maximumGapX) && maximumGapX > 0 ? maximumGapX : double.PositiveInfinity;
+        var figures = new List<CurveFigure>();
+        var run = new List<Point>();
+        foreach (var candidate in points)
+        {
+            if (candidate is not Point point || !IsFinite(point)) continue;
+            if (run.Count > 0 && (point.X <= run[^1].X || point.X - run[^1].X > maxGap))
+                FlushRun(run, figures);
+            run.Add(point);
+        }
+        FlushRun(run, figures);
+        return figures;
+    }
     private static void FlushRun(List<Point> run, List<CurveFigure> figures)
     {
         if (run.Count == 0) return;

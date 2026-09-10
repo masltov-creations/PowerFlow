@@ -152,6 +152,7 @@ public sealed class PowerFlowController : IAsyncDisposable
         CancelCooldown();
         var decision = _engine.Evaluate(new ManualStateRequested(_clock.UtcNow, state));
         await ApplyDecisionAsync(decision, "Manual override");
+        if (!Snapshot.IsLatched && !_games.IsLatched) StartSampling();
     });
     public Task ReleaseManualLatchAsync() => EnqueueAsync(async () =>
     {
@@ -353,7 +354,12 @@ public sealed class PowerFlowController : IAsyncDisposable
             if (!result.Success)
             {
                 AddHistory(_currentState, decision.Target, $"Activation failed: {result.Error}", false);
-                Publish(_currentState, $"Power plan activation failed: {result.Error}", decision.IsLatched, decision.IsLatched ? LatchType(decision.Reason) : null, cpu ?? Snapshot.CpuPercent, trigger, Snapshot.CooldownRemaining);
+                var requestedLatchType = decision.IsLatched ? LatchType(decision.Reason) : null;
+                if (string.Equals(requestedLatchType, "Manual", StringComparison.OrdinalIgnoreCase))
+                    _ = _engine.Evaluate(new ManualStateReleased(_clock.UtcNow));
+                _engine.SynchronizeObservedState(_currentState);
+                var gameStillLatched = _games.IsLatched;
+                Publish(_currentState, $"Power plan activation failed: {result.Error}", gameStillLatched, gameStillLatched ? "Game" : null, cpu ?? Snapshot.CpuPercent, trigger, Snapshot.CooldownRemaining);
                 return;
             }
             var from = _currentState;

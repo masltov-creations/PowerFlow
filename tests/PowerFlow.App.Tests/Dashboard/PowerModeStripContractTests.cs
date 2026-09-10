@@ -5,14 +5,14 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class PowerModeStripContractTests
 {
     [Fact]
-    public void ModeStrip_ExposesFivePrimaryModesWithSelectionAuthorityAndTooltips()
+    public void ModeStrip_ExposesRealWindowsHostModesWithSelectionAuthorityAndTooltips()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml.cs");
 
-        foreach (var name in new[] { "AutoModeButton", "EcoModeButton", "EfficientModeButton", "ResponsiveModeButton", "BoostModeButton", "ModeAuthorityText" })
+        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedModeButton", "PerformanceModeButton", "ModeAuthorityText" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
-        foreach (var label in new[] { "AUTO", "ECO", "EFFICIENT", "RESPONSIVE", "BOOST" })
+        foreach (var label in new[] { "AUTO", "SAVER", "BALANCED", "PERFORMANCE" })
             Assert.Contains($"Content=\"{label}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTipService.ToolTip", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name", xaml, StringComparison.Ordinal);
@@ -20,6 +20,9 @@ public sealed class PowerModeStripContractTests
         Assert.Contains("SetSelection", code, StringComparison.Ordinal);
         Assert.Contains("IsChecked", code, StringComparison.Ordinal);
         Assert.Contains("MANUAL", code, StringComparison.Ordinal);
+        Assert.Contains("APPLYING", code, StringComparison.Ordinal);
+        Assert.Contains("FAILED", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResponsiveModeButton", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -6,10 +6,9 @@
         <Border Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
             <TextBlock x:Name="ModeAuthorityText" Text="AUTO" FontSize="11" FontWeight="SemiBold"/>
         </Border>
-        <ToggleButton x:Name="AutoModeButton" Content="AUTO" Padding="8,4" MinWidth="48" Click="OnAutoClicked" AutomationProperties.Name="Automatic power mode" ToolTipService.ToolTip="PowerFlow decides when the machine should save power or respond faster."/>
-        <ToggleButton x:Name="EcoModeButton" Content="ECO" Padding="8,4" MinWidth="44" Click="OnEcoClicked" AutomationProperties.Name="Eco power mode" ToolTipService.ToolTip="Keep the machine quiet and efficient until you choose another mode."/>
-        <ToggleButton x:Name="EfficientModeButton" Content="EFFICIENT" Padding="8,4" MinWidth="68" Click="OnEfficientClicked" AutomationProperties.Name="Efficient power mode" ToolTipService.ToolTip="Use the balanced efficient operating mode and hold it manually."/>
-        <ToggleButton x:Name="ResponsiveModeButton" Content="RESPONSIVE" Padding="8,4" MinWidth="78" Click="OnResponsiveClicked" AutomationProperties.Name="Responsive power mode" ToolTipService.ToolTip="Favor a more responsive policy without forcing full Boost."/>
-        <ToggleButton x:Name="BoostModeButton" Content="BOOST" Padding="8,4" MinWidth="52" Click="OnBoostClicked" AutomationProperties.Name="Boost power mode" ToolTipService.ToolTip="Hold the machine in its high-performance mode."/>
+        <ToggleButton x:Name="AutoModeButton" Content="AUTO" Padding="8,4" MinWidth="48" Click="OnAutoClicked" AutomationProperties.Name="Automatic power mode" ToolTipService.ToolTip="PowerFlow controls the Windows power plan automatically."/>
+        <ToggleButton x:Name="SaverModeButton" Content="SAVER" Padding="8,4" MinWidth="52" Click="OnSaverClicked" AutomationProperties.Name="Windows Power Saver mode" ToolTipService.ToolTip="Switch Windows to the configured Power Saver plan and hold it manually."/>
+        <ToggleButton x:Name="BalancedModeButton" Content="BALANCED" Padding="8,4" MinWidth="70" Click="OnBalancedClicked" AutomationProperties.Name="Windows Balanced mode" ToolTipService.ToolTip="Switch Windows to the configured Balanced plan and hold it manually."/>
+        <ToggleButton x:Name="PerformanceModeButton" Content="PERFORMANCE" Padding="8,4" MinWidth="88" Click="OnPerformanceClicked" AutomationProperties.Name="Windows High Performance mode" ToolTipService.ToolTip="Switch Windows to the configured High Performance plan and hold it manually."/>
     </StackPanel>
 </UserControl>

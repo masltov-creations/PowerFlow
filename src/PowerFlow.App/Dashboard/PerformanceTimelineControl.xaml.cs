@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using PowerFlow.Core.Envelope;
 using Windows.Foundation;
@@ -33,22 +34,29 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private double _plotWidth = 1;
     private double _plotHeight = 1;
     private HashSet<int> _selectedObservationIndices = [];
+    private HashSet<int> _linkedHoveredObservationIndices = [];
     private OperatingEnvelope _learnedEnvelope = DefaultEnvelope;
     private PerformanceEntitlement _learnedEntitlement = PerformanceEntitlement.LegacyPerformance;
     private EnvelopeTuning _candidateTuning = EnvelopeTuning.Learned;
     private bool _tuneMode;
     private TimelinePolicyHandleKind? _draggingPolicyHandle;
+    private bool _reducedMotion;
+    private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
+    private bool _redrawQueued;
+    private bool _presentationApplied;
 
     public PerformanceTimelineControl()
     {
         InitializeComponent();
-        ActualThemeChanged += (_, _) => Redraw();
+        ActualThemeChanged += (_, _) => RequestRedraw();
     }
 
     public TimelinePresentation Presentation { get; private set; } = TimelinePresentation.Expanded;
 
     public void SetPresentation(TimelinePresentation presentation)
     {
+        if (_presentationApplied && Presentation == presentation) return;
+        _presentationApplied = true;
         Presentation = presentation;
         var glance = presentation == TimelinePresentation.Glance;
         TimelineHeader.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
@@ -70,7 +78,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             TimelinePresentation.Expanded => 238,
             _ => 300
         };
-        Redraw();
+        RequestRedraw();
     }
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
@@ -103,6 +111,23 @@ public sealed partial class PerformanceTimelineControl : UserControl
             : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
         RedrawSelection();
     }
+    public void SetHoveredObservationIndices(IEnumerable<int>? observationIndices)
+    {
+        _linkedHoveredObservationIndices = observationIndices is null
+            ? []
+            : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
+        RedrawLinkedHover();
+    }
+
+    public void SetReducedMotion(bool reducedMotion)
+    {
+        _reducedMotion = reducedMotion;
+        if (!reducedMotion) return;
+        foreach (var animation in _transientAnimations.Values) animation.Stop();
+        _transientAnimations.Clear();
+        InspectionCursor.Opacity = InspectionCursor.Visibility == Visibility.Visible ? 1 : 0;
+        CursorCard.Opacity = CursorCard.Visibility == Visibility.Visible ? 1 : 0;
+    }
 
     public void Apply(
         IReadOnlyList<OperatingObservation> observations,
@@ -120,7 +145,20 @@ public sealed partial class PerformanceTimelineControl : UserControl
         Redraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => Redraw();
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => RequestRedraw();
+
+    private void RequestRedraw()
+    {
+        if (_redrawQueued) return;
+        _redrawQueued = true;
+        if (DispatcherQueue.TryEnqueue(() =>
+            {
+                _redrawQueued = false;
+                Redraw();
+            })) return;
+        _redrawQueued = false;
+        Redraw();
+    }
 
     private void Redraw()
     {
@@ -170,7 +208,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
                 ? (Point?)new Point(point.X * _plotWidth, top + (1 - y) * height)
                 : null)
             .ToArray();
-        path.Data = ToPathGeometry(ShapePreservingCurve.Build(samples));
+        var maximumGapX = Math.Clamp(10d / Math.Max(1d, _windowSeconds), 0.001d, 1d);
+        path.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(samples, maximumGapX));
     }
 
     private Microsoft.UI.Xaml.Shapes.Path TracePath(int laneIndex) => laneIndex switch
@@ -233,13 +272,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var line = AddLine(PolicyValueLayer, 0, candidateY, _plotWidth, candidateY, candidateBrush, rail.Editable ? 1.6 : 1.1);
             line.StrokeDashArray = rail.Editable ? new DoubleCollection { 5, 4 } : new DoubleCollection { 2, 5 };
             var suffix = rail.Metric == PerformanceTimelineMetric.PackagePower ? $" {rail.CandidateValue:0}W" : $" {rail.CandidateValue:0}%";
+            suffix += rail.Editable && _tuneMode ? "  [DRAG]" : !rail.Editable ? "  [LEARNED]" : string.Empty;
             AddText(PolicyValueLayer, rail.Label + suffix, 4, Math.Max(laneIndex * laneHeight, candidateY - 14), 11, candidateBrush);
 
             if (_tuneMode && rail.Editable)
             {
-                var handle = new Ellipse { Width = 11, Height = 11, Fill = candidateBrush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
-                Canvas.SetLeft(handle, Math.Max(0, _plotWidth - 11));
-                Canvas.SetTop(handle, candidateY - 5.5);
+                var handle = new Ellipse { Width = 14, Height = 14, Fill = candidateBrush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
+                Canvas.SetLeft(handle, Math.Max(0, _plotWidth - 14));
+                Canvas.SetTop(handle, candidateY - 7);
                 PolicyHandleLayer.Children.Add(handle);
             }
         }
@@ -261,13 +301,13 @@ public sealed partial class PerformanceTimelineControl : UserControl
             PolicyTimeLayer.Children.Add(region);
             var edge = AddLine(PolicyTimeLayer, candidateX, 0, candidateX, _plotHeight, brush, 1.25);
             edge.StrokeDashArray = new DoubleCollection { 3, 4 };
-            AddText(PolicyTimeLayer, $"{band.Label} {band.CandidateDuration.TotalSeconds:0.#}s", Math.Clamp(candidateX + 4, 4, Math.Max(4, _plotWidth - 110)), 3 + bandIndex * 15, 11, brush);
+            AddText(PolicyTimeLayer, $"{band.Label} {band.CandidateDuration.TotalSeconds:0.#}s{(_tuneMode && band.Editable ? "  [DRAG]" : string.Empty)}", Math.Clamp(candidateX + 4, 4, Math.Max(4, _plotWidth - 110)), 3 + bandIndex * 15, 11, brush);
 
             if (_tuneMode && band.Editable)
             {
-                var handle = new Rectangle { Width = 9, Height = 17, RadiusX = 4.5, RadiusY = 4.5, Fill = brush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
-                Canvas.SetLeft(handle, Math.Clamp(candidateX - 4.5, 0, Math.Max(0, _plotWidth - 9)));
-                Canvas.SetTop(handle, Math.Max(0, _plotHeight - 20 - bandIndex * 18));
+                var handle = new Rectangle { Width = 12, Height = 20, RadiusX = 6, RadiusY = 6, Fill = brush, Stroke = Brush(8, 20, 32, 190), StrokeThickness = 1, IsHitTestVisible = false };
+                Canvas.SetLeft(handle, Math.Clamp(candidateX - 6, 0, Math.Max(0, _plotWidth - 12)));
+                Canvas.SetTop(handle, Math.Max(0, _plotHeight - 23 - bandIndex * 21));
                 PolicyHandleLayer.Children.Add(handle);
             }
             bandIndex++;
@@ -417,13 +457,23 @@ public sealed partial class PerformanceTimelineControl : UserControl
             e.Handled = true;
             return;
         }
-        if (_data.Lanes.Count == 0 || _data.Lanes[0].Points.Count == 0) return;
         if (p.X < 0 || p.X > _plotWidth || p.Y < 0 || p.Y > _plotHeight)
         {
             HideCursor();
             return;
         }
 
+        if (_tuneMode && HitTestPolicyHandle(p) is TimelinePolicyHandleKind policyHandle)
+        {
+            ShowPolicyInspection(policyHandle, p);
+            return;
+        }
+
+        if (_data.Lanes.Count == 0 || _data.Lanes[0].Points.Count == 0)
+        {
+            HideCursor();
+            return;
+        }
         var normalized = Math.Clamp(p.X / Math.Max(1, _plotWidth), 0, 1);
         var index = PerformanceTimelineProjection.FindNearestObservationIndex(_data, normalized);
         if (index is not int observationIndex || observationIndex < 0 || observationIndex >= _observations.Count)
@@ -432,17 +482,18 @@ public sealed partial class PerformanceTimelineControl : UserControl
             return;
         }
 
+        PolicyHoverLayer.Children.Clear();
         var observation = _observations[observationIndex];
-        var x = _data.Lanes[0].Points.First(point => point.ObservationIndex == observationIndex).X * _plotWidth;
+        var timelinePoint = _data.Lanes[0].Points.First(point => point.ObservationIndex == observationIndex);
+        var x = timelinePoint.X * _plotWidth;
         InspectionCursor.X1 = InspectionCursor.X2 = x;
         InspectionCursor.Y1 = 0;
         InspectionCursor.Y2 = _plotHeight;
-        InspectionCursor.Visibility = Visibility.Visible;
-        CursorReadout.Text = FormatObservation(observation);
-        CursorCard.Visibility = Visibility.Visible;
+        SetTransient(InspectionCursor, true);
+        CursorReadout.Text = InspectionExplanationProjection.ForObservation(observation).AsPlainText();
+        SetTransient(CursorCard, true);
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(observationIndex));
     }
-
     private void OnPointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (_draggingPolicyHandle is null) HideCursor();
@@ -462,38 +513,133 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _draggingPolicyHandle = null;
         CursorLayer.ReleasePointerCapture(e.Pointer);
     }
-    private void HideCursor()
+    private void ShowPolicyInspection(TimelinePolicyHandleKind kind, Point point)
     {
-        InspectionCursor.Visibility = Visibility.Collapsed;
-        CursorCard.Visibility = Visibility.Collapsed;
+        PolicyHoverLayer.Children.Clear();
+        SetTransient(InspectionCursor, false);
+        var envelope = _candidateTuning.ApplyTo(_learnedEnvelope);
+        var entitlement = _candidateTuning.ApplyTo(_learnedEntitlement);
+        var value = kind switch
+        {
+            TimelinePolicyHandleKind.EcoPressure => envelope.EcoCeilingPressure,
+            TimelinePolicyHandleKind.EfficientPressure => envelope.EfficientCeilingPressure,
+            TimelinePolicyHandleKind.ResponsivePressure => envelope.ResponsiveCeilingPressure,
+            TimelinePolicyHandleKind.EcoPowerFrontier => envelope.EcoPowerFrontierWatts ?? 0,
+            TimelinePolicyHandleKind.EfficientPowerFrontier => envelope.EfficientPowerFrontierWatts ?? 0,
+            TimelinePolicyHandleKind.ResponsivePowerFrontier => envelope.ResponsivePowerFrontierWatts ?? 0,
+            _ => 0
+        };
+        var duration = kind switch
+        {
+            TimelinePolicyHandleKind.QualificationDuration => entitlement.QualificationDuration,
+            TimelinePolicyHandleKind.LeaseDuration => entitlement.LeaseDuration,
+            TimelinePolicyHandleKind.ReleaseHysteresis => entitlement.ReleaseHysteresis,
+            _ => TimeSpan.Zero
+        };
+        CursorReadout.Text = InspectionExplanationProjection.ForPolicyHandle(kind, value, duration).AsPlainText();
+        SetTransient(CursorCard, true);
+        DrawPolicyHover(kind);
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(null));
     }
 
-    private void UpdateLiveLabels()
+    private void DrawPolicyHover(TimelinePolicyHandleKind kind)
     {
-        var latest = _observations.OrderBy(x => x.At).LastOrDefault();
-        if (latest is null)
+        if (_plotWidth <= 1 || _plotHeight <= 1) return;
+        var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
+        var laneHeight = _plotHeight / 4d;
+        var brush = PolicyBrush(kind, true);
+        var rail = overlay.ValueRails.FirstOrDefault(item => item.Kind == kind);
+        if (rail is not null)
         {
-            CpuValueText.Text = PowerValueText.Text = ClockValueText.Text = CoresValueText.Text = "—";
-            EnvelopeBadgeText.Text = "LEARNING";
-            GlanceSummary.Text = "LEARNING · waiting for telemetry";
+            var y = PolicyValueY(LaneIndex(rail.Metric), laneHeight, rail.CandidateNormalizedY);
+            AddLine(PolicyHoverLayer, 0, y, _plotWidth, y, brush, 3);
             return;
         }
+        var band = overlay.TimeBands.FirstOrDefault(item => item.Kind == kind);
+        if (band is not null)
+        {
+            var x = band.CandidateStartX * _plotWidth;
+            AddLine(PolicyHoverLayer, x, 0, x, _plotHeight, brush, 3);
+        }
+    }
+
+    private void RedrawLinkedHover()
+    {
+        LinkedHoverLayer.Children.Clear();
+        if (_linkedHoveredObservationIndices.Count == 0 || _data.Lanes.Count == 0 || _plotWidth <= 1 || _plotHeight <= 1) return;
+        var brush = Brush(110, 224, 245, 120);
+        foreach (var point in _data.Lanes[0].Points.Where(point => _linkedHoveredObservationIndices.Contains(point.ObservationIndex)))
+        {
+            var x = point.X * _plotWidth;
+            AddLine(LinkedHoverLayer, x, 0, x, _plotHeight, brush, 1.4);
+        }
+    }
+    private void HideCursor()
+    {
+        PolicyHoverLayer.Children.Clear();
+        SetTransient(InspectionCursor, false);
+        SetTransient(CursorCard, false);
+        CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(null));
+    }
+
+    private void SetTransient(UIElement element, bool visible)
+    {
+        if (_transientAnimations.Remove(element, out var running)) running.Stop();
+        if (_reducedMotion)
+        {
+            element.Opacity = visible ? 1 : 0;
+            element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+
+        if (visible) element.Visibility = Visibility.Visible;
+        var animation = new DoubleAnimation
+        {
+            From = element.Opacity,
+            To = visible ? 1 : 0,
+            Duration = new Duration(TimeSpan.FromMilliseconds(90))
+        };
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        Storyboard.SetTarget(animation, element);
+        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
+        _transientAnimations[element] = storyboard;
+        storyboard.Completed += (_, _) =>
+        {
+            if (!_transientAnimations.TryGetValue(element, out var current) || !ReferenceEquals(current, storyboard)) return;
+            _transientAnimations.Remove(element);
+            element.Opacity = visible ? 1 : 0;
+            if (!visible) element.Visibility = Visibility.Collapsed;
+        };
+        storyboard.Begin();
+    }
+    private void UpdateLiveLabels()
+    {
+        var current = CurrentTelemetryProjection.Resolve(_observations, TimeSpan.FromSeconds(10));
+        if (current is null)
+        {
+            CpuValueText.Text = PowerValueText.Text = ClockValueText.Text = CoresValueText.Text = "-";
+            EnvelopeBadgeText.Text = "LEARNING";
+            GlanceSummary.Text = "LEARNING - waiting for telemetry";
+            return;
+        }
+
+        var latest = current.Latest;
         CpuValueText.Text = $"{latest.CpuPressurePercent:0.0}%";
-        PowerValueText.Text = latest.PackageWatts is double watts ? $"{watts:0.0} W" : "—";
-        ClockValueText.Text = latest.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "—";
-        CoresValueText.Text = latest.ActiveCores is int active
-            ? latest.TotalCores is int total ? $"{active}/{total}" : active.ToString()
-            : latest.TotalCores is int knownTotal ? $"—/{knownTotal}" : "—";
+        PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
+        ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
+        CoresValueText.Text = current.ActiveCores is int active
+            ? current.TotalCores is int total ? $"{active}/{total}" : active.ToString()
+            : current.TotalCores is int knownTotal ? $"-/{knownTotal}" : "-";
         var actor = ShortActor(latest.Actor);
-        var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" · {actor}";
-        var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" · {latest.Decision.ToString().ToUpperInvariant()}";
-        GlanceSummary.Text = $"{latest.Zone.ToString().ToUpperInvariant()} · {PowerValueText.Text} · {ClockValueText.Text} · {CoresValueText.Text}{actorPart}{decisionPart}";
+        var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" - {actor}";
+        var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" - {latest.Decision.ToString().ToUpperInvariant()}";
+        GlanceSummary.Text = $"{latest.Zone.ToString().ToUpperInvariant()} - {PowerValueText.Text} - {ClockValueText.Text} - {CoresValueText.Text}{actorPart}{decisionPart}";
         EnvelopeBadgeText.Text = latest.Decision switch
         {
-            EnvelopeDecisionKind.Brake => $"{latest.Zone.ToString().ToUpperInvariant()} · BRAKING",
-            EnvelopeDecisionKind.Lease => $"{latest.Zone.ToString().ToUpperInvariant()} · LEASE",
-            EnvelopeDecisionKind.Qualifying => $"{latest.Zone.ToString().ToUpperInvariant()} · QUALIFYING",
+            EnvelopeDecisionKind.Brake => $"{latest.Zone.ToString().ToUpperInvariant()} - BRAKING",
+            EnvelopeDecisionKind.Lease => $"{latest.Zone.ToString().ToUpperInvariant()} - LEASE",
+            EnvelopeDecisionKind.Qualifying => $"{latest.Zone.ToString().ToUpperInvariant()} - QUALIFYING",
             _ => latest.Zone.ToString().ToUpperInvariant()
         };
     }

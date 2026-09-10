@@ -31,28 +31,30 @@ public sealed partial class PowerModeStripControl : UserControl
     public PowerModeSelection Selection { get; private set; } = PowerModeSelection.Auto;
     public bool IsManual { get; private set; }
 
-    public void SetSelection(PowerModeSelection selection, bool manual)
+    public void SetSelection(PowerModeSelection selection, bool manual, string? activationError = null)
     {
         Selection = selection;
         IsManual = manual;
         AutoModeButton.IsChecked = selection == PowerModeSelection.Auto;
-        EcoModeButton.IsChecked = selection == PowerModeSelection.Eco;
-        EfficientModeButton.IsChecked = selection == PowerModeSelection.Efficient;
-        ResponsiveModeButton.IsChecked = selection == PowerModeSelection.Responsive;
-        BoostModeButton.IsChecked = selection == PowerModeSelection.Boost;
-        ModeAuthorityText.Text = manual ? "MANUAL" : "AUTO";
-        AutomationProperties.SetName(ModeAuthorityText, manual ? "Manual power mode authority" : "Automatic power mode authority");
+        SaverModeButton.IsChecked = selection == PowerModeSelection.Eco;
+        BalancedModeButton.IsChecked = selection is PowerModeSelection.Efficient or PowerModeSelection.Responsive;
+        PerformanceModeButton.IsChecked = selection == PowerModeSelection.Boost;
+        var failed = !string.IsNullOrWhiteSpace(activationError);
+        ModeAuthorityText.Text = failed ? "FAILED" : manual ? "MANUAL" : "AUTO";
+        AutomationProperties.SetName(ModeAuthorityText, failed ? "Power mode activation failed" : manual ? "Manual power mode authority" : "Automatic power mode authority");
+        ToolTipService.SetToolTip(ModeAuthorityText, failed ? activationError : manual ? "Windows power plan is being held manually." : "PowerFlow is controlling Windows power mode automatically.");
     }
 
     private void Request(PowerModeSelection mode)
     {
-        SetSelection(mode, mode != PowerModeSelection.Auto);
+        SetSelection(Selection, IsManual);
+        ModeAuthorityText.Text = "APPLYING";
+        ToolTipService.SetToolTip(ModeAuthorityText, "Waiting for Windows to confirm the requested power plan.");
         ModeRequested?.Invoke(this, new PowerModeRequestedEventArgs(mode));
     }
 
     private void OnAutoClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Auto);
-    private void OnEcoClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Eco);
-    private void OnEfficientClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Efficient);
-    private void OnResponsiveClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Responsive);
-    private void OnBoostClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Boost);
+    private void OnSaverClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Eco);
+    private void OnBalancedClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Efficient);
+    private void OnPerformanceClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Boost);
 }

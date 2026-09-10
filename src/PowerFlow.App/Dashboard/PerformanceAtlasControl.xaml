@@ -78,8 +78,14 @@
                         <Ellipse x:Name="CurrentPointDot" Width="9" Height="9" Fill="{ThemeResource PowerFlowAccentBrush}" Stroke="White" StrokeThickness="1.5" Opacity="0"/>
                         <TextBlock x:Name="YouAreHereLabel" Text="YOU ARE HERE" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}" Opacity="0"/>
                     </Canvas>
-                    <Canvas x:Name="InteractionLayer" Background="Transparent" PointerPressed="OnPointerPressed"/>
-                    <Border x:Name="AtlasUnavailableMessage" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="14,9" CornerRadius="8" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1">
+                    <Grid x:Name="AtlasHoverLayer" IsHitTestVisible="False">
+                        <Canvas x:Name="AtlasLinkedHoverLayer"/>
+                        <Canvas x:Name="AtlasPointerHoverLayer"/>
+                    </Grid>
+                    <Canvas x:Name="InteractionLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed"/>
+                    <Border x:Name="AtlasHoverCard" Visibility="Collapsed" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" Padding="8,6" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
+                        <TextBlock x:Name="AtlasHoverReadout" FontSize="11" TextWrapping="Wrap" MaxWidth="360"/>
+                    </Border>                    <Border x:Name="AtlasUnavailableMessage" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="14,9" CornerRadius="8" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1">
                         <TextBlock x:Name="AtlasUnavailableText" Text="No usable observations are available for this view yet." FontSize="11" TextWrapping="Wrap" MaxWidth="340" TextAlignment="Center"/>
                     </Border>
                     <Border x:Name="SelectionCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,5,0" Padding="8,5" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
