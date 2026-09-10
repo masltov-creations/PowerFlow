@@ -15,20 +15,18 @@ public sealed class ReadabilityLayoutContractTests
     }
 
     [Fact]
-    public void Dashboard_DoesNotUseTinyExplicitFonts()
+    public void AdaptiveDashboard_DoesNotUseTinyExplicitFonts()
     {
         foreach (var file in new[]
         {
             RepoFile("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"),
-            RepoFile("src", "PowerFlow.App", "Dashboard", "RuleFlowControl.xaml"),
-            RepoFile("src", "PowerFlow.App", "Dashboard", "DecisionPressureControl.xaml"),
-            RepoFile("src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml")
+            RepoFile("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml"),
+            RepoFile("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml")
         })
         {
             var xaml = File.ReadAllText(file);
-            Assert.DoesNotContain("FontSize=\"8\"", xaml);
-            Assert.DoesNotContain("FontSize=\"9\"", xaml);
-            Assert.DoesNotContain("FontSize=\"10\"", xaml);
+            foreach (var size in new[] { "8", "9", "10" })
+                Assert.DoesNotContain($"FontSize=\"{size}\"", xaml, StringComparison.Ordinal);
         }
     }
 
@@ -47,19 +45,16 @@ public sealed class ReadabilityLayoutContractTests
     }
 
     [Fact]
-    public void TelemetryGraph_ProgrammaticLabelsAreReadable()
+    public void Timeline_ProgrammaticLabelsAreReadable()
     {
-        var code = Read("src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs");
-        Assert.DoesNotContain("FontSize = 8", code);
-        Assert.DoesNotContain("FontSize = 9", code);
-        Assert.DoesNotContain("FontSize = 10", code);
-        Assert.DoesNotContain(", 8,", code);
-        Assert.DoesNotContain(", 9,", code);
-        Assert.DoesNotContain(", 10,", code);
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        foreach (var size in new[] { "8", "9", "10" })
+            Assert.DoesNotContain($"FontSize = {size}", code, StringComparison.Ordinal);
+        foreach (var token in new[] { ", 8,", ", 9,", ", 10," })
+            Assert.DoesNotContain(token, code, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts) => File.ReadAllText(RepoFile(parts));
-
     private static string RepoFile(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

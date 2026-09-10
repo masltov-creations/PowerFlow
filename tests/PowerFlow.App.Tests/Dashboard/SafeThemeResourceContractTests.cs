@@ -5,37 +5,34 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class SafeThemeResourceContractTests
 {
     [Fact]
-    public void DynamicRenderersDoNotIndexThemeResourceDictionariesDirectly()
+    public void DynamicTimelineRenderer_DoesNotIndexThemeResourceDictionariesDirectly()
     {
-        var root = RepoRoot();
-        var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml.cs"));
-        var graph = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs"));
-
-        Assert.DoesNotContain("Root.Resources[", trajectory, StringComparison.Ordinal);
-        Assert.DoesNotContain("Application.Current.Resources[", trajectory, StringComparison.Ordinal);
-        Assert.DoesNotContain("Resources[", graph, StringComparison.Ordinal);
-        Assert.DoesNotContain("Application.Current.Resources[", graph, StringComparison.Ordinal);
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        Assert.DoesNotContain("Root.Resources[", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Application.Current.Resources[", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Resources[", code, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UnifiedShellUsesThemeResourcesAndNamedTrajectoryBrushSource()
+    public void UnifiedShellAndTimeline_UsePowerFlowThemeResources()
     {
-        var root = RepoRoot();
-        var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
-        var shell = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
-        var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml"));
+        var timeline = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
+        var shell = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var app = Read("src", "PowerFlow.App", "App.xaml");
 
-        Assert.Contains("x:Name=\"StateBandBrushSource\"", trajectory, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowPanelBrush", timeline, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowCardBorderBrush", timeline, StringComparison.Ordinal);
         Assert.Contains("PowerFlowSurfaceBrush", shell, StringComparison.Ordinal);
         Assert.Contains("PowerFlowCanvasBrush", app, StringComparison.Ordinal);
         Assert.Contains("PowerFlowCpuBrush", app, StringComparison.Ordinal);
-        Assert.Contains("PowerFlowStateSaverBrush", app, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowPowerBrush", app, StringComparison.Ordinal);
     }
 
-    private static string RepoRoot()
+    private static string Read(params string[] parts)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PowerFlow.sln"))) dir = dir.Parent;
-        return dir?.FullName ?? throw new DirectoryNotFoundException();
+        if (dir is null) throw new DirectoryNotFoundException();
+        return File.ReadAllText(Path.Combine(new[] { dir.FullName }.Concat(parts).ToArray()));
     }
 }

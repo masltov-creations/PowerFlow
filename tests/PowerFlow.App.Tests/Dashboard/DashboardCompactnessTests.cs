@@ -10,24 +10,6 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class DashboardCompactnessTests
 {
     [Fact]
-    public void MainDashboard_CompactStateIsCanonicalReadableAndDoesNotScroll()
-    {
-        var root = FindRepoRoot();
-        var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
-        var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
-        var geometry = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "ShellTransitionGeometry.cs"));
-        var trajectory = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
-
-        Assert.Contains("PowerFlowShellState.Compact", code, StringComparison.Ordinal);
-        Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
-        Assert.DoesNotContain("<ScrollViewer", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("MinHeight=\"390\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("TrajectoryControl", xaml, StringComparison.Ordinal);
-        Assert.Contains("Range60Button", trajectory, StringComparison.Ordinal);
-        Assert.Contains("Range120Button", trajectory, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void DashboardViewModel_RetainsTwoMinutesOfTelemetry()
     {
         var vm = new DashboardViewModel();

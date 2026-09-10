@@ -18,23 +18,17 @@ public static class PowerFlowShellLayout
                 state,
                 NavigationPresentation.None,
                 HeaderPresentation.Minimal,
-                ModePresentation.CurrentChip,
-                StatsPresentation.Inline,
-                TrajectoryPresentation.Minimal,
-                ControlContextPresentation.CauseLine,
-                SecondaryPresentation.Hidden,
-                new ShellGeometry(0, 5, 3, 22, 22, 0.72, 20, 0)),
+                TimelinePresentation.Glance,
+                GovernorControlPresentation.Summary,
+                new ShellGeometry(0, 5, 3, 22, 0)),
 
             PowerFlowShellState.Compact => new(
                 state,
                 NavigationPresentation.Overlay,
                 HeaderPresentation.Compact,
-                ModePresentation.Segmented,
-                StatsPresentation.CompactRail,
-                TrajectoryPresentation.Compact,
-                ControlContextPresentation.Rail,
-                SecondaryPresentation.Hidden,
-                new ShellGeometry(0, 10, 8, 42, 48, 0.68, 62, 0)),
+                TimelinePresentation.Compact,
+                GovernorControlPresentation.Bias,
+                new ShellGeometry(0, 10, 8, 42, 82)),
 
             PowerFlowShellState.FullScreen => Expanded(width, height, state, fullDensity: true),
             PowerFlowShellState.Expanded => Expanded(width, height, state, fullDensity: false),
@@ -42,12 +36,9 @@ public static class PowerFlowShellLayout
                 PowerFlowShellState.Hidden,
                 NavigationPresentation.None,
                 HeaderPresentation.Minimal,
-                ModePresentation.CurrentChip,
-                StatsPresentation.Inline,
-                TrajectoryPresentation.Minimal,
-                ControlContextPresentation.CauseLine,
-                SecondaryPresentation.Hidden,
-                new ShellGeometry(0, 0, 0, 0, 0, 0.70, 0, 0))
+                TimelinePresentation.Glance,
+                GovernorControlPresentation.Summary,
+                new ShellGeometry(0, 0, 0, 0, 0))
         };
     }
 
@@ -60,37 +51,15 @@ public static class PowerFlowShellLayout
         var navigationWidth = 128 + 24 * widthProgress;
         var padding = 14 + 8 * fluid;
         var gap = 10 + 8 * fluid;
-        var headerHeight = 44 + 8 * fluid;
-        var modeBandHeight = 62 + 12 * fluid;
-        var graphFraction = Math.Clamp(0.68 + 0.04 * widthProgress, 0.68, 0.72);
-        var controlBandHeight = 92 + 30 * fluid;
-        var secondaryBandHeight = 104 + 34 * fluid;
-
-        if (fullDensity)
-        {
-            headerHeight += 4;
-            modeBandHeight += 4;
-            controlBandHeight += 10;
-            secondaryBandHeight += 14;
-        }
+        var headerHeight = 44 + 8 * fluid + (fullDensity ? 4 : 0);
+        var controlBandHeight = 108 + 32 * fluid + (fullDensity ? 12 : 0);
 
         return new ShellPresentationProfile(
             state,
             NavigationPresentation.Rail,
             HeaderPresentation.System,
-            ModePresentation.Cards,
-            StatsPresentation.FullRail,
-            TrajectoryPresentation.Full,
-            ControlContextPresentation.Modules,
-            SecondaryPresentation.Full,
-            new ShellGeometry(
-                navigationWidth,
-                padding,
-                gap,
-                headerHeight,
-                modeBandHeight,
-                graphFraction,
-                controlBandHeight,
-                secondaryBandHeight));
+            fullDensity ? TimelinePresentation.Full : TimelinePresentation.Expanded,
+            fullDensity ? GovernorControlPresentation.Deep : GovernorControlPresentation.Contextual,
+            new ShellGeometry(navigationWidth, padding, gap, headerHeight, controlBandHeight));
     }
 }

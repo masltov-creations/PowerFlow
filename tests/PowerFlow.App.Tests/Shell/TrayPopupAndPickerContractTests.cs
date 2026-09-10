@@ -15,18 +15,19 @@ public sealed class TrayPopupAndPickerContractTests
     }
 
     [Fact]
-    public void TrayGlance_IsThemedNonActivatingDensityOfTheUnifiedShell()
+    public void TrayGlance_IsThemedNonActivatingDensityOfTheUnifiedTimelineShell()
     {
         var root = RepoRoot();
         var trayHost = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayIconHost.cs"));
         var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml.cs"));
         var shell = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
         var shellCode = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
+        var timeline = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml"));
 
         Assert.Contains("x:Name=\"ShellRoot\"", shell, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LiveStatsHost\"", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PerformanceTimeline\"", shell, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GlanceTapTarget\"", shell, StringComparison.Ordinal);
-        Assert.Contains("dash:TrajectoryControl", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceSummary\"", timeline, StringComparison.Ordinal);
         Assert.Contains("WS_EX_NOACTIVATE", shellCode, StringComparison.Ordinal);
         Assert.Contains("TelemetryContinuityRecorder", shellCode, StringComparison.Ordinal);
         Assert.Contains("AcquireVisibility", shellCode, StringComparison.Ordinal);

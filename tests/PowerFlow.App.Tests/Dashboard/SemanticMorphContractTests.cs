@@ -5,33 +5,25 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class SemanticMorphContractTests
 {
     [Fact]
-    public void PrimaryCockpitComponents_ExposeLocalMorphMethods()
+    public void PrimaryAdaptiveComponents_ExposeLocalPresentationMethods()
     {
-        var root = RepoRoot();
-        foreach (var file in new[]
-        {
-            "ShellHeaderControl.xaml.cs",
-            "PowerModeControl.xaml.cs",
-            "LiveStatsControl.xaml.cs",
-            "ControlContextControl.xaml.cs",
-            "TrajectoryControl.xaml.cs"
-        })
-        {
-            var source = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", file));
-            Assert.Contains("public void ApplyMorph", source, StringComparison.Ordinal);
-        }
+        var header = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml.cs");
+        var timeline = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+
+        Assert.Contains("public void ApplyMorph", header, StringComparison.Ordinal);
+        Assert.Contains("public void SetPresentation", timeline, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MainWindow_DrivesLocalMorphsFromTheExistingBoundsAnimationFrame()
+    public void MainWindow_DrivesTimelineDensityFromTheExistingBoundsAnimationFrame()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("ApplyShellTransitionFrame", code, StringComparison.Ordinal);
-        Assert.Contains("PowerModeBandHost.ApplyMorph", code, StringComparison.Ordinal);
-        Assert.Contains("LiveStatsHost.ApplyMorph", code, StringComparison.Ordinal);
-        Assert.Contains("ControlContextBandHost.ApplyMorph", code, StringComparison.Ordinal);
-        Assert.Contains("Trajectory.ApplyMorph", code, StringComparison.Ordinal);
+        Assert.Contains("SystemHeaderHost.ApplyMorph", code, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.SetPresentation", code, StringComparison.Ordinal);
         Assert.Contains("ShellMotionPolicy.NavigationProgress", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ControlContextBandHost", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("SecondaryOperationalRow", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -49,10 +41,10 @@ public sealed class SemanticMorphContractTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("reducedMotion", code, StringComparison.Ordinal);
         Assert.Contains("ApplyShellLayout(toState", code, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.SetPresentation(to.Timeline)", code, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts) => File.ReadAllText(Path.Combine(new[] { RepoRoot() }.Concat(parts).ToArray()));
-
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

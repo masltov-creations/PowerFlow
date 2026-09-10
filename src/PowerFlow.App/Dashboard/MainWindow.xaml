@@ -25,24 +25,26 @@
                         </Grid>
                         <StackPanel VerticalAlignment="Center" Spacing="0">
                             <TextBlock Text="POWERFLOW" FontSize="12" FontWeight="SemiBold" CharacterSpacing="70"/>
-                            <TextBlock Text="POWER CONTROL" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                            <TextBlock Text="ADAPTIVE GOVERNOR" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
                         </StackPanel>
                     </StackPanel>
                 </NavigationView.PaneHeader>
                 <NavigationView.MenuItems>
-                    <NavigationViewItem Content="Dashboard" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Home"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Rules / Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Live" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Play"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Model" Tag="model"><NavigationViewItem.Icon><SymbolIcon Symbol="View"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Tune" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
                 </NavigationView.MenuItems>
+                <NavigationView.FooterMenuItems>
+                    <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
+                </NavigationView.FooterMenuItems>
 
                 <Grid x:Name="SectionHost">
                     <Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
                         <Grid.RowDefinitions>
                             <RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/>
-                            <RowDefinition x:Name="ModeBandRowDefinition" Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition x:Name="ControlBandRowDefinition" Height="Auto"/>
-                            <RowDefinition x:Name="SecondaryBandRowDefinition" Height="Auto"/>
+                            <RowDefinition x:Name="TimelineRowDefinition" Height="*"/>
+                            <RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/>
                             <RowDefinition x:Name="FooterRowDefinition" Height="Auto"/>
                         </Grid.RowDefinitions>
 
@@ -55,37 +57,43 @@
                             </StackPanel>
                         </Grid>
 
-                        <dash:PowerModeControl x:Name="PowerModeBandHost" Grid.Row="1" ModeRequested="OnPowerModeRequested"/>
+                        <dash:PerformanceTimelineControl x:Name="PerformanceTimeline" Grid.Row="1"/>
 
-                        <Grid x:Name="PrimaryAnalyticalRow" Grid.Row="2" ColumnSpacing="12">
-                            <Grid.RowDefinitions>
-                                <RowDefinition x:Name="PrimaryStatsRow" Height="*"/>
-                                <RowDefinition x:Name="PrimaryGraphRow" Height="0"/>
-                            </Grid.RowDefinitions>
+                        <Grid x:Name="AdaptiveControlRegion" Grid.Row="2" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="7*" x:Name="PrimaryGraphColumn"/>
-                                <ColumnDefinition Width="3*" x:Name="PrimaryStatsColumn"/>
+                                <ColumnDefinition Width="1.05*"/>
+                                <ColumnDefinition Width="0.95*"/>
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="TrajectoryInstrument" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,10">
-                                <dash:TrajectoryControl x:Name="Trajectory"/>
+                            <Border x:Name="MachineEnvelopePanel" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
+                                <Grid RowSpacing="4">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock Text="MACHINE ENVELOPE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
+                                        <TextBlock x:Name="ModelConfidenceText" Grid.Column="1" Text="LEARNING" FontSize="11" FontWeight="SemiBold" Opacity="0.72"/>
+                                    </Grid>
+                                    <TextBlock x:Name="EnvelopeSummaryText" Grid.Row="1" Text="Learning this machine's efficient operating regions" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <Grid x:Name="EfficiencyBiasRail" Grid.Row="2" Height="24">
+                                        <Line X1="8" X2="310" Y1="12" Y2="12" Stroke="{ThemeResource PowerFlowCardBorderBrush}" StrokeThickness="2" Stretch="Fill"/>
+                                        <Ellipse Width="9" Height="9" Fill="{ThemeResource PowerFlowAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <TextBlock Text="EFFICIENCY" FontSize="11" Opacity="0.46" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
+                                        <TextBlock Text="RESPONSE" FontSize="11" Opacity="0.46" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                    </Grid>
+                                </Grid>
                             </Border>
-                            <Border x:Name="LiveStatsInstrument" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}">
-                                <dash:LiveStatsControl x:Name="LiveStatsHost"/>
+                            <Border x:Name="SelectedActorPanel" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
+                                <Grid RowSpacing="4">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock Text="SELECTED ACTOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
+                                        <TextBlock x:Name="DecisionStateText" Grid.Column="1" Text="OBSERVING" FontSize="11" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <TextBlock x:Name="SelectedActorNameText" Grid.Row="1" Text="SYSTEM" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="DecisionExplanationText" Grid.Row="2" Text="No dominant app pressure identified" FontSize="11" Opacity="0.64" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
                             </Border>
                         </Grid>
 
-                        <dash:ControlContextControl
-                            x:Name="ControlContextBandHost"
-                            Grid.Row="3"
-                            ReleaseManualRequested="OnReleaseManualRequested"/>
-
-                        <dash:OperationalContextControl
-                            x:Name="SecondaryOperationalRow"
-                            Grid.Row="4"
-                            RulesRequested="OnOperationalRulesRequested"
-                            SettingsRequested="OnOperationalSettingsRequested"/>
-
-                        <Grid x:Name="StatusFooter" Grid.Row="5" ColumnSpacing="10" Opacity="0.78">
+                        <Grid x:Name="StatusFooter" Grid.Row="3" ColumnSpacing="10" Opacity="0.78">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/>

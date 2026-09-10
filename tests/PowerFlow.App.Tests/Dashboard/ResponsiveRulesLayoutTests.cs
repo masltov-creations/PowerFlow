@@ -5,17 +5,6 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class ResponsiveRulesLayoutTests
 {
     [Fact]
-    public void DashboardRuleStrip_UsesResponsiveFillLayout()
-    {
-        var xaml = Read("src", "PowerFlow.App", "Dashboard", "RuleFlowControl.xaml");
-        Assert.Contains("ItemsRepeater", xaml);
-        Assert.Contains("UniformGridLayout", xaml);
-        Assert.Contains("MinItemWidth", xaml);
-        Assert.Contains("ItemsStretch=\"Fill\"", xaml);
-        Assert.DoesNotContain("<ItemsControl", xaml);
-    }
-
-    [Fact]
     public void RulesPage_ReflowsCardsAndDoesNotDependOnSelectedRows()
     {
         var xaml = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");

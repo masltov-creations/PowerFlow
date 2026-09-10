@@ -28,17 +28,6 @@ public sealed class SmoothTelemetryGraphTests
             Assert.Equal(points[i + 1], segments[i].End);
         }
     }
-
-    [Fact]
-    public void TelemetryRenderer_UsesBezierPathsAndAreaFill_NotPolyline()
-    {
-        var source = File.ReadAllText(RepoFile("src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs"));
-        Assert.Contains("BezierSegment", source);
-        Assert.Contains("PathGeometry", source);
-        Assert.Contains("CreateAreaBrush", source);
-        Assert.DoesNotContain("new Polyline", source);
-    }
-
     private static string RepoFile(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

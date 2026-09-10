@@ -29,6 +29,33 @@ public sealed partial class PerformanceTimelineControl : UserControl
         ActualThemeChanged += (_, _) => Redraw();
     }
 
+    public TimelinePresentation Presentation { get; private set; } = TimelinePresentation.Expanded;
+
+    public void SetPresentation(TimelinePresentation presentation)
+    {
+        Presentation = presentation;
+        var glance = presentation == TimelinePresentation.Glance;
+        TimelineHeader.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
+        GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
+        LaneLabels.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
+        TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
+        LaneLabelColumn.Width = new GridLength(glance ? 0 : presentation == TimelinePresentation.Compact ? 96 : 112);
+        TimelineRoot.MinHeight = presentation switch
+        {
+            TimelinePresentation.Glance => 72,
+            TimelinePresentation.Compact => 170,
+            TimelinePresentation.Expanded => 280,
+            _ => 340
+        };
+        TimelinePlotHost.MinHeight = presentation switch
+        {
+            TimelinePresentation.Glance => 58,
+            TimelinePresentation.Compact => 132,
+            TimelinePresentation.Expanded => 238,
+            _ => 300
+        };
+        Redraw();
+    }
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
 
     public void Apply(
@@ -214,6 +241,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         {
             CpuValueText.Text = PowerValueText.Text = ClockValueText.Text = CoresValueText.Text = "—";
             EnvelopeBadgeText.Text = "LEARNING";
+            GlanceSummary.Text = "LEARNING · waiting for telemetry";
             return;
         }
         CpuValueText.Text = $"{latest.CpuPressurePercent:0.0}%";
@@ -222,6 +250,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
         CoresValueText.Text = latest.ActiveCores is int active
             ? latest.TotalCores is int total ? $"{active}/{total}" : active.ToString()
             : latest.TotalCores is int knownTotal ? $"—/{knownTotal}" : "—";
+        var actor = ShortActor(latest.Actor);
+        var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" · {actor}";
+        var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" · {latest.Decision.ToString().ToUpperInvariant()}";
+        GlanceSummary.Text = $"{latest.Zone.ToString().ToUpperInvariant()} · {PowerValueText.Text} · {ClockValueText.Text} · {CoresValueText.Text}{actorPart}{decisionPart}";
         EnvelopeBadgeText.Text = latest.Decision switch
         {
             EnvelopeDecisionKind.Brake => $"{latest.Zone.ToString().ToUpperInvariant()} · BRAKING",

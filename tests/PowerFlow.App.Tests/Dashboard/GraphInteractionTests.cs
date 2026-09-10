@@ -33,37 +33,6 @@ public sealed class GraphInteractionTests
         Assert.Equal(34, ThresholdDragProjection.ClampQuiet(50, promotePercent: 35), 3);
         Assert.Equal(13, ThresholdDragProjection.ClampPromotion(5, quietPercent: 12), 3);
     }
-
-    [Fact]
-    public void GraphInteractionLayer_IsPersistentAndExposesThresholdCommit()
-    {
-        var root = FindRepoRoot();
-        var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml"));
-        var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs"));
-        Assert.Contains("x:Name=\"InteractionCanvas\"", xaml);
-        Assert.Contains("primitives:Thumb", xaml);
-        Assert.Contains("AutomationProperties.Name=\"Promotion threshold\"", xaml);
-        Assert.Contains("DragDelta=\"OnPromoteDragDelta\"", xaml);
-        Assert.Contains("AutomationProperties.Name=\"Quiet threshold\"", xaml);
-        Assert.Contains("DragDelta=\"OnQuietDragDelta\"", xaml);
-        Assert.Contains("ThresholdsCommitted", code);
-    }
-
-    [Fact]
-    public void NativeThresholdThumbs_OwnPointerCaptureWithoutLegacyCanvasPressHandlers()
-    {
-        var root = FindRepoRoot();
-        var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml"));
-        var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TelemetryGraphControl.xaml.cs"));
-
-        Assert.DoesNotContain("PointerPressed=\"OnPointerPressed\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("PointerReleased=\"OnPointerReleased\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("CapturePointer", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReleasePointerCapture", code, StringComparison.Ordinal);
-        Assert.Contains("DragDelta=\"OnPromoteDragDelta\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("DragDelta=\"OnQuietDragDelta\"", xaml, StringComparison.Ordinal);
-    }
-
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

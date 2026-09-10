@@ -6,33 +6,30 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class ShellPresentationProfileTests
 {
     [Fact]
-    public void SemanticProfile_DescribesPresentationInsteadOfVisibilityFlags()
+    public void SemanticProfile_DescribesAdaptivePresentationInsteadOfRetiredCockpitLayers()
     {
-        var type = typeof(ShellPresentationProfile);
-        var names = type.GetProperties().Select(x => x.Name).ToArray();
+        var names = typeof(ShellPresentationProfile).GetProperties().Select(x => x.Name).ToArray();
 
+        Assert.Contains(nameof(ShellPresentationProfile.State), names);
         Assert.Contains(nameof(ShellPresentationProfile.Navigation), names);
         Assert.Contains(nameof(ShellPresentationProfile.Header), names);
-        Assert.Contains(nameof(ShellPresentationProfile.Modes), names);
-        Assert.Contains(nameof(ShellPresentationProfile.Stats), names);
-        Assert.Contains(nameof(ShellPresentationProfile.Trajectory), names);
-        Assert.Contains(nameof(ShellPresentationProfile.ControlContext), names);
-        Assert.Contains(nameof(ShellPresentationProfile.Secondary), names);
+        Assert.Contains(nameof(ShellPresentationProfile.Timeline), names);
+        Assert.Contains(nameof(ShellPresentationProfile.GovernorControls), names);
         Assert.Contains(nameof(ShellPresentationProfile.Geometry), names);
 
-        Assert.DoesNotContain("ShowLiveStatsPanel", names);
-        Assert.DoesNotContain("ShowLowerContextPanels", names);
-        Assert.DoesNotContain("ShowModeCards", names);
+        foreach (var retired in new[] { "Modes", "Stats", "Trajectory", "ControlContext", "Secondary", "ShowLiveStatsPanel", "ShowLowerContextPanels", "ShowModeCards" })
+            Assert.DoesNotContain(retired, names);
     }
 
     [Fact]
-    public void Geometry_CarriesReferenceHierarchyScalars()
+    public void Geometry_CarriesOnlyCurrentShellHierarchyScalars()
     {
-        var geometry = new ShellGeometry(144, 16, 12, 44, 68, .70, 112, 126);
+        var geometry = new ShellGeometry(144, 16, 12, 44, 112);
 
-        Assert.Equal(.70, geometry.PrimaryGraphFraction, 2);
         Assert.Equal(144, geometry.NavigationWidth);
+        Assert.Equal(16, geometry.ContentPadding);
+        Assert.Equal(12, geometry.Gap);
+        Assert.Equal(44, geometry.HeaderHeight);
         Assert.Equal(112, geometry.ControlBandHeight);
-        Assert.Equal(126, geometry.SecondaryBandHeight);
     }
 }

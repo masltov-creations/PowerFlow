@@ -5,25 +5,6 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class DashboardLayoutTests
 {
     [Fact]
-    public void MainDashboard_IsTrajectoryFirstAndEveryMajorVisualHasMeaning()
-    {
-        var xaml = File.ReadAllText(RepoFile("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
-        var trajectory = File.ReadAllText(RepoFile("src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml"));
-
-        Assert.Contains("TrajectoryControl", xaml);
-        Assert.Contains("TelemetryGraphControl", trajectory);
-        Assert.Contains("AutoNode", trajectory);
-        Assert.Contains("SaverNode", trajectory);
-        Assert.Contains("BalancedNode", trajectory);
-        Assert.Contains("PerformanceNode", trajectory);
-        Assert.Contains("NowText", trajectory);
-        Assert.DoesNotContain("RuleFlowControl", xaml);
-        Assert.DoesNotContain("DecisionPressureControl", xaml);
-        Assert.DoesNotContain("StateRailControl", xaml);
-        Assert.DoesNotContain("FlowFieldControl", xaml);
-    }
-
-    [Fact]
     public void DedicatedRulesView_UsesVisualRuleCardsInsteadOfAFlatTable()
     {
         var xaml = File.ReadAllText(RepoFile("src", "PowerFlow.App", "Settings", "RulesPage.xaml"));

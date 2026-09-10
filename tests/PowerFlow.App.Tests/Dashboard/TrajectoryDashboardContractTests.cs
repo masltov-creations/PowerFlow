@@ -10,27 +10,6 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class TrajectoryDashboardContractTests
 {
     [Fact]
-    public void DefaultDashboardIsTrajectoryFirstWithoutPermanentCardWall()
-    {
-        var root = RepoRoot();
-        var main = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
-        var trajectoryPath = Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "TrajectoryControl.xaml");
-        Assert.True(File.Exists(trajectoryPath));
-        var trajectory = File.ReadAllText(trajectoryPath);
-
-        Assert.Contains("TrajectoryControl", main, StringComparison.Ordinal);
-        Assert.DoesNotContain("AUTOMATIC RULES", main, StringComparison.Ordinal);
-        Assert.DoesNotContain("DecisionPressureControl", main, StringComparison.Ordinal);
-        Assert.DoesNotContain("Text=\"RECENT\"", main, StringComparison.Ordinal);
-        Assert.Contains("TelemetryGraphControl", trajectory, StringComparison.Ordinal);
-        Assert.Contains("AUTO", trajectory, StringComparison.Ordinal);
-        Assert.Contains("SAVER", trajectory, StringComparison.Ordinal);
-        Assert.Contains("BALANCED", trajectory, StringComparison.Ordinal);
-        Assert.Contains("PERFORMANCE", trajectory, StringComparison.Ordinal);
-        Assert.Contains("NOW", trajectory, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ViewModelCanHydratePreOpenContinuityImmediately()
     {
         var t0 = new DateTimeOffset(2026, 9, 8, 23, 0, 0, TimeSpan.Zero);

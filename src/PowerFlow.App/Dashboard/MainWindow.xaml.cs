@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Telemetry;
 using PowerFlow.App.Tray;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -71,11 +72,6 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
-        Trajectory.AutoRequested += OnTrajectoryAutoRequested;
-        Trajectory.ManualStateRequested += OnTrajectoryManualStateRequested;
-        Trajectory.RangeChanged += OnTrajectoryRangeChanged;
-        Trajectory.ThresholdsPreviewed += OnThresholdsPreviewed;
-        Trajectory.ThresholdsCommitted += OnThresholdsCommitted;
         AppWindow.Closing += OnAppWindowClosing;
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
@@ -238,12 +234,7 @@ public sealed partial class MainWindow : Window
         if (profile.State != state && state == PowerFlowShellState.Compact) _shellState = profile.State;
 
         SystemHeaderHost.Presentation = profile.Header;
-        PowerModeBandHost.Presentation = profile.Modes;
-        LiveStatsHost.Presentation = profile.Stats;
-        ControlContextBandHost.Presentation = profile.ControlContext;
-        SecondaryOperationalRow.Presentation = profile.Secondary;
-        Trajectory.SetShellPresentation(profile.Trajectory, ResolveTrajectoryHeight(profile, height));
-
+        PerformanceTimeline.SetPresentation(profile.Timeline);
         ApplyNavigationPresentation(profile.Navigation, profile.Geometry.NavigationWidth);
         ApplyCockpitGeometry(profile, state, width, height);
 
@@ -293,72 +284,21 @@ public sealed partial class MainWindow : Window
         CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
         CockpitSurface.RowSpacing = profile.Geometry.Gap;
         SystemHeaderRow.ColumnSpacing = profile.Geometry.Gap;
-        PrimaryAnalyticalRow.ColumnSpacing = profile.Geometry.Gap;
-
-        ApplyPrimaryAnalyticalLayout(profile);
-
-        var graphFraction = Math.Clamp(profile.Geometry.PrimaryGraphFraction, 0.05, 0.95);
-        PrimaryGraphColumn.Width = new GridLength(graphFraction, GridUnitType.Star);
-        PrimaryStatsColumn.Width = new GridLength(1d - graphFraction, GridUnitType.Star);
+        AdaptiveControlRegion.ColumnSpacing = profile.Geometry.Gap;
 
         SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
-        ModeBandRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.ModeBandHeight));
-        ControlBandRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.ControlBandHeight));
-        SecondaryBandRowDefinition.Height = profile.Secondary == SecondaryPresentation.Hidden
-            ? new GridLength(0)
-            : new GridLength(Math.Max(0, profile.Geometry.SecondaryBandHeight));
-        FooterRowDefinition.Height = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen
-            ? GridLength.Auto
-            : new GridLength(0);
-    }
-
-    private void ApplyPrimaryAnalyticalLayout(ShellPresentationProfile profile)
-    {
-        if (profile.Trajectory == TrajectoryPresentation.Minimal)
+        TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
+        AdaptiveControlRowDefinition.Height = profile.GovernorControls switch
         {
-            ApplyGlancePrimaryLayout();
-            return;
-        }
-
-        PrimaryStatsRow.Height = new GridLength(1, GridUnitType.Star);
-        PrimaryGraphRow.Height = new GridLength(0);
-        Grid.SetRow(TrajectoryInstrument, 0);
-        Grid.SetRowSpan(TrajectoryInstrument, 1);
-        Grid.SetColumn(TrajectoryInstrument, 0);
-        Grid.SetColumnSpan(TrajectoryInstrument, 1);
-        Grid.SetRow(LiveStatsInstrument, 0);
-        Grid.SetRowSpan(LiveStatsInstrument, 1);
-        Grid.SetColumn(LiveStatsInstrument, 1);
-        Grid.SetColumnSpan(LiveStatsInstrument, 1);
-        TrajectoryInstrument.Padding = new Thickness(12, 10, 12, 10);
-        LiveStatsInstrument.Padding = new Thickness(12);
-        TrajectoryInstrument.BorderThickness = new Thickness(1);
-        LiveStatsInstrument.BorderThickness = new Thickness(1);
+            GovernorControlPresentation.Summary => new GridLength(0),
+            GovernorControlPresentation.Bias => new GridLength(82),
+            GovernorControlPresentation.Contextual => new GridLength(Math.Max(108, profile.Geometry.ControlBandHeight)),
+            _ => new GridLength(Math.Max(132, profile.Geometry.ControlBandHeight + 18))
+        };
+        AdaptiveControlRegion.Visibility = profile.GovernorControls == GovernorControlPresentation.Summary ? Visibility.Collapsed : Visibility.Visible;
+        SelectedActorPanel.Visibility = profile.GovernorControls == GovernorControlPresentation.Bias && width < 680 ? Visibility.Collapsed : Visibility.Visible;
+        FooterRowDefinition.Height = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? GridLength.Auto : new GridLength(0);
     }
-
-    private void ApplyGlancePrimaryLayout()
-    {
-        PrimaryStatsRow.Height = new GridLength(32);
-        PrimaryGraphRow.Height = new GridLength(1, GridUnitType.Star);
-        Grid.SetRow(LiveStatsInstrument, 0);
-        Grid.SetRowSpan(LiveStatsInstrument, 1);
-        Grid.SetColumn(LiveStatsInstrument, 0);
-        Grid.SetColumnSpan(LiveStatsInstrument, 2);
-        Grid.SetRow(TrajectoryInstrument, 1);
-        Grid.SetRowSpan(TrajectoryInstrument, 1);
-        Grid.SetColumn(TrajectoryInstrument, 0);
-        Grid.SetColumnSpan(TrajectoryInstrument, 2);
-        LiveStatsInstrument.Padding = new Thickness(3, 0, 3, 1);
-        TrajectoryInstrument.Padding = new Thickness(3, 1, 3, 0);
-        LiveStatsInstrument.BorderThickness = new Thickness(0);
-        TrajectoryInstrument.BorderThickness = new Thickness(0);
-    }
-    private static double ResolveTrajectoryHeight(ShellPresentationProfile profile, int height) => profile.Trajectory switch
-    {
-        TrajectoryPresentation.Minimal => Math.Clamp(height * 0.28, 48, 56),
-        TrajectoryPresentation.Compact => Math.Clamp(height * 0.46, 150, 225),
-        _ => Math.Clamp(height * 0.48, 300, 560)
-    };
     private RectInt32 ResolveTargetBounds(PowerFlowShellState state)
     {
         if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work)
@@ -448,10 +388,7 @@ public sealed partial class MainWindow : Window
         if (reducedMotion)
         {
             SystemHeaderHost.ApplyMorph(from.Header, to.Header, 1d, reducedMotion: true);
-            PowerModeBandHost.ApplyMorph(from.Modes, to.Modes, 1d, reducedMotion: true);
-            LiveStatsHost.ApplyMorph(from.Stats, to.Stats, 1d, reducedMotion: true);
-            ControlContextBandHost.ApplyMorph(from.ControlContext, to.ControlContext, 1d, reducedMotion: true);
-            Trajectory.ApplyMorph(from.Trajectory, to.Trajectory, 1d, reducedMotion: true);
+            PerformanceTimeline.SetPresentation(to.Timeline);
             ResetSemanticMorphPresentation(to);
             return;
         }
@@ -459,12 +396,8 @@ public sealed partial class MainWindow : Window
         var t = Math.Clamp(progress, 0d, 1d);
         var collapsing = !ShellMotionPolicy.IsGrowth(from.State, to.State);
         SystemHeaderHost.ApplyMorph(from.Header, to.Header, ShellMotionPolicy.PrimaryAnchorProgress(t), reducedMotion: false);
-        PowerModeBandHost.ApplyMorph(from.Modes, to.Modes, ShellMotionPolicy.ModeMorphProgress(t), reducedMotion: false);
-        LiveStatsHost.ApplyMorph(from.Stats, to.Stats, ShellMotionPolicy.StatsMorphProgress(t), reducedMotion: false);
-        ControlContextBandHost.ApplyMorph(from.ControlContext, to.ControlContext, ShellMotionPolicy.ContextMorphProgress(t), reducedMotion: false);
-        Trajectory.ApplyMorph(from.Trajectory, to.Trajectory, ShellMotionPolicy.PrimaryAnchorProgress(t), reducedMotion: false);
+        PerformanceTimeline.SetPresentation(t < 0.46 ? from.Timeline : to.Timeline);
         ApplyNavigationMorph(from.Navigation, to.Navigation, ShellMotionPolicy.NavigationProgress(t, collapsing));
-        ApplySecondaryMorph(from.Secondary, to.Secondary, ShellMotionPolicy.ContextMorphProgress(t));
         ApplyPresentationActionsMorph(from.State, to.State, ShellMotionPolicy.ModeMorphProgress(t));
     }
 
@@ -479,24 +412,6 @@ public sealed partial class MainWindow : Window
         var value = Math.Clamp(visibility, 0d, 1d);
         NavigationRail.Opacity = value;
         ElementCompositionPreview.GetElementVisual(NavigationRail).Offset = new Vector3((float)(-10d * (1d - value)), 0, 0);
-    }
-
-    private void ApplySecondaryMorph(SecondaryPresentation from, SecondaryPresentation to, double targetProgress)
-    {
-        if (from == to)
-        {
-            SecondaryOperationalRow.Opacity = 1d;
-            StatusFooter.Opacity = 1d;
-            return;
-        }
-        var p = Math.Clamp(targetProgress, 0d, 1d);
-        var showing = to != SecondaryPresentation.Hidden;
-        var value = showing ? p : 1d - p;
-        SecondaryOperationalRow.Opacity = value;
-        StatusFooter.Opacity = value;
-        var offset = (float)((1d - value) * 6d);
-        ElementCompositionPreview.GetElementVisual(SecondaryOperationalRow).Offset = new Vector3(0, offset, 0);
-        ElementCompositionPreview.GetElementVisual(StatusFooter).Offset = new Vector3(0, offset, 0);
     }
 
     private void ApplyPresentationActionsMorph(PowerFlowShellState from, PowerFlowShellState to, double targetProgress)
@@ -518,11 +433,8 @@ public sealed partial class MainWindow : Window
     private void ResetSemanticMorphPresentation(ShellPresentationProfile target)
     {
         SystemHeaderHost.ApplyMorph(target.Header, target.Header, 1d, reducedMotion: true);
-        PowerModeBandHost.ApplyMorph(target.Modes, target.Modes, 1d, reducedMotion: true);
-        LiveStatsHost.ApplyMorph(target.Stats, target.Stats, 1d, reducedMotion: true);
-        ControlContextBandHost.ApplyMorph(target.ControlContext, target.ControlContext, 1d, reducedMotion: true);
-        Trajectory.ApplyMorph(target.Trajectory, target.Trajectory, 1d, reducedMotion: true);
-        foreach (var element in new UIElement[] { PresentationActions, NavigationRail, SecondaryOperationalRow, StatusFooter })
+        PerformanceTimeline.SetPresentation(target.Timeline);
+        foreach (var element in new UIElement[] { PresentationActions, NavigationRail, StatusFooter })
         {
             element.Opacity = 1d;
             ElementCompositionPreview.GetElementVisual(element).Offset = Vector3.Zero;
@@ -580,30 +492,35 @@ public sealed partial class MainWindow : Window
 
     private void ApplyVisualState(ControllerSnapshot snapshot)
     {
-        var model = TrajectoryProjection.Create(_recorder.History, snapshot, _config);
-        Trajectory.Apply(model, ViewModel.Samples, _config, snapshot.History, _graphWindowSeconds);
+        var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
+        PerformanceTimeline.Apply(ViewModel.OperatingHistory, calibration.Envelope, _graphWindowSeconds);
+        ModelConfidenceText.Text = calibration.Confidence == EnvelopeConfidence.Low
+            ? "LEARNING"
+            : $"{calibration.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
+        EnvelopeSummaryText.Text = calibration.SustainedEfficiencyFrontierWatts is double frontier
+            ? $"Efficient frontier near {frontier:0} W for observed sustained work"
+            : "Learning this machine's efficient operating regions";
+
+        var actor = ShortActor(snapshot.TriggerApplication);
+        SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;
+        DecisionStateText.Text = snapshot.IsLatched
+            ? $"{(snapshot.LatchType ?? "LOCK").ToUpperInvariant()}"
+            : snapshot.State switch
+            {
+                PowerState.PowerSaver => "ECO",
+                PowerState.Balanced => "EFFICIENT",
+                PowerState.HighPerformance => "BOOST",
+                _ => "OBSERVING"
+            };
+        DecisionExplanationText.Text = string.IsNullOrWhiteSpace(snapshot.Reason) ? "Observing demand and machine response" : snapshot.Reason;
     }
-    private async void OnPowerModeRequested(object? sender, PowerModeRequestedEventArgs e)
+
+    private static string ShortActor(string? actor)
     {
-        switch (e.Choice)
-        {
-            case PowerModeChoice.Auto:
-                if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
-                    await _controller.ReleaseManualLatchAsync();
-                ApplyVisualState(_controller.Snapshot);
-                break;
-            case PowerModeChoice.PowerSaver:
-                await _controller.SetManualStateAsync(PowerState.PowerSaver);
-                break;
-            case PowerModeChoice.Balanced:
-                await _controller.SetManualStateAsync(PowerState.Balanced);
-                break;
-            case PowerModeChoice.Performance:
-                await _controller.SetManualStateAsync(PowerState.HighPerformance);
-                break;
-        }
-    }
-    private Task OpenSectionAsync(string section)
+        if (string.IsNullOrWhiteSpace(actor)) return string.Empty;
+        try { return System.IO.Path.GetFileNameWithoutExtension(actor); }
+        catch { return actor; }
+    }    private Task OpenSectionAsync(string section)
     {
         SelectSection(section);
         return TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
@@ -613,44 +530,6 @@ public sealed partial class MainWindow : Window
     private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("settings");
     private async void OnHeaderRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
     private async void OnHeaderSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
-    private async void OnOperationalRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
-    private async void OnOperationalSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
-
-    private async void OnReleaseManualRequested(object? sender, EventArgs e)
-    {
-        var snapshot = _controller.Snapshot;
-        if (!snapshot.IsLatched || !string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase)) return;
-        await _controller.ReleaseManualLatchAsync();
-        ViewModel.UpdateContinuity(_controller.Snapshot, _recorder.History, _recorder.LatestRichTelemetry);
-        ApplyVisualState(_controller.Snapshot);
-    }
-    private async void OnTrajectoryAutoRequested(object? sender, EventArgs e)
-    {
-        if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase))
-            await _controller.ReleaseManualLatchAsync();
-        ApplyVisualState(_controller.Snapshot);
-    }
-
-    private async void OnTrajectoryManualStateRequested(object? sender, TrajectoryManualStateEventArgs e) => await _controller.SetManualStateAsync(e.State);
-
-    private void OnTrajectoryRangeChanged(object? sender, TrajectoryRangeChangedEventArgs e)
-    {
-        _graphWindowSeconds = e.Seconds;
-        ApplyVisualState(_controller.Snapshot);
-    }
-
-    private void OnThresholdsPreviewed(object? sender, ThresholdsChangedEventArgs e)
-    {
-        _config = _config with { QuietThresholdPercent = e.QuietPercent, CpuPromotionThresholdPercent = e.PromotionPercent };
-        ViewModel.Configure(_config);
-        ApplyVisualState(_controller.Snapshot);
-    }
-
-    private async void OnThresholdsCommitted(object? sender, ThresholdsChangedEventArgs e)
-    {
-        await ApplyConfigFromPageAsync(_config with { QuietThresholdPercent = e.QuietPercent, CpuPromotionThresholdPercent = e.PromotionPercent });
-    }
-
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);
@@ -687,7 +566,8 @@ public sealed partial class MainWindow : Window
         _currentSection = tag;
         if (tag != "flow" && _shellState is PowerFlowShellState.Glance or PowerFlowShellState.Compact)
             await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
-        CockpitSurface.Visibility = tag == "flow" ? Visibility.Visible : Visibility.Collapsed;
+        var cockpitSection = tag is "flow" or "model" or "tune";
+        CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -713,11 +593,6 @@ public sealed partial class MainWindow : Window
         AppWindow.Changed -= OnAppWindowChanged;
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
-        Trajectory.AutoRequested -= OnTrajectoryAutoRequested;
-        Trajectory.ManualStateRequested -= OnTrajectoryManualStateRequested;
-        Trajectory.RangeChanged -= OnTrajectoryRangeChanged;
-        Trajectory.ThresholdsPreviewed -= OnThresholdsPreviewed;
-        Trajectory.ThresholdsCommitted -= OnThresholdsCommitted;
         ReleaseDashboardVisibility();
     }
     [StructLayout(LayoutKind.Sequential)]
