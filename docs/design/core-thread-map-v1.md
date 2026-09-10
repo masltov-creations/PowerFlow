@@ -1,43 +1,12 @@
-# PowerFlow Core / Thread Map v1
+# CPU core history v2
 
-## Product intent
+The fourth PowerFlow timeline lane is a compact CPU-core history, not a current-state topology diagram and not a generic line chart.
 
-Core and thread state is discrete occupancy, not a continuous scalar. PowerFlow must not render it as a fourth generic telemetry curve. The timeline keeps graceful continuous curves for CPU pressure, package power, and effective clock; the fourth lane becomes a compact live topology map with a subordinate history strip.
-
-## Current-state encoding
-
-- One visual column represents one physical core.
-- Each small rounded square in that column represents one logical processor (SMT sibling when present).
-- Logical processors are ordered by logical processor index within each physical core.
-- Active: unparked and measured logical-processor utilization is at least 5 percent.
-- Awake / idle: unparked but measured utilization is below 5 percent, or utilization is unavailable.
-- Parked: Windows Parking Status reports parked.
-- Missing utilization must never be promoted to Active.
-- The side summary reports awake physical cores plus active and parked logical threads.
-
-## History encoding
-
-The existing aggregate awake-physical-core samples remain useful as trajectory. They are rendered only as a thin, low-emphasis, smooth history strip beneath/behind the live square matrix. It must not compete with the square map for attention.
-
-## Visual hierarchy
-
-1. Graceful continuous telemetry curves: CPU pressure, package power, effective clock.
-2. Live core/thread square matrix.
-3. Quiet aggregate core history strip.
-4. Policy and event context behind telemetry; detailed prose remains in hover/inspection.
-
-No point markers, dotted core traces, or in-lane core labels are permitted.
-
-## Data contract
-
-Windows rich telemetry carries, for each logical processor: logical processor index, physical core index, parking state, and optional utilization percent. The governor's OperatingObservation remains aggregate-only; per-thread topology is a presentation/telemetry concern and is not added to the control-plane model.
-
-## Acceptance
-
-- On a 16C/32T system, the live map shows 16 physical-core columns and up to two thread squares per column.
-- Active, awake-idle, and parked states are visually distinct.
-- Per-thread state originates from Windows counters; the UI does not synthesize topology from aggregate counts.
-- The fourth lane contains no CoresTracePath generic graph.
-- The other three lanes remain cubic, round-capped smooth traces.
-- Compact presentation remains legible at 760x440 without overlapping text.
-- Missing per-thread telemetry degrades to aggregate summary/history without fabricated square states.
+- Time runs left to right. One visual column represents one telemetry time slice.
+- Within every time slice, all physical cores are stacked vertically in stable core-index order. On the target machine this is 16 rows per slice.
+- Each core cell aggregates its logical siblings truthfully: all parked => parked; any awake => awake; any logical sibling at or above the active threshold => active.
+- Cell brightness follows measured logical-processor utilization; Missing utilization must never be promoted to Active.
+- The cells are intentionally dense and nearly gapless so the lane reads as a histogram/heatmap over time rather than a collection of floating boxes.
+- There is no separate aggregate core line. The stacked history is the primary visualization.
+- CPU pressure, package power, and effective clock remain graceful continuous shape-preserving curves. Isolated single-sample figures are not rendered as round-cap dots.
+- Current summary text reports awake physical cores and active physical cores; tooltip text explains parked/awake/active semantics.

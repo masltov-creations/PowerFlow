@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
+using PowerFlow.App.Telemetry;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Windows.Activity;
 using Windows.Foundation;
@@ -45,8 +46,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
     private bool _redrawQueued;
     private bool _presentationApplied;
-    private IReadOnlyList<LogicalProcessorTelemetry> _logicalProcessors = Array.Empty<LogicalProcessorTelemetry>();
-    private CoreThreadMapSnapshot _coreThreadMap = CoreThreadMapSnapshot.Empty;
+    private IReadOnlyList<ContinuitySample> _coreHistory = Array.Empty<ContinuitySample>();
+    private CoreThreadMapSnapshot _latestCoreThreadMap = CoreThreadMapSnapshot.Empty;
 
     public PerformanceTimelineControl()
     {
@@ -87,10 +88,15 @@ public sealed partial class PerformanceTimelineControl : UserControl
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
     public event EventHandler<PolicyHandleChangedEventArgs>? PolicyHandleChanged;
 
-    public void SetCoreThreadState(IReadOnlyList<LogicalProcessorTelemetry>? logicalProcessors)
+    public void SetCoreThreadHistory(IReadOnlyList<ContinuitySample>? samples)
     {
-        _logicalProcessors = logicalProcessors?.ToArray() ?? Array.Empty<LogicalProcessorTelemetry>();
-        _coreThreadMap = CoreThreadMapProjection.Build(_logicalProcessors);
+        _coreHistory = samples?
+            .Where(sample => sample.LogicalProcessors is { Count: > 0 })
+            .OrderBy(sample => sample.At)
+            .ToArray() ?? Array.Empty<ContinuitySample>();
+        _latestCoreThreadMap = _coreHistory.Count > 0
+            ? CoreThreadMapProjection.Build(_coreHistory[^1].LogicalProcessors)
+            : CoreThreadMapSnapshot.Empty;
         UpdateCoreThreadLabels();
         RequestRedraw();
     }
@@ -206,8 +212,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
         var coreTop = laneHeight * 3;
         AddLine(GridLayer, 0, coreTop, width, coreTop, grid, 1);
-        DrawCoreHistory(_data.Lanes[3], coreTop, laneHeight, series[3]);
-        DrawCoreThreadMap(coreTop, laneHeight, series[3], text);
+        DrawCoreHistoryHistogram(coreTop, laneHeight, series[3], text);
 
         RedrawPolicy();
         DrawDecisionEvents(height);
@@ -237,85 +242,83 @@ public sealed partial class PerformanceTimelineControl : UserControl
     };
 
 
-    private void DrawCoreHistory(TimelineLaneProjection lane, double top, double laneHeight, Brush stroke)
-    {
-        var historyHeight = Math.Clamp(laneHeight * .22, 5, 14);
-        var historyTop = top + laneHeight - historyHeight - 2;
-        CoreHistoryPath.Stroke = stroke;
-        CoreHistoryPath.Clip = new RectangleGeometry { Rect = new Rect(0, top, _plotWidth, laneHeight) };
-        var samples = lane.Points
-            .Select(point => point.Y is double y
-                ? (Point?)new Point(point.X * _plotWidth, historyTop + (1 - y) * historyHeight)
-                : null)
-            .ToArray();
-        var maximumGapX = Math.Clamp(10d / Math.Max(1d, _windowSeconds), 0.001d, 1d);
-        CoreHistoryPath.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(samples, maximumGapX));
-    }
-
-    private void DrawCoreThreadMap(double top, double laneHeight, Brush activeBrush, Brush labelBrush)
+    private void DrawCoreHistoryHistogram(double top, double laneHeight, Brush activeBrush, Brush labelBrush)
     {
         CoreThreadLayer.Children.Clear();
-        if (_coreThreadMap.Cores.Count == 0)
+        var samples = _coreHistory
+            .Where(sample => sample.At >= _data.WindowStart && sample.At <= _data.Latest && sample.LogicalProcessors is { Count: > 0 })
+            .ToArray();
+        if (samples.Length == 0)
         {
-            AddText(CoreThreadLayer, "THREAD MAP UNAVAILABLE", 6, top + Math.Max(3, laneHeight * .30), 11, labelBrush);
+            AddText(CoreThreadLayer, "CORE HISTORY WARMING UP", 6, top + Math.Max(3, laneHeight * .30), 11, labelBrush);
             return;
         }
 
-        var columns = _coreThreadMap.Cores.Count;
-        var maxRows = Math.Max(1, _coreThreadMap.Cores.Max(core => core.Threads.Count));
-        var historyReserve = Math.Clamp(laneHeight * .25, 7, 15);
-        var mapHeight = Math.Max(12, laneHeight - historyReserve - 3);
-        var pitch = _plotWidth / Math.Max(1, columns);
-        var cell = Math.Clamp(Math.Min(pitch - 3, (mapHeight - Math.Max(0, maxRows - 1) * 2) / maxRows), 4, 11);
-        var rowGap = Math.Min(2d, Math.Max(1d, (mapHeight - cell * maxRows) / Math.Max(1, maxRows)));
-        var matrixHeight = cell * maxRows + rowGap * Math.Max(0, maxRows - 1);
-        var matrixTop = top + Math.Max(2, (mapHeight - matrixHeight) / 2);
-        var light = ActualTheme == ElementTheme.Light;
-        var awakeFill = light ? Brush(194, 112, 43, 82) : Brush(255, 177, 92, 92);
-        var parkedFill = light ? Brush(17, 34, 51, 16) : Brush(255, 255, 255, 12);
-        var parkedStroke = light ? Brush(17, 34, 51, 72) : Brush(255, 255, 255, 58);
+        var coreIds = samples
+            .SelectMany(sample => sample.LogicalProcessors!)
+            .Where(thread => thread.PhysicalCoreIndex >= 0)
+            .Select(thread => thread.PhysicalCoreIndex)
+            .Distinct()
+            .OrderBy(index => index)
+            .ToArray();
+        if (coreIds.Length == 0) return;
 
-        for (var columnIndex = 0; columnIndex < columns; columnIndex++)
+        var light = ActualTheme == ElementTheme.Light;
+        var awakeFill = light ? Brush(194, 112, 43, 205) : Brush(255, 177, 92, 210);
+        var parkedFill = light ? Brush(17, 34, 51, 34) : Brush(255, 255, 255, 28);
+        var rowPitch = laneHeight / coreIds.Length;
+        var cellHeight = Math.Clamp(rowPitch - .45, 1.0, 5.5);
+        var rowInset = Math.Max(0, (rowPitch - cellHeight) / 2);
+        var nominalSliceWidth = Math.Clamp(_plotWidth / Math.Max(1d, _windowSeconds), 1.25, 10d);
+
+        for (var sampleIndex = 0; sampleIndex < samples.Length; sampleIndex++)
         {
-            var core = _coreThreadMap.Cores[columnIndex];
-            var x = columnIndex * pitch + (pitch - cell) / 2;
-            var threads = core.Threads.OrderBy(thread => thread.LogicalProcessorIndex).ToArray();
-            for (var row = 0; row < threads.Length; row++)
+            var sample = samples[sampleIndex];
+            var normalizedX = Math.Clamp((sample.At - _data.WindowStart).TotalSeconds / Math.Max(1d, _data.WindowSeconds), 0d, 1d);
+            var x = normalizedX * _plotWidth;
+            var nextX = sampleIndex + 1 < samples.Length
+                ? Math.Clamp((samples[sampleIndex + 1].At - _data.WindowStart).TotalSeconds / Math.Max(1d, _data.WindowSeconds), 0d, 1d) * _plotWidth
+                : x + nominalSliceWidth;
+            var sliceWidth = Math.Clamp(nextX - x - .45, 1d, 10d);
+            var byCore = sample.LogicalProcessors!
+                .Where(thread => thread.PhysicalCoreIndex >= 0)
+                .GroupBy(thread => thread.PhysicalCoreIndex)
+                .ToDictionary(group => group.Key, group => group.ToArray());
+
+            for (var row = 0; row < coreIds.Length; row++)
             {
-                var thread = threads[row];
-                var square = new Rectangle
+                if (!byCore.TryGetValue(coreIds[row], out var threads) || threads.Length == 0) continue;
+                var parked = threads.All(thread => thread.IsParked);
+                var values = threads
+                    .Where(thread => thread.UtilizationPercent is double value && double.IsFinite(value))
+                    .Select(thread => Math.Clamp(thread.UtilizationPercent!.Value, 0d, 100d))
+                    .ToArray();
+                var utilization = values.Length > 0 ? values.Average() : 0d;
+                var active = !parked && values.Any(value => value >= CoreThreadMapProjection.ActiveThresholdPercent);
+                var cell = new Rectangle
                 {
-                    Width = cell,
-                    Height = cell,
-                    RadiusX = Math.Min(2.4, cell * .22),
-                    RadiusY = Math.Min(2.4, cell * .22),
-                    StrokeThickness = thread.State == ThreadOccupancyState.Active ? 0 : 1,
-                    Fill = thread.State switch
-                    {
-                        ThreadOccupancyState.Active => activeBrush,
-                        ThreadOccupancyState.AwakeIdle => awakeFill,
-                        _ => parkedFill
-                    },
-                    Stroke = thread.State == ThreadOccupancyState.Parked ? parkedStroke : activeBrush,
+                    Width = sliceWidth,
+                    Height = cellHeight,
+                    RadiusX = Math.Min(.8, sliceWidth * .2),
+                    RadiusY = Math.Min(.8, cellHeight * .2),
+                    Fill = parked ? parkedFill : active ? activeBrush : awakeFill,
+                    Opacity = parked ? .42 : active ? .48 + .52 * (utilization / 100d) : .58,
                     IsHitTestVisible = false
                 };
-                Canvas.SetLeft(square, x);
-                Canvas.SetTop(square, matrixTop + row * (cell + rowGap));
-                CoreThreadLayer.Children.Add(square);
+                Canvas.SetLeft(cell, x);
+                Canvas.SetTop(cell, top + row * rowPitch + rowInset);
+                CoreThreadLayer.Children.Add(cell);
             }
         }
     }
+
     private static PathGeometry ToPathGeometry(IReadOnlyList<CurveFigure> figures)
     {
         var geometry = new PathGeometry();
         foreach (var model in figures)
         {
             var figure = new PathFigure { StartPoint = model.Start, IsClosed = false };
-            if (model.Segments.Count == 0)
-            {
-                figure.Segments.Add(new LineSegment { Point = model.Start });
-            }
-            else
+            if (model.Segments.Count == 0) continue;
             {
                 foreach (var segment in model.Segments)
                 {
@@ -726,16 +729,17 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     private void UpdateCoreThreadLabels()
     {
-        if (_coreThreadMap.TotalThreads == 0)
+        if (_latestCoreThreadMap.TotalThreads == 0)
         {
-            ToolTipService.SetToolTip(CoresValueText, "Per-thread telemetry unavailable; aggregate awake-core history is still shown.");
+            ToolTipService.SetToolTip(CoresValueText, "Per-core history unavailable until rich telemetry samples arrive.");
             return;
         }
 
-        CoresValueText.Text = $"{_coreThreadMap.AwakeCores}/{_coreThreadMap.Cores.Count} awake";
+        var activeCores = _latestCoreThreadMap.Cores.Count(core => core.Threads.Any(thread => thread.State == ThreadOccupancyState.Active));
+        CoresValueText.Text = $"{_latestCoreThreadMap.AwakeCores}/{_latestCoreThreadMap.Cores.Count} awake · {activeCores} active";
         ToolTipService.SetToolTip(
             CoresValueText,
-            $"{_coreThreadMap.ActiveThreads} active threads · {_coreThreadMap.AwakeThreads - _coreThreadMap.ActiveThreads} awake/idle · {_coreThreadMap.ParkedThreads} parked");
+            $"Each vertical slice is one telemetry sample; rows are physical cores. Brightness follows utilization. {_latestCoreThreadMap.ActiveThreads} active threads · {_latestCoreThreadMap.AwakeThreads - _latestCoreThreadMap.ActiveThreads} awake/idle · {_latestCoreThreadMap.ParkedThreads} parked");
     }
 
     private static string FormatObservation(OperatingObservation value)
