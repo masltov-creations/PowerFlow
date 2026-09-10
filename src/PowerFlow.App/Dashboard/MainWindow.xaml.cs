@@ -95,7 +95,8 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += OnAppWindowClosing;
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
-        AppWindow.Resize(new SizeInt32(320, 176));
+        var initialSize = ShellCoordinateProjection.ToPhysicalSize(320, 176, CurrentRasterizationScale());
+        AppWindow.Resize(new SizeInt32(initialSize.Width, initialSize.Height));
         ApplyShellLayout(PowerFlowShellState.Hidden, 320, 176);
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
@@ -343,27 +344,34 @@ public sealed partial class MainWindow : Window
     }
     private RectInt32 ResolveTargetBounds(PowerFlowShellState state)
     {
+        var scale = CurrentRasterizationScale();
         if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work)
-            return ShellTransitionGeometry.TargetBounds(tray, work, CurrentBounds(), state);
+            return ShellTransitionGeometry.TargetBounds(tray, work, CurrentBounds(), state, scale);
 
         var current = CurrentBounds();
-        var (width, height) = state switch
+        if (state == PowerFlowShellState.Hidden) return new RectInt32(current.X, current.Y, 1, 1);
+        var logical = state switch
         {
-            PowerFlowShellState.Hidden => (1, 1),
-            PowerFlowShellState.Glance => (320, 176),
-            PowerFlowShellState.Compact => (760, 440),
-            PowerFlowShellState.Expanded => (1280, 800),
-            _ => (current.Width, current.Height)
+            PowerFlowShellState.Glance => new ShellLogicalSize(320, 176),
+            PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
+            PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
+            _ => ShellCoordinateProjection.ToLogicalSize(current.Width, current.Height, scale)
         };
-        return new RectInt32(current.X, current.Y, width, height);
+        var physical = ShellCoordinateProjection.ToPhysicalSize(logical.Width, logical.Height, scale);
+        return new RectInt32(current.X, current.Y, physical.Width, physical.Height);
+    }
+
+    private double CurrentRasterizationScale()
+    {
+        var scale = Content?.XamlRoot?.RasterizationScale ?? 1d;
+        return double.IsFinite(scale) && scale > 0 ? scale : 1d;
     }
 
     private ShellLogicalSize CurrentLogicalAppWindowSize()
-    {
-        var scale = Content?.XamlRoot?.RasterizationScale ?? 1d;
-        return ShellCoordinateProjection.ToLogicalSize(AppWindow.Size.Width, AppWindow.Size.Height, scale);
-    }
+        => ShellCoordinateProjection.ToLogicalSize(AppWindow.Size.Width, AppWindow.Size.Height, CurrentRasterizationScale());
 
+    private ShellLogicalSize LogicalSize(RectInt32 bounds)
+        => ShellCoordinateProjection.ToLogicalSize(bounds.Width, bounds.Height, CurrentRasterizationScale());
     private RectInt32 CurrentBounds()
     {
         var p = AppWindow.Position;
@@ -377,15 +385,18 @@ public sealed partial class MainWindow : Window
         _presentationTimer = null;
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var duration = ShellMotionPolicy.Duration(fromState, toState, reducedMotion);
-        var fromProfile = PowerFlowShellLayout.Resolve(Math.Max(1, start.Width), Math.Max(1, start.Height), fromState, _currentSection, fromState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
-        var toProfile = PowerFlowShellLayout.Resolve(Math.Max(1, target.Width), Math.Max(1, target.Height), toState, _currentSection, toState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
+        var fromLogical = LogicalSize(start);
+        var toLogical = LogicalSize(target);
+        var fromProfile = PowerFlowShellLayout.Resolve(fromLogical.Width, fromLogical.Height, fromState, _currentSection, fromState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
+        var toProfile = PowerFlowShellLayout.Resolve(toLogical.Width, toLogical.Height, toState, _currentSection, toState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
 
         if (duration == TimeSpan.Zero || start.Equals(target))
         {
             _suppressResizeModeSync = true;
             AppWindow.MoveAndResize(target);
             _suppressResizeModeSync = false;
-            ApplyShellLayout(toState, target.Width, target.Height);
+            var targetLogical = LogicalSize(target);
+            ApplyShellLayout(toState, targetLogical.Width, targetLogical.Height);
             ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: true);
             ResetSemanticMorphPresentation(toProfile);
             return Task.CompletedTask;
@@ -409,9 +420,9 @@ public sealed partial class MainWindow : Window
             var eased = ShellMotionPolicy.Ease(fromState, toState, t);
             var rect = ShellTransitionGeometry.Interpolate(start, target, eased);
             AppWindow.MoveAndResize(rect);
-
             var layoutState = ShellMotionPolicy.IsGrowth(fromState, toState) ? toState : fromState;
-            ApplyShellLayout(layoutState, rect.Width, rect.Height);
+            var frameLogical = LogicalSize(rect);
+            ApplyShellLayout(layoutState, frameLogical.Width, frameLogical.Height);
             ApplyShellTransitionFrame(fromProfile, toProfile, t, reducedMotion: false);
 
             if (frame < frames) return;
@@ -421,12 +432,12 @@ public sealed partial class MainWindow : Window
             _presentationTimer = null;
             _suppressResizeModeSync = false;
             ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: false);
-            ApplyShellLayout(toState, target.Width, target.Height);
+            var finalLogical = LogicalSize(target);
+            ApplyShellLayout(toState, finalLogical.Width, finalLogical.Height);
             ResetSemanticMorphPresentation(toProfile);
             tcs.TrySetResult();
         }
     }
-
     private void ApplyShellTransitionFrame(
         ShellPresentationProfile from,
         ShellPresentationProfile to,

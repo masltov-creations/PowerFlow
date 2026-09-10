@@ -7,30 +7,29 @@ public static class ShellTransitionGeometry
 {
     private const int TrayGap = 10;
 
-    public static RectInt32 TargetBounds(TrayRect tray, TrayRect workArea, RectInt32 current, PowerFlowShellState target)
+    public static RectInt32 TargetBounds(TrayRect tray, TrayRect workArea, RectInt32 current, PowerFlowShellState target, double rasterizationScale = 1d)
     {
         if (target == PowerFlowShellState.FullScreen)
             return new RectInt32(workArea.Left, workArea.Top, workArea.Width, workArea.Height);
 
-        var (requestedWidth, requestedHeight) = target switch
-        {
-            PowerFlowShellState.Hidden => (1, 1),
-            PowerFlowShellState.Glance => (320, 176),
-            PowerFlowShellState.Compact => (760, 440),
-            PowerFlowShellState.Expanded => (1280, 800),
-            _ => (Math.Max(1, current.Width), Math.Max(1, current.Height))
-        };
-
-        var width = Math.Min(requestedWidth, Math.Max(1, workArea.Width));
-        var height = Math.Min(requestedHeight, Math.Max(1, workArea.Height));
-
         if (target == PowerFlowShellState.Hidden)
         {
-            var x = Math.Clamp(tray.Left + tray.Width / 2, workArea.Left, workArea.Right - width);
-            var y = Math.Clamp(tray.Top + tray.Height / 2, workArea.Top, workArea.Bottom - height);
-            return new RectInt32(x, y, width, height);
+            const int hiddenSize = 1;
+            var hiddenX = Math.Clamp(tray.Left + tray.Width / 2, workArea.Left, workArea.Right - hiddenSize);
+            var hiddenY = Math.Clamp(tray.Top + tray.Height / 2, workArea.Top, workArea.Bottom - hiddenSize);
+            return new RectInt32(hiddenX, hiddenY, hiddenSize, hiddenSize);
         }
 
+        var logical = target switch
+        {
+            PowerFlowShellState.Glance => new ShellLogicalSize(320, 176),
+            PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
+            PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
+            _ => ShellCoordinateProjection.ToLogicalSize(Math.Max(1, current.Width), Math.Max(1, current.Height), rasterizationScale)
+        };
+        var requested = ShellCoordinateProjection.ToPhysicalSize(logical.Width, logical.Height, rasterizationScale);
+        var width = Math.Min(requested.Width, Math.Max(1, workArea.Width));
+        var height = Math.Min(requested.Height, Math.Max(1, workArea.Height));
         var desiredX = tray.Right - width;
         var desiredY = tray.Top - TrayGap - height;
         var maxX = workArea.Right - width;

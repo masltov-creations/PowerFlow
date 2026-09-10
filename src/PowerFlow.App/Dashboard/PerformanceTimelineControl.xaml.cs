@@ -105,7 +105,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _learnedEntitlement = learnedEntitlement;
         _candidateTuning = candidateTuning;
         _envelope = candidateTuning.ApplyTo(learnedEnvelope);
-        RedrawPolicy();
+        UpdatePressureContextLabel();
+        RequestRedraw();
     }
 
     public void SetTuneMode(bool enabled)
@@ -113,7 +114,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _tuneMode = enabled;
         PolicyHandleLayer.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         if (!enabled) _draggingPolicyHandle = null;
-        RedrawPolicy();
+        RequestRedraw();
     }
 
     public void SetSelectedObservationIndices(IEnumerable<int>? observationIndices)
@@ -186,6 +187,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         SelectionLayer.Children.Clear();
 
         var laneHeight = height / 4d;
+        DrawPressureContext(0, laneHeight);
         var light = ActualTheme == ElementTheme.Light;
         var grid = light ? Brush(17, 34, 51, 24) : Brush(255, 255, 255, 18);
         var text = light ? Brush(17, 34, 51, 118) : Brush(255, 255, 255, 105);
@@ -343,6 +345,52 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
         return geometry;
     }
+    private void DrawPressureContext(double top, double laneHeight)
+    {
+        if (_plotWidth <= 1 || laneHeight <= 1) return;
+        var context = PressureZoneProjection.Build(_learnedEnvelope, _candidateTuning);
+        var innerTop = top + 4d;
+        var innerHeight = Math.Max(1d, laneHeight - 8d);
+        double Y(double percent) => innerTop + (1d - Math.Clamp(percent / 100d, 0d, 1d)) * innerHeight;
+        var light = ActualTheme == ElementTheme.Light;
+        foreach (var band in context.Bands)
+        {
+            var y1 = Y(band.MaximumPercent);
+            var y2 = Y(band.MinimumPercent);
+            var fill = band.Zone switch
+            {
+                EnvelopeZone.Eco => light ? Brush(40, 132, 82, 15) : Brush(91, 214, 139, 17),
+                EnvelopeZone.Efficient => light ? Brush(21, 126, 157, 13) : Brush(75, 202, 235, 15),
+                EnvelopeZone.Responsive => light ? Brush(132, 83, 181, 12) : Brush(203, 148, 255, 14),
+                _ => light ? Brush(177, 92, 53, 10) : Brush(255, 151, 108, 12)
+            };
+            var rect = new Rectangle { Width = _plotWidth, Height = Math.Max(0d, y2 - y1), Fill = fill, IsHitTestVisible = false };
+            Canvas.SetLeft(rect, 0);
+            Canvas.SetTop(rect, y1);
+            GridLayer.Children.Add(rect);
+        }
+        if (_tuneMode) return;
+        foreach (var item in new[]
+        {
+            (TimelinePolicyHandleKind.EcoPressure, context.EcoThreshold),
+            (TimelinePolicyHandleKind.EfficientPressure, context.EfficientThreshold),
+            (TimelinePolicyHandleKind.ResponsivePressure, context.ResponsiveThreshold)
+        })
+        {
+            var y = Y(item.Item2);
+            var line = AddLine(GridLayer, 0, y, _plotWidth, y, PolicyBrush(item.Item1, true), .9);
+            line.Opacity = .42;
+        }
+    }
+
+    private void UpdatePressureContextLabel()
+    {
+        var context = PressureZoneProjection.Build(_learnedEnvelope, _candidateTuning);
+        CpuThresholdText.Text = $"T {context.EcoThreshold:0}/{context.EfficientThreshold:0}/{context.ResponsiveThreshold:0}";
+        var explanation = $"Actual governor pressure is current CPU utilization on a 0-100% scale. Thresholds: Eco {context.EcoThreshold:0}%, Efficient {context.EfficientThreshold:0}%, Responsive {context.ResponsiveThreshold:0}%; above Responsive is Boost.";
+        ToolTipService.SetToolTip(CpuPressureLabel, explanation);
+        ToolTipService.SetToolTip(CpuThresholdText, explanation);
+    }
     private void RedrawPolicy()
     {
         if (_plotWidth <= 1 || _plotHeight <= 1) return;
@@ -354,6 +402,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var laneHeight = _plotHeight / 4d;
         foreach (var rail in overlay.ValueRails)
         {
+            if (!_tuneMode && rail.Metric == PerformanceTimelineMetric.CpuPressure) continue;
             var laneIndex = LaneIndex(rail.Metric);
             var learnedY = PolicyValueY(laneIndex, laneHeight, rail.LearnedNormalizedY);
             var candidateY = PolicyValueY(laneIndex, laneHeight, rail.CandidateNormalizedY);
@@ -717,6 +766,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
         var latest = current.Latest;
         CpuValueText.Text = $"{latest.CpuPressurePercent:0.0}%";
+        UpdatePressureContextLabel();
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
         ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
         CoresValueText.Text = current.ActiveCores is int active
@@ -740,8 +790,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
     {
         var latest = _coreStateTimeline.Samples.LastOrDefault();
         if (latest is null) return;
-        CoresValueText.Text = $"{latest.ActiveCores} active · {latest.AwakeIdleCores} awake · {latest.ParkedCores} parked";
-        ToolTipService.SetToolTip(CoresValueText, "Physical-core state at the latest rich telemetry sample. Active means at least one logical thread is above the activity threshold; awake means unparked but below it.");
+        CoresValueText.Text = $"{latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}";
+        ToolTipService.SetToolTip(CoresValueText, "Active / awake-idle / parked physical cores at the latest rich telemetry sample. Active means at least one logical thread is above the activity threshold.");
     }
 
     private static string FormatObservation(OperatingObservation value)

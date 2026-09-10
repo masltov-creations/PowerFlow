@@ -43,9 +43,12 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="CPU PRESSURE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
-                        <TextBlock x:Name="CpuValueText" Text="—" FontSize="12"/>
+                                        <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock x:Name="CpuPressureLabel" Text="CPU PRESSURE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock x:Name="CpuValueText" Text="-" FontSize="12"/>
+                            <TextBlock x:Name="CpuThresholdText" Text="" FontSize="11" Opacity="0.52" VerticalAlignment="Bottom"/>
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="1">
                         <TextBlock Text="PACKAGE POWER" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
@@ -56,7 +59,7 @@
                         <TextBlock x:Name="ClockValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                     <StackPanel Grid.Row="3" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="CORE STATE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock Text="CORES A/I/P" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
                         <TextBlock x:Name="CoresValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                 </Grid>

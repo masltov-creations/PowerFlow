@@ -11,7 +11,7 @@ public sealed class CoreThreadMapContractTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
         var main = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
-        Assert.Contains("CORE STATE", xaml, StringComparison.Ordinal);
+        Assert.Contains("CORES A/I/P", xaml, StringComparison.Ordinal);
         foreach (var name in new[] { "CoreActivePath", "CoreAwakePath", "CoreParkedPath" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CoresTracePath", xaml, StringComparison.Ordinal);
