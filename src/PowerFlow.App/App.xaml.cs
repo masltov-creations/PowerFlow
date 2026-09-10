@@ -29,6 +29,7 @@ public partial class App : Application
     private TrayIconHost? _tray;
     private DispatcherQueueTimer? _trayHoverTimer;
     private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
+    private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
@@ -116,9 +117,26 @@ public partial class App : Application
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
     {
         _telemetryRecorder?.UpdateControllerSnapshot(snapshot);
+        if (_config.AdaptiveActuationEnabled && _controller is not null && _telemetryRecorder is not null)
+        {
+            var evaluation = _adaptiveGovernorRuntime.Evaluate(snapshot, _telemetryRecorder.History, _config);
+            if (evaluation is not null) _ = ApplyAdaptiveGovernorEvaluationAsync(evaluation);
+        }
         _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
     }
 
+    private async Task ApplyAdaptiveGovernorEvaluationAsync(AdaptiveGovernorRuntimeEvaluation evaluation)
+    {
+        if (_controller is null || _shuttingDown) return;
+        try
+        {
+            await _controller.ApplyAdaptiveGovernorDecisionAsync(evaluation.Decision, evaluation.Entitlement, evaluation.Actor);
+        }
+        catch (Exception ex)
+        {
+            await WriteStartupFailureAsync(ex);
+        }
+    }
     private void OnTrayInteractionRequested(object? sender, TrayInteractionRequestedEventArgs e)
     {
         _dispatcher?.TryEnqueue(async () =>

@@ -1,4 +1,5 @@
 using PowerFlow.Core.Rules;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Windows.Games;
 using Xunit;
 
@@ -25,6 +26,20 @@ public sealed class GameLifecycleMonitorTests
         Assert.Contains("explicit", sut.LatchReason!, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ExplicitSemanticEntitlement_DoesNotBecomeLegacyPerformanceLatch()
+    {
+        var source = new FakeSource();
+        var factory = new FakeHandleFactory();
+        var sut = new GameLifecycleMonitor(source, factory);
+        var entitlement = new PerformanceEntitlement(EnvelopeZone.Responsive, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(5), true);
+        sut.UpdateRules([new AppRule(@"C:\Apps\Editor\editor.exe", AppRuleMode.Performance, "Editor", FollowChildren: true, Entitlement: entitlement)]);
+        sut.Start();
+        source.Raise(new ProcessStartEvent(42, 1, @"C:\Apps\Editor\editor.exe", T0));
+        Assert.False(sut.IsLatched);
+        Assert.Equal(0, sut.TrackedCount);
+        Assert.True(source.IsRunning);
+    }
     [Fact]
     public void LauncherToChildHandoff_PreservesLatchAndThenStopsWatcher()
     {

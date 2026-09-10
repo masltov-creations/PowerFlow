@@ -213,6 +213,30 @@ public sealed class PowerFlowControllerTests
         await f.Controller.StopAsync();
     }
     [Fact]
+    public async Task AdaptiveEnabled_CpuSamplePublishesPressureWithoutLegacyPlanSwitch()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            CpuPromotionThresholdPercent = 1,
+            CpuPromotionWindow = TimeSpan.Zero
+        };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        f.Activity.CpuPercent = 82;
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.TickFactory.Pulse();
+        for (var i = 0; i < 100 && f.Controller.ActivitySampleCount == 0; i++) await Task.Delay(5);
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(1, f.Controller.ActivitySampleCount);
+        Assert.Equal(82, f.Controller.Snapshot.CpuPercent);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        Assert.Empty(f.Plans.Activations);
+        await f.Controller.StopAsync();
+    }
+    [Fact]
     public async Task AdaptiveGovernorDecision_DefaultDisabledDoesNotChangeLegacyBehavior()
     {
         var f = new Fixture(PowerPlanIds.PowerSaver);
@@ -313,7 +337,8 @@ public sealed class PowerFlowControllerTests
 
     private sealed class FakeActivity : IActivitySource
     {
-        public ActivitySample Sample(DateTimeOffset at) => new(5, at, true, TimeSpan.Zero);
+        public double CpuPercent { get; set; } = 5;
+        public ActivitySample Sample(DateTimeOffset at) => new(CpuPercent, at, true, TimeSpan.Zero);
     }
 
     private sealed class FakeGames : IGameLifecycleMonitor

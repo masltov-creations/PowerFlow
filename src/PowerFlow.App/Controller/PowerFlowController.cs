@@ -288,6 +288,11 @@ public sealed class PowerFlowController : IAsyncDisposable
                     await EnqueueAsync(async () =>
                     {
                         if (Snapshot.IsLatched) return;
+                        if (_config.AdaptiveActuationEnabled)
+                        {
+                            Publish(_currentState, "Adaptive governor evaluating CPU pressure.", false, null, sample.CpuPercent, Snapshot.TriggerApplication, Snapshot.CooldownRemaining);
+                            return;
+                        }
                         var decision = _engine.Evaluate(new CpuSample(sample.At, sample.CpuPercent));
                         await ApplyDecisionAsync(decision, null, sample.CpuPercent);
                     }).ConfigureAwait(false);
