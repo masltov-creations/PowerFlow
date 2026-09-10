@@ -20,6 +20,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private IReadOnlyList<TransitionRecord> _history = Array.Empty<TransitionRecord>();
     private string _governorDryRunLabel = "DRY RUN · OBSERVING";
     private string _governorDryRunExplanation = "Waiting for retained observations";
+    private GovernorDecision? _latestGovernorDecision;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -105,6 +106,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public IReadOnlyList<OperatingObservation> OperatingHistory => _operatingHistory;
     public string GovernorDryRunLabel => _governorDryRunLabel;
     public string GovernorDryRunExplanation => _governorDryRunExplanation;
+    public GovernorDecision? LatestGovernorDecision => _latestGovernorDecision;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
     public string PromotionRuleLabel => $"CPU > {_config.CpuPromotionThresholdPercent:0.#}% for {_config.CpuPromotionWindow.TotalSeconds:0.#}s";
@@ -210,6 +212,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             EnvelopeDecisionKind.Lease => "DRY RUN · LEASE",
             _ => $"DRY RUN · {latest.AllowedZone.ToString().ToUpperInvariant()}"
         };
+        _latestGovernorDecision = latest;
         _governorDryRunExplanation = latest.Explanation;
     }
 

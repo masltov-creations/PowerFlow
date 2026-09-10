@@ -2,13 +2,14 @@
     x:Class="PowerFlow.App.Dashboard.PerformanceAtlasControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="AtlasRoot" MinHeight="190">
+    <Grid x:Name="AtlasRoot" MinHeight="260">
         <Border Background="{ThemeResource PowerFlowPanelBrush}"
                 BorderBrush="{ThemeResource PowerFlowCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="12"/>
-        <Grid Padding="12,10,12,9" RowSpacing="7">
+        <Grid Padding="12,10,12,9" RowSpacing="9">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -28,7 +29,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                     <TextBlock Text="X" FontSize="11" Opacity="0.52" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="XDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="0" SelectionChanged="OnDimensionChanged">
+                    <ComboBox x:Name="XDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="0" SelectionChanged="OnDimensionChanged" AutomationProperties.Name="Atlas horizontal metric">
                         <ComboBoxItem Content="Package Power" Tag="PackagePower"/>
                         <ComboBoxItem Content="Effective Clock" Tag="EffectiveClock"/>
                         <ComboBoxItem Content="Cores Awake" Tag="ActiveCores"/>
@@ -37,7 +38,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                     <TextBlock Text="Y" FontSize="11" Opacity="0.52" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="YDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="1" SelectionChanged="OnDimensionChanged">
+                    <ComboBox x:Name="YDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="1" SelectionChanged="OnDimensionChanged" AutomationProperties.Name="Atlas vertical metric">
                         <ComboBoxItem Content="Package Power" Tag="PackagePower"/>
                         <ComboBoxItem Content="Effective Clock" Tag="EffectiveClock"/>
                         <ComboBoxItem Content="Cores Awake" Tag="ActiveCores"/>
@@ -46,44 +47,55 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="1" MinHeight="142" ColumnSpacing="5" RowSpacing="4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="28"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="24"/>
-                </Grid.RowDefinitions>
+            <Grid Grid.Row="1" ColumnSpacing="16">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="WHAT POWERFLOW LEARNED" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                    <TextBlock x:Name="WhatLearnedText" Text="Waiting for enough live history to learn this machine." FontSize="11" TextWrapping="Wrap" Opacity="0.86"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Text="WHAT IT IS DOING NOW" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                    <TextBlock x:Name="WhatDoingNowText" Text="Observing the machine." FontSize="11" TextWrapping="Wrap" Opacity="0.86"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock Text="HOW SURE IS THIS" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                    <TextBlock x:Name="ConfidenceExplanationText" Text="Learning." FontSize="11" TextWrapping="Wrap" Opacity="0.78"/>
+                </StackPanel>
+            </Grid>
 
-                <TextBlock x:Name="YAxisLabel" Grid.Row="0" Text="EFFECTIVE CLOCK (MHz)" FontSize="11" Opacity="0.58"
-                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock.RenderTransform>
-                        <RotateTransform Angle="-90"/>
-                    </TextBlock.RenderTransform>
+            <Grid Grid.Row="2" MinHeight="142" ColumnSpacing="5" RowSpacing="4">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="24"/></Grid.RowDefinitions>
+                <TextBlock x:Name="YAxisLabel" Grid.Row="0" Text="EFFECTIVE CLOCK (MHz)" FontSize="11" Opacity="0.58" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.RenderTransform><RotateTransform Angle="-90"/></TextBlock.RenderTransform>
                 </TextBlock>
-
                 <Grid Grid.Column="1" x:Name="AtlasPlotHost" MinWidth="140" MinHeight="130">
                     <Canvas x:Name="AtlasCanvas" SizeChanged="OnSizeChanged" IsHitTestVisible="False"/>
                     <Canvas x:Name="FrontierLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="SelectionLayer" IsHitTestVisible="False"/>
+                    <Canvas x:Name="CurrentPointLayer" IsHitTestVisible="False">
+                        <Ellipse x:Name="CurrentPointHalo" Width="20" Height="20" Stroke="{ThemeResource PowerFlowAccentBrush}" StrokeThickness="1" Opacity="0"/>
+                        <Ellipse x:Name="CurrentPointDot" Width="9" Height="9" Fill="{ThemeResource PowerFlowAccentBrush}" Stroke="White" StrokeThickness="1.5" Opacity="0"/>
+                        <TextBlock x:Name="YouAreHereLabel" Text="YOU ARE HERE" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}" Opacity="0"/>
+                    </Canvas>
                     <Canvas x:Name="InteractionLayer" Background="Transparent" PointerPressed="OnPointerPressed"/>
-                    <Border x:Name="SelectionCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
-                            Margin="0,5,5,0" Padding="8,5" CornerRadius="7"
-                            Background="{ThemeResource PowerFlowHoverBrush}"
-                            BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
+                    <Border x:Name="AtlasUnavailableMessage" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="14,9" CornerRadius="8" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1">
+                        <TextBlock x:Name="AtlasUnavailableText" Text="No usable observations are available for this view yet." FontSize="11" TextWrapping="Wrap" MaxWidth="340" TextAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="SelectionCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,5,0" Padding="8,5" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" IsHitTestVisible="False">
                         <TextBlock x:Name="SelectionReadout" FontSize="11" TextWrapping="Wrap" MaxWidth="300"/>
                     </Border>
                 </Grid>
-
-                <TextBlock x:Name="XAxisLabel" Grid.Row="1" Grid.Column="1" Text="PACKAGE POWER (W)" FontSize="11" Opacity="0.58"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock x:Name="XAxisLabel" Grid.Row="1" Grid.Column="1" Text="PACKAGE POWER (W)" FontSize="11" Opacity="0.58" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
 
-            <Grid Grid.Row="2" ColumnSpacing="8">
+            <Grid Grid.Row="3" ColumnSpacing="8">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock x:Name="ResidencySummary" Text="Waiting for operating history" FontSize="11" Opacity="0.52" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="1" Text="DENSITY = RESIDENCY" FontSize="11" Opacity="0.46"/>
+                <StackPanel>
+                    <TextBlock x:Name="ResidencySummary" Text="Waiting for operating history" FontSize="11" Opacity="0.52" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="DimensionAvailabilityText" Text="Checking live metric availability" FontSize="11" Opacity="0.44" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="DENSITY = TIME SPENT HERE" FontSize="11" Opacity="0.46" VerticalAlignment="Bottom"/>
             </Grid>
         </Grid>
     </Grid>

@@ -546,6 +546,17 @@ public sealed partial class MainWindow : Window
         PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
         PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
         PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
+        var latestObservation = ViewModel.OperatingHistory.LastOrDefault();
+        var modelEntitlement = ResolveModelEntitlement(latestObservation, snapshot);
+        var modelManualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        var modelExplanation = ModelExplanationProjection.Create(
+            learningModel.Envelope,
+            learningModel.Confidence,
+            latestObservation,
+            modelEntitlement,
+            ViewModel.LatestGovernorDecision,
+            modelManualAuthority);
+        PerformanceAtlas.SetModelExplanation(modelExplanation);
         PerformanceTimeline.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
         PerformanceAtlas.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
         ApplyTuningPresentation();
@@ -616,6 +627,13 @@ public sealed partial class MainWindow : Window
         ApplyTuningPresentation();
     }
 
+    private PerformanceEntitlement ResolveModelEntitlement(OperatingObservation? latest, ControllerSnapshot snapshot)
+    {
+        var actor = latest?.Actor ?? snapshot.TriggerApplication;
+        if (string.IsNullOrWhiteSpace(actor)) return PerformanceEntitlement.LegacyPerformance;
+        var rule = _config.AppRules.FirstOrDefault(candidate => ActorMatches(candidate.ExecutablePath, actor));
+        return rule?.EffectiveEntitlement ?? PerformanceEntitlement.LegacyPerformance;
+    }
     private PerformanceEntitlement ResolveTuningEntitlement(ControllerSnapshot snapshot)
     {
         var actor = _analyticalSelection.Actor ?? snapshot.TriggerApplication;

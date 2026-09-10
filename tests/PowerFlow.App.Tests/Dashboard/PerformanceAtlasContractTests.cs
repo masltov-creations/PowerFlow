@@ -92,4 +92,25 @@ public sealed class PerformanceAtlasContractTests
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException();
         return File.ReadAllText(Path.Combine(new[] { dir }.Concat(parts).ToArray()));
     }
-}
+
+    [Fact]
+    public void Atlas_ExplainsModelAndNeverShowsADeadEmptyDimension()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml.cs");
+        var projection = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasProjection.cs");
+
+        foreach (var name in new[] { "WhatLearnedText", "WhatDoingNowText", "ConfidenceExplanationText", "CurrentPointLayer", "YouAreHereLabel", "AtlasUnavailableMessage", "DimensionAvailabilityText" })
+            Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
+
+        Assert.Contains("WHAT POWERFLOW LEARNED", xaml, StringComparison.Ordinal);
+        Assert.Contains("WHAT IT IS DOING NOW", xaml, StringComparison.Ordinal);
+        Assert.Contains("HOW SURE IS THIS", xaml, StringComparison.Ordinal);
+        Assert.Contains("YOU ARE HERE", xaml, StringComparison.Ordinal);
+        Assert.Contains("AvailableDimensions", projection, StringComparison.Ordinal);
+        Assert.Contains("ResolveAvailablePair", projection, StringComparison.Ordinal);
+        Assert.Contains("ProjectObservation", projection, StringComparison.Ordinal);
+        Assert.Contains("IsEnabled", code, StringComparison.Ordinal);
+        Assert.Contains("AtlasUnavailableMessage", code, StringComparison.Ordinal);
+        Assert.Contains("SetModelExplanation", code, StringComparison.Ordinal);
+    }}

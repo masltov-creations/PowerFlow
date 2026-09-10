@@ -87,4 +87,47 @@ public sealed class AdaptiveGovernorDryRunTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PowerFlow.sln"))) dir = dir.Parent;
         return dir?.FullName ?? throw new DirectoryNotFoundException();
     }
-}
+
+    [Fact]
+    public void LatestGovernorDecision_IsTheDecisionBehindDryRunPresentation()
+    {
+        var vm = new DashboardViewModel();
+        vm.Configure(PowerFlow.Core.Rules.PowerFlowConfig.Default);
+        var t0 = new DateTimeOffset(2026, 9, 10, 17, 0, 0, TimeSpan.Zero);
+        var snapshot = new PowerFlow.App.Controller.ControllerSnapshot(
+            PowerFlow.Core.Policy.PowerState.Balanced,
+            "test",
+            false,
+            null,
+            72,
+            0,
+            null,
+            "build.exe",
+            t0,
+            Array.Empty<PowerFlow.App.Controller.TransitionRecord>(),
+            1,
+            1);
+        var continuity = new[]
+        {
+            new PowerFlow.App.Telemetry.ContinuitySample(
+                t0,
+                72,
+                78,
+                4300,
+                PowerFlow.Core.Policy.PowerState.Balanced,
+                "test",
+                false,
+                null,
+                0,
+                "build.exe",
+                12,
+                16)
+        };
+
+        vm.UpdateContinuity(snapshot, continuity, null);
+
+        Assert.NotNull(vm.LatestGovernorDecision);
+        Assert.Equal(vm.LatestGovernorDecision!.Explanation, vm.GovernorDryRunExplanation);
+        Assert.Equal(vm.OperatingHistory[^1].Decision, vm.LatestGovernorDecision.Kind);
+        Assert.Equal(vm.OperatingHistory[^1].Zone, vm.LatestGovernorDecision.AllowedZone);
+    }}

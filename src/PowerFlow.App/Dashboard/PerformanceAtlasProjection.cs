@@ -26,6 +26,18 @@ public sealed record PerformanceAtlasCell(
     double? EfficiencyValue,
     IReadOnlyList<int> ObservationIndices);
 
+public sealed record PerformanceAtlasDimensionPair(
+    PerformanceAtlasDimension X,
+    PerformanceAtlasDimension Y,
+    bool Changed,
+    string? Explanation,
+    bool IsAvailable);
+
+public sealed record PerformanceAtlasPointProjection(
+    double X,
+    double Y,
+    double XValue,
+    double YValue);
 public sealed record PerformanceAtlasData(
     PerformanceAtlasAxis XAxis,
     PerformanceAtlasAxis YAxis,
@@ -34,6 +46,98 @@ public sealed record PerformanceAtlasData(
 
 public static class PerformanceAtlasProjection
 {
+    public static IReadOnlyList<PerformanceAtlasDimension> AvailableDimensions(IReadOnlyList<OperatingObservation> observations)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        return Enum.GetValues<PerformanceAtlasDimension>()
+            .Where(dimension => observations.Any(observation => IsValid(Value(observation, dimension))))
+            .ToArray();
+    }
+
+    public static bool HasUsableValues(IReadOnlyList<OperatingObservation> observations, PerformanceAtlasDimension dimension)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        return observations.Any(observation => IsValid(Value(observation, dimension)));
+    }
+
+    public static bool HasUsablePair(IReadOnlyList<OperatingObservation> observations, PerformanceAtlasDimension x, PerformanceAtlasDimension y)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        if (x == y) return false;
+        return observations.Any(observation => IsValid(Value(observation, x)) && IsValid(Value(observation, y)));
+    }
+    public static int UsableObservationCount(IReadOnlyList<OperatingObservation> observations, PerformanceAtlasDimension dimension)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        return observations.Count(observation => IsValid(Value(observation, dimension)));
+    }
+
+    public static PerformanceAtlasDimensionPair ResolveAvailablePair(
+        IReadOnlyList<OperatingObservation> observations,
+        PerformanceAtlasDimension preferredX,
+        PerformanceAtlasDimension preferredY)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        var available = AvailableDimensions(observations);
+        var order = new[]
+        {
+            PerformanceAtlasDimension.PackagePower,
+            PerformanceAtlasDimension.EffectiveClock,
+            PerformanceAtlasDimension.ActiveCores,
+            PerformanceAtlasDimension.CpuPressure
+        };
+        var pairs = order
+            .SelectMany(x => order.Where(y => y != x).Select(y => (X: x, Y: y)))
+            .Where(pair => HasUsablePair(observations, pair.X, pair.Y))
+            .ToArray();
+
+        if (pairs.Length == 0)
+        {
+            var explanation = available.Count switch
+            {
+                0 => "No usable observations are available for the Atlas yet.",
+                1 => $"{FriendlyDimension(available[0])} is available, but the Atlas needs two metrics measured in the same observation.",
+                _ => "No two available metrics currently overlap in the same observation, so PowerFlow will not draw an empty Atlas."
+            };
+            return new PerformanceAtlasDimensionPair(
+                available.FirstOrDefault(),
+                available.Skip(1).FirstOrDefault(),
+                true,
+                explanation,
+                false);
+        }
+
+        if (preferredX != preferredY && HasUsablePair(observations, preferredX, preferredY))
+            return new PerformanceAtlasDimensionPair(preferredX, preferredY, false, null, true);
+
+        var chosen = pairs.FirstOrDefault(pair => pair.X == preferredX)
+            is var xPreferred && xPreferred != default
+                ? xPreferred
+                : pairs.FirstOrDefault(pair => pair.Y == preferredY)
+                    is var yPreferred && yPreferred != default
+                        ? yPreferred
+                        : pairs[0];
+        var unavailable = !available.Contains(preferredX) ? preferredX : preferredY;
+        return new PerformanceAtlasDimensionPair(
+            chosen.X,
+            chosen.Y,
+            true,
+            $"{FriendlyDimension(unavailable)} is not usable with the other selected metric right now; showing {FriendlyDimension(chosen.X)} × {FriendlyDimension(chosen.Y)} instead.",
+            true);
+    }
+    public static PerformanceAtlasPointProjection? ProjectObservation(PerformanceAtlasData data, OperatingObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(observation);
+        var xValue = Value(observation, data.XAxis.Dimension);
+        var yValue = Value(observation, data.YAxis.Dimension);
+        if (!IsValid(xValue) || !IsValid(yValue)) return null;
+        return new PerformanceAtlasPointProjection(
+            NormalizeValue(xValue!.Value, data.XAxis),
+            NormalizeValue(yValue!.Value, data.YAxis),
+            xValue.Value,
+            yValue.Value);
+    }
     public static PerformanceAtlasData Build(
         IReadOnlyList<OperatingObservation> observations,
         PerformanceAtlasDimension x,
@@ -131,6 +235,21 @@ public static class PerformanceAtlasProjection
         return Math.Max(minimum, Math.Ceiling(valid.Max() / step) * step);
     }
 
+    private static double NormalizeValue(double value, PerformanceAtlasAxis axis)
+    {
+        var span = axis.DomainMax - axis.DomainMin;
+        if (span <= 0) return 0;
+        return Math.Clamp((value - axis.DomainMin) / span, 0, 1);
+    }
+
+    public static string FriendlyDimension(PerformanceAtlasDimension dimension) => dimension switch
+    {
+        PerformanceAtlasDimension.PackagePower => "Package Power",
+        PerformanceAtlasDimension.EffectiveClock => "Effective Clock",
+        PerformanceAtlasDimension.ActiveCores => "Cores Awake",
+        PerformanceAtlasDimension.CpuPressure => "CPU Pressure",
+        _ => dimension.ToString()
+    };
     private static bool IsValid(double? value) => value is double raw && double.IsFinite(raw) && raw >= 0;
 
     private sealed record IndexedObservation(int Index, OperatingObservation Observation, double? XValue, double? YValue);

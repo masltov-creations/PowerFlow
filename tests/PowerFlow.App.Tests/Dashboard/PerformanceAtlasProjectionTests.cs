@@ -145,4 +145,61 @@ public sealed class PerformanceAtlasProjectionTests
 
     private static OperatingObservation Obs(int second, double pressure, double? watts, double? mhz, int? active, int? total) =>
         new(T0.AddSeconds(second), pressure, watts, mhz, active, total, EnvelopeZone.Efficient, null, EnvelopeDecisionKind.None);
-}
+
+    [Fact]
+    public void AvailableDimensions_RequiresActualUsableSamples()
+    {
+        var observations = new[]
+        {
+            Obs(0, 20, null, 2500, null, 16),
+            Obs(1, 30, null, 2800, null, 16),
+        };
+
+        var available = PerformanceAtlasProjection.AvailableDimensions(observations);
+
+        Assert.Contains(PerformanceAtlasDimension.CpuPressure, available);
+        Assert.Contains(PerformanceAtlasDimension.EffectiveClock, available);
+        Assert.DoesNotContain(PerformanceAtlasDimension.PackagePower, available);
+        Assert.DoesNotContain(PerformanceAtlasDimension.ActiveCores, available);
+    }
+
+    [Fact]
+    public void ResolveAvailablePair_PreservesValidPreferenceAndExplainsFallback()
+    {
+        var observations = new[]
+        {
+            Obs(0, 20, 30, 2500, null, 16),
+            Obs(1, 40, 50, 3500, null, 16),
+        };
+
+        var valid = PerformanceAtlasProjection.ResolveAvailablePair(observations, PerformanceAtlasDimension.PackagePower, PerformanceAtlasDimension.EffectiveClock);
+        Assert.Equal(PerformanceAtlasDimension.PackagePower, valid.X);
+        Assert.Equal(PerformanceAtlasDimension.EffectiveClock, valid.Y);
+        Assert.False(valid.Changed);
+
+        var fallback = PerformanceAtlasProjection.ResolveAvailablePair(observations, PerformanceAtlasDimension.ActiveCores, PerformanceAtlasDimension.PackagePower);
+        Assert.True(fallback.Changed);
+        Assert.NotEqual(fallback.X, fallback.Y);
+        Assert.Contains(fallback.X, PerformanceAtlasProjection.AvailableDimensions(observations));
+        Assert.Contains(fallback.Y, PerformanceAtlasProjection.AvailableDimensions(observations));
+        Assert.Contains("Cores Awake", fallback.Explanation ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ProjectObservation_MapsTruthfulCurrentValuesIntoNormalizedAtlasCoordinates()
+    {
+        var observations = new[]
+        {
+            Obs(0, 10, 20, 2000, 2, 16),
+            Obs(1, 50, 50, 3500, 8, 16),
+        };
+        var data = PerformanceAtlasProjection.Build(observations, PerformanceAtlasDimension.CpuPressure, PerformanceAtlasDimension.PackagePower, bins: 4);
+
+        var point = PerformanceAtlasProjection.ProjectObservation(data, observations[1]);
+
+        Assert.NotNull(point);
+        Assert.Equal(50, point!.XValue, 6);
+        Assert.Equal(50, point.YValue, 6);
+        Assert.InRange(point.X, 0, 1);
+        Assert.InRange(point.Y, 0, 1);
+    }}
