@@ -552,6 +552,7 @@ public sealed partial class MainWindow : Window
         var tuningEntitlement = ResolveTuningEntitlement(snapshot);
         _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, tuningEntitlement, ViewModel.OperatingHistory, _analyticalSelection);
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
+        PerformanceTimeline.SetCoreThreadState(_recorder.LatestRichTelemetry?.LogicalProcessors);
         PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
         PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
         PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);

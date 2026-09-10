@@ -14,4 +14,5 @@ public sealed record DashboardTelemetry(
     double? MemoryUsedPercent = null,
     string? MachineName = null,
     int? ActiveCores = null,
-    int? TotalCores = null);
+    int? TotalCores = null,
+    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null);

@@ -49,12 +49,14 @@ public sealed class WindowsSystemMetricsProviderTests
     public void DashboardTelemetrySource_ForwardsCoreCountsFromSystemProvider()
     {
         var now = DateTimeOffset.UtcNow;
-        using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(new SystemMetricsSnapshot(42, "reference-host", 7, 16)));
+        var logical = new[] { new LogicalProcessorTelemetry(0, 0, false, 22), new LogicalProcessorTelemetry(1, 0, true, 0) };
+        using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(new SystemMetricsSnapshot(42, "reference-host", 7, 16, logical)));
 
         var telemetry = source.Read(now);
 
         Assert.Equal(7, telemetry.ActiveCores);
         Assert.Equal(16, telemetry.TotalCores);
+        Assert.Equal(logical, telemetry.LogicalProcessors);
     }
 
     private sealed class FakeSystemMetricsProvider(SystemMetricsSnapshot snapshot) : ISystemMetricsProvider

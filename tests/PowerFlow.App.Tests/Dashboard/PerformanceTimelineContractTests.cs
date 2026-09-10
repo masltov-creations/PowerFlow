@@ -21,7 +21,7 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("CPU PRESSURE", xaml, StringComparison.Ordinal);
         Assert.Contains("PACKAGE POWER", xaml, StringComparison.Ordinal);
         Assert.Contains("EFFECTIVE CLOCK", xaml, StringComparison.Ordinal);
-        Assert.Contains("CORES AWAKE", xaml, StringComparison.Ordinal);
+        Assert.Contains("CORE / THREADS", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceTimelineProjection.Build", code, StringComparison.Ordinal);
         Assert.Contains("FindNearestObservationIndex", code, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", code, StringComparison.Ordinal);
@@ -49,8 +49,9 @@ public sealed class PerformanceTimelineContractTests
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
 
-        foreach (var name in new[] { "CpuTracePath", "PowerTracePath", "ClockTracePath", "CoresTracePath" })
+        foreach (var name in new[] { "CpuTracePath", "PowerTracePath", "ClockTracePath", "CoreHistoryPath" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CoreThreadLayer\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<Polyline", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("new Polyline", code, StringComparison.Ordinal);
         Assert.DoesNotContain("PlotCanvas.Children.Clear()", code, StringComparison.Ordinal);

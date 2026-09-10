@@ -26,7 +26,12 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         try { machine = Environment.MachineName; } catch { }
 
         var coreSnapshot = _parking.Read();
-        return new SystemMetricsSnapshot(used, machine, coreSnapshot.AwakePhysicalCores, coreSnapshot.TotalPhysicalCores);
+        return new SystemMetricsSnapshot(
+            used,
+            machine,
+            coreSnapshot.AwakePhysicalCores,
+            coreSnapshot.TotalPhysicalCores,
+            coreSnapshot.LogicalProcessors);
     }
 
     public void Dispose() => _parking.Dispose();
@@ -64,8 +69,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
     {
         private const uint PdhFmtDouble = 0x00000200;
         private const int RelationProcessorCore = 0;
-        private readonly Dictionary<int, int> _logicalToPhysical = new();
-        private readonly List<(int PhysicalCore, IntPtr Counter)> _counters = new();
+        private readonly List<LogicalProcessorCounters> _counters = [];
         private IntPtr _query;
 
         public CoreParkingReader()
@@ -73,7 +77,6 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             try
             {
                 var topology = ReadSingleGroupTopology();
-                foreach (var pair in topology) _logicalToPhysical[pair.Key] = pair.Value;
                 TotalPhysicalCores = topology.Count == 0 ? null : topology.Values.Distinct().Count();
                 if (topology.Count == 0 || PdhOpenQuery(null, IntPtr.Zero, out _query) != 0)
                 {
@@ -83,16 +86,22 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
 
                 foreach (var pair in topology.OrderBy(pair => pair.Key))
                 {
-                    var path = $@"\Processor Information(0,{pair.Key})\Parking Status";
-                    if (PdhAddEnglishCounter(_query, path, IntPtr.Zero, out var counter) == 0)
-                        _counters.Add((pair.Value, counter));
+                    var parkingPath = $@"\Processor Information(0,{pair.Key})\Parking Status";
+                    if (PdhAddEnglishCounter(_query, parkingPath, IntPtr.Zero, out var parkingCounter) != 0)
+                    {
+                        ResetQuery();
+                        return;
+                    }
+
+                    var utilityPath = $@"\Processor Information(0,{pair.Key})\% Processor Utility";
+                    var utilityCounter = IntPtr.Zero;
+                    _ = PdhAddEnglishCounter(_query, utilityPath, IntPtr.Zero, out utilityCounter);
+                    _counters.Add(new LogicalProcessorCounters(pair.Key, pair.Value, parkingCounter, utilityCounter));
                 }
 
                 if (_counters.Count != topology.Count)
                 {
-                    PdhCloseQuery(_query);
-                    _query = IntPtr.Zero;
-                    _counters.Clear();
+                    ResetQuery();
                     return;
                 }
 
@@ -100,9 +109,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             }
             catch
             {
-                if (_query != IntPtr.Zero) PdhCloseQuery(_query);
-                _query = IntPtr.Zero;
-                _counters.Clear();
+                ResetQuery();
             }
         }
 
@@ -111,22 +118,38 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         public CoreParkingSnapshot Read()
         {
             if (_query == IntPtr.Zero || _counters.Count == 0)
-                return new CoreParkingSnapshot(null, TotalPhysicalCores);
+                return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
             if (PdhCollectQueryData(_query) != 0)
-                return new CoreParkingSnapshot(null, TotalPhysicalCores);
+                return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
 
-            var states = new List<CoreParkingState>(_counters.Count);
+            var logical = new List<LogicalProcessorTelemetry>(_counters.Count);
             foreach (var entry in _counters)
             {
-                if (PdhGetFormattedCounterValue(entry.Counter, PdhFmtDouble, out _, out var value) != 0 || value.CStatus != 0)
-                    return new CoreParkingSnapshot(null, TotalPhysicalCores);
-                states.Add(new CoreParkingState(entry.PhysicalCore, IsParked: value.DoubleValue >= 0.5d));
+                if (PdhGetFormattedCounterValue(entry.ParkingCounter, PdhFmtDouble, out _, out var parkedValue) != 0 || parkedValue.CStatus != 0)
+                    return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
+
+                double? utilization = null;
+                if (entry.UtilityCounter != IntPtr.Zero &&
+                    PdhGetFormattedCounterValue(entry.UtilityCounter, PdhFmtDouble, out _, out var utilityValue) == 0 &&
+                    utilityValue.CStatus == 0 && double.IsFinite(utilityValue.DoubleValue))
+                {
+                    utilization = Math.Clamp(utilityValue.DoubleValue, 0d, 100d);
+                }
+
+                logical.Add(new LogicalProcessorTelemetry(
+                    entry.LogicalProcessor,
+                    entry.PhysicalCore,
+                    IsParked: parkedValue.DoubleValue >= 0.5d,
+                    UtilizationPercent: utilization));
             }
 
-            return new CoreParkingSnapshot(CountAwakePhysicalCores(states), TotalPhysicalCores);
+            var awake = CountAwakePhysicalCores(logical.Select(state => new CoreParkingState(state.PhysicalCoreIndex, state.IsParked)));
+            return new CoreParkingSnapshot(awake, TotalPhysicalCores, logical);
         }
 
-        public void Dispose()
+        public void Dispose() => ResetQuery();
+
+        private void ResetQuery()
         {
             if (_query != IntPtr.Zero) PdhCloseQuery(_query);
             _query = IntPtr.Zero;
@@ -179,6 +202,8 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             }
         }
 
+        private sealed record LogicalProcessorCounters(int LogicalProcessor, int PhysicalCore, IntPtr ParkingCounter, IntPtr UtilityCounter);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct PdhFmtCounterValue
         {
@@ -206,5 +231,8 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         private static extern uint PdhCloseQuery(IntPtr query);
     }
 
-    private sealed record CoreParkingSnapshot(int? AwakePhysicalCores, int? TotalPhysicalCores);
+    private sealed record CoreParkingSnapshot(
+        int? AwakePhysicalCores,
+        int? TotalPhysicalCores,
+        IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors);
 }

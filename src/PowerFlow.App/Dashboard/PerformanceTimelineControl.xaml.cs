@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using PowerFlow.Core.Envelope;
+using PowerFlow.Windows.Activity;
 using Windows.Foundation;
 
 namespace PowerFlow.App.Dashboard;
@@ -44,6 +45,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
     private bool _redrawQueued;
     private bool _presentationApplied;
+    private IReadOnlyList<LogicalProcessorTelemetry> _logicalProcessors = Array.Empty<LogicalProcessorTelemetry>();
+    private CoreThreadMapSnapshot _coreThreadMap = CoreThreadMapSnapshot.Empty;
 
     public PerformanceTimelineControl()
     {
@@ -83,6 +86,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
     public event EventHandler<PolicyHandleChangedEventArgs>? PolicyHandleChanged;
+
+    public void SetCoreThreadState(IReadOnlyList<LogicalProcessorTelemetry>? logicalProcessors)
+    {
+        _logicalProcessors = logicalProcessors?.ToArray() ?? Array.Empty<LogicalProcessorTelemetry>();
+        _coreThreadMap = CoreThreadMapProjection.Build(_logicalProcessors);
+        UpdateCoreThreadLabels();
+        RequestRedraw();
+    }
 
     public void SetPolicyContext(OperatingEnvelope learnedEnvelope, PerformanceEntitlement learnedEntitlement, EnvelopeTuning candidateTuning)
     {
@@ -184,7 +195,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             light ? Brush(194, 112, 43, 225) : Brush(255, 177, 92, 235)
         };
 
-        for (var lane = 0; lane < 4; lane++)
+        for (var lane = 0; lane < 3; lane++)
         {
             var top = lane * laneHeight;
             if (lane > 0) AddLine(GridLayer, 0, top, width, top, grid, 1);
@@ -192,6 +203,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
             UpdateTracePath(lane, _data.Lanes[lane], top + 4, Math.Max(1, laneHeight - 8), series[lane]);
             AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 65), top + 2, 11, text);
         }
+
+        var coreTop = laneHeight * 3;
+        AddLine(GridLayer, 0, coreTop, width, coreTop, grid, 1);
+        DrawCoreHistory(_data.Lanes[3], coreTop, laneHeight, series[3]);
+        DrawCoreThreadMap(coreTop, laneHeight, series[3], text);
 
         RedrawPolicy();
         DrawDecisionEvents(height);
@@ -217,10 +233,78 @@ public sealed partial class PerformanceTimelineControl : UserControl
         0 => CpuTracePath,
         1 => PowerTracePath,
         2 => ClockTracePath,
-        3 => CoresTracePath,
         _ => throw new ArgumentOutOfRangeException(nameof(laneIndex))
     };
 
+
+    private void DrawCoreHistory(TimelineLaneProjection lane, double top, double laneHeight, Brush stroke)
+    {
+        var historyHeight = Math.Clamp(laneHeight * .22, 5, 14);
+        var historyTop = top + laneHeight - historyHeight - 2;
+        CoreHistoryPath.Stroke = stroke;
+        CoreHistoryPath.Clip = new RectangleGeometry { Rect = new Rect(0, top, _plotWidth, laneHeight) };
+        var samples = lane.Points
+            .Select(point => point.Y is double y
+                ? (Point?)new Point(point.X * _plotWidth, historyTop + (1 - y) * historyHeight)
+                : null)
+            .ToArray();
+        var maximumGapX = Math.Clamp(10d / Math.Max(1d, _windowSeconds), 0.001d, 1d);
+        CoreHistoryPath.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(samples, maximumGapX));
+    }
+
+    private void DrawCoreThreadMap(double top, double laneHeight, Brush activeBrush, Brush labelBrush)
+    {
+        CoreThreadLayer.Children.Clear();
+        if (_coreThreadMap.Cores.Count == 0)
+        {
+            AddText(CoreThreadLayer, "THREAD MAP UNAVAILABLE", 6, top + Math.Max(3, laneHeight * .30), 11, labelBrush);
+            return;
+        }
+
+        var columns = _coreThreadMap.Cores.Count;
+        var maxRows = Math.Max(1, _coreThreadMap.Cores.Max(core => core.Threads.Count));
+        var historyReserve = Math.Clamp(laneHeight * .25, 7, 15);
+        var mapHeight = Math.Max(12, laneHeight - historyReserve - 3);
+        var pitch = _plotWidth / Math.Max(1, columns);
+        var cell = Math.Clamp(Math.Min(pitch - 3, (mapHeight - Math.Max(0, maxRows - 1) * 2) / maxRows), 4, 11);
+        var rowGap = Math.Min(2d, Math.Max(1d, (mapHeight - cell * maxRows) / Math.Max(1, maxRows)));
+        var matrixHeight = cell * maxRows + rowGap * Math.Max(0, maxRows - 1);
+        var matrixTop = top + Math.Max(2, (mapHeight - matrixHeight) / 2);
+        var light = ActualTheme == ElementTheme.Light;
+        var awakeFill = light ? Brush(194, 112, 43, 82) : Brush(255, 177, 92, 92);
+        var parkedFill = light ? Brush(17, 34, 51, 16) : Brush(255, 255, 255, 12);
+        var parkedStroke = light ? Brush(17, 34, 51, 72) : Brush(255, 255, 255, 58);
+
+        for (var columnIndex = 0; columnIndex < columns; columnIndex++)
+        {
+            var core = _coreThreadMap.Cores[columnIndex];
+            var x = columnIndex * pitch + (pitch - cell) / 2;
+            var threads = core.Threads.OrderBy(thread => thread.LogicalProcessorIndex).ToArray();
+            for (var row = 0; row < threads.Length; row++)
+            {
+                var thread = threads[row];
+                var square = new Rectangle
+                {
+                    Width = cell,
+                    Height = cell,
+                    RadiusX = Math.Min(2.4, cell * .22),
+                    RadiusY = Math.Min(2.4, cell * .22),
+                    StrokeThickness = thread.State == ThreadOccupancyState.Active ? 0 : 1,
+                    Fill = thread.State switch
+                    {
+                        ThreadOccupancyState.Active => activeBrush,
+                        ThreadOccupancyState.AwakeIdle => awakeFill,
+                        _ => parkedFill
+                    },
+                    Stroke = thread.State == ThreadOccupancyState.Parked ? parkedStroke : activeBrush,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(square, x);
+                Canvas.SetTop(square, matrixTop + row * (cell + rowGap));
+                CoreThreadLayer.Children.Add(square);
+            }
+        }
+    }
     private static PathGeometry ToPathGeometry(IReadOnlyList<CurveFigure> figures)
     {
         var geometry = new PathGeometry();
@@ -624,8 +708,9 @@ public sealed partial class PerformanceTimelineControl : UserControl
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
         ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
         CoresValueText.Text = current.ActiveCores is int active
-            ? current.TotalCores is int total ? $"{active}/{total}" : active.ToString()
-            : current.TotalCores is int knownTotal ? $"-/{knownTotal}" : "-";
+            ? current.TotalCores is int total ? $"{active}/{total} awake" : $"{active} awake"
+            : current.TotalCores is int knownTotal ? $"-/{knownTotal} awake" : "-";
+        UpdateCoreThreadLabels();
         var actor = ShortActor(latest.Actor);
         var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" - {actor}";
         var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" - {latest.Decision.ToString().ToUpperInvariant()}";
@@ -637,6 +722,20 @@ public sealed partial class PerformanceTimelineControl : UserControl
             EnvelopeDecisionKind.Qualifying => $"{latest.Zone.ToString().ToUpperInvariant()} - QUALIFYING",
             _ => latest.Zone.ToString().ToUpperInvariant()
         };
+    }
+
+    private void UpdateCoreThreadLabels()
+    {
+        if (_coreThreadMap.TotalThreads == 0)
+        {
+            ToolTipService.SetToolTip(CoresValueText, "Per-thread telemetry unavailable; aggregate awake-core history is still shown.");
+            return;
+        }
+
+        CoresValueText.Text = $"{_coreThreadMap.AwakeCores}/{_coreThreadMap.Cores.Count} awake";
+        ToolTipService.SetToolTip(
+            CoresValueText,
+            $"{_coreThreadMap.ActiveThreads} active threads · {_coreThreadMap.AwakeThreads - _coreThreadMap.ActiveThreads} awake/idle · {_coreThreadMap.ParkedThreads} parked");
     }
 
     private static string FormatObservation(OperatingObservation value)

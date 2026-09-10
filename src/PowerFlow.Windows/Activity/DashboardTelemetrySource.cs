@@ -22,7 +22,8 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             system.MemoryUsedPercent,
             system.MachineName,
             system.ActiveCores,
-            system.TotalCores);
+            system.TotalCores,
+            system.LogicalProcessors);
     }
 
     public void Dispose()
