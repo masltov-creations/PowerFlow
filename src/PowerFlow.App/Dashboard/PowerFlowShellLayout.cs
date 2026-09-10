@@ -23,7 +23,7 @@ public static class PowerFlowShellLayout
                 TrajectoryPresentation.Minimal,
                 ControlContextPresentation.CauseLine,
                 SecondaryPresentation.Hidden,
-                new ShellGeometry(0, 8, 6, 28, 30, 0.72, 24, 0)),
+                new ShellGeometry(0, 5, 3, 22, 22, 0.72, 20, 0)),
 
             PowerFlowShellState.Compact => new(
                 state,

@@ -58,6 +58,10 @@
                         <dash:PowerModeControl x:Name="PowerModeBandHost" Grid.Row="1" ModeRequested="OnPowerModeRequested"/>
 
                         <Grid x:Name="PrimaryAnalyticalRow" Grid.Row="2" ColumnSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition x:Name="PrimaryStatsRow" Height="*"/>
+                                <RowDefinition x:Name="PrimaryGraphRow" Height="0"/>
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="7*" x:Name="PrimaryGraphColumn"/>
                                 <ColumnDefinition Width="3*" x:Name="PrimaryStatsColumn"/>

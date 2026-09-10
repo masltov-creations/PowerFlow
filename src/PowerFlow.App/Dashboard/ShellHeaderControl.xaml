@@ -3,13 +3,14 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
-        <Grid x:Name="MinimalHeader" ColumnSpacing="7" VerticalAlignment="Center">
+        <Grid x:Name="MinimalHeader" ColumnSpacing="6" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Image Source="Assets/PowerFlow.png" Width="20" Height="20" Stretch="Uniform"/>
-            <TextBlock Grid.Column="1" Text="{Binding StateLabel}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <Border Grid.Column="2" Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
-                <TextBlock Text="{Binding ControlBadgeLabel}" FontSize="11" FontWeight="SemiBold"/>
-            </Border>
+            <TextBlock x:Name="GlanceBrandText" Grid.Column="1" Text="PowerFlow" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/>
+                <TextBlock Text="ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+            </StackPanel>
         </Grid>
 
         <Grid x:Name="CompactHeader" Visibility="Collapsed" ColumnSpacing="9" VerticalAlignment="Center">

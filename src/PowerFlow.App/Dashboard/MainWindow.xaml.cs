@@ -298,6 +298,8 @@ public sealed partial class MainWindow : Window
         SystemHeaderRow.ColumnSpacing = profile.Geometry.Gap;
         PrimaryAnalyticalRow.ColumnSpacing = profile.Geometry.Gap;
 
+        ApplyPrimaryAnalyticalLayout(profile);
+
         var graphFraction = Math.Clamp(profile.Geometry.PrimaryGraphFraction, 0.05, 0.95);
         PrimaryGraphColumn.Width = new GridLength(graphFraction, GridUnitType.Star);
         PrimaryStatsColumn.Width = new GridLength(1d - graphFraction, GridUnitType.Star);
@@ -313,9 +315,50 @@ public sealed partial class MainWindow : Window
             : new GridLength(0);
     }
 
+    private void ApplyPrimaryAnalyticalLayout(ShellPresentationProfile profile)
+    {
+        if (profile.Trajectory == TrajectoryPresentation.Minimal)
+        {
+            ApplyGlancePrimaryLayout();
+            return;
+        }
+
+        PrimaryStatsRow.Height = new GridLength(1, GridUnitType.Star);
+        PrimaryGraphRow.Height = new GridLength(0);
+        Grid.SetRow(TrajectoryInstrument, 0);
+        Grid.SetRowSpan(TrajectoryInstrument, 1);
+        Grid.SetColumn(TrajectoryInstrument, 0);
+        Grid.SetColumnSpan(TrajectoryInstrument, 1);
+        Grid.SetRow(LiveStatsInstrument, 0);
+        Grid.SetRowSpan(LiveStatsInstrument, 1);
+        Grid.SetColumn(LiveStatsInstrument, 1);
+        Grid.SetColumnSpan(LiveStatsInstrument, 1);
+        TrajectoryInstrument.Padding = new Thickness(12, 10, 12, 10);
+        LiveStatsInstrument.Padding = new Thickness(12);
+        TrajectoryInstrument.BorderThickness = new Thickness(1);
+        LiveStatsInstrument.BorderThickness = new Thickness(1);
+    }
+
+    private void ApplyGlancePrimaryLayout()
+    {
+        PrimaryStatsRow.Height = new GridLength(32);
+        PrimaryGraphRow.Height = new GridLength(1, GridUnitType.Star);
+        Grid.SetRow(LiveStatsInstrument, 0);
+        Grid.SetRowSpan(LiveStatsInstrument, 1);
+        Grid.SetColumn(LiveStatsInstrument, 0);
+        Grid.SetColumnSpan(LiveStatsInstrument, 2);
+        Grid.SetRow(TrajectoryInstrument, 1);
+        Grid.SetRowSpan(TrajectoryInstrument, 1);
+        Grid.SetColumn(TrajectoryInstrument, 0);
+        Grid.SetColumnSpan(TrajectoryInstrument, 2);
+        LiveStatsInstrument.Padding = new Thickness(3, 0, 3, 1);
+        TrajectoryInstrument.Padding = new Thickness(3, 1, 3, 0);
+        LiveStatsInstrument.BorderThickness = new Thickness(0);
+        TrajectoryInstrument.BorderThickness = new Thickness(0);
+    }
     private static double ResolveTrajectoryHeight(ShellPresentationProfile profile, int height) => profile.Trajectory switch
     {
-        TrajectoryPresentation.Minimal => Math.Clamp(height - 112d, 48, 66),
+        TrajectoryPresentation.Minimal => Math.Clamp(height * 0.28, 48, 56),
         TrajectoryPresentation.Compact => Math.Clamp(height * 0.46, 150, 225),
         _ => Math.Clamp(height * 0.48, 300, 560)
     };

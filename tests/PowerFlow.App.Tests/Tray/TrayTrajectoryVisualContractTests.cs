@@ -13,7 +13,7 @@ public sealed class TrayTrajectoryVisualContractTests
         var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml"));
 
         Assert.Contains("dash:TrajectoryControl", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"CompactTelemetryStrip\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LiveStatsHost\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GlanceTapTarget\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TrajectoryProjection.Create", code, StringComparison.Ordinal);
         Assert.Contains("_recorder.History", code, StringComparison.Ordinal);

@@ -5,10 +5,10 @@
     <Grid>
         <Grid x:Name="CurrentChipLayer" Visibility="Collapsed" ColumnSpacing="7">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Border CornerRadius="10" Padding="9,5" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1">
+            <Border CornerRadius="9" Padding="7,2" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1">
                 <TextBlock Text="{Binding StateLabel}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
             </Border>
-            <Border Grid.Column="1" CornerRadius="9" Padding="7,4" Background="{ThemeResource PowerFlowAutoSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowAutoAccentBrush}" BorderThickness="1">
+            <Border Grid.Column="1" CornerRadius="8" Padding="6,2" Background="{ThemeResource PowerFlowAutoSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowAutoAccentBrush}" BorderThickness="1">
                 <TextBlock Text="{Binding ControlBadgeLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAutoAccentBrush}"/>
             </Border>
         </Grid>

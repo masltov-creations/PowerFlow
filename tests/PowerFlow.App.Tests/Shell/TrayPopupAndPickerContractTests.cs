@@ -24,7 +24,7 @@ public sealed class TrayPopupAndPickerContractTests
         var shellCode = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
 
         Assert.Contains("x:Name=\"ShellRoot\"", shell, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"CompactTelemetryStrip\"", shell, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LiveStatsHost\"", shell, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GlanceTapTarget\"", shell, StringComparison.Ordinal);
         Assert.Contains("dash:TrajectoryControl", shell, StringComparison.Ordinal);
         Assert.Contains("WS_EX_NOACTIVATE", shellCode, StringComparison.Ordinal);
