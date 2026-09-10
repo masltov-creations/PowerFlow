@@ -184,7 +184,9 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
                     snapshot.IsLatched,
                     snapshot.LatchType,
                     snapshot.ThresholdProgress,
-                    snapshot.TriggerApplication));
+                    snapshot.TriggerApplication,
+                    telemetry.ActiveCores,
+                    telemetry.TotalCores));
                 changed = true;
             }
             Interlocked.Increment(ref _richSampleCount);

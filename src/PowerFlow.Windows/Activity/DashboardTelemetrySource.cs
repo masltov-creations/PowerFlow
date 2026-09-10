@@ -17,7 +17,7 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
         var system = _system.Read();
         return new DashboardTelemetry(
             _energy.TryReadWatts(),
-            TryReadAverageMhz(),
+            TryReadAverageMhz(system.TotalCores),
             at,
             system.MemoryUsedPercent,
             system.MachineName);
@@ -25,11 +25,11 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
 
     public void Dispose() => _energy.Dispose();
 
-    private static double? TryReadAverageMhz()
+    private static double? TryReadAverageMhz(int? knownTotalCores = null)
     {
         try
         {
-            var count = GetActiveProcessorCount(0xffff);
+            var count = knownTotalCores is > 0 ? (uint)knownTotalCores.Value : GetActiveProcessorCount(0xffff);
             if (count == 0) return null;
             var info = new ProcessorPowerInformation[count];
             var length = checked((uint)(Marshal.SizeOf<ProcessorPowerInformation>() * info.Length));

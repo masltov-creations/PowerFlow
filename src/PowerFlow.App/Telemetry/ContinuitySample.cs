@@ -13,4 +13,6 @@ public sealed record ContinuitySample(
     bool IsLatched,
     string? LatchType,
     double ThresholdProgress,
-    string? TriggerApplication);
+    string? TriggerApplication,
+    int? ActiveCores = null,
+    int? TotalCores = null);

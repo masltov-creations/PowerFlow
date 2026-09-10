@@ -534,8 +534,8 @@ public sealed partial class MainWindow : Window
             ? "LEARNING"
             : $"{calibration.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
         EnvelopeSummaryText.Text = calibration.SustainedEfficiencyFrontierWatts is double frontier
-            ? $"Efficient frontier near {frontier:0} W for observed sustained work"
-            : "Learning this machine's efficient operating regions";
+            ? $"{ViewModel.GovernorDryRunLabel} · frontier near {frontier:0} W · {ViewModel.GovernorDryRunExplanation}"
+            : $"{ViewModel.GovernorDryRunLabel} · {ViewModel.GovernorDryRunExplanation}";
 
         var actor = ShortActor(snapshot.TriggerApplication);
         SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;

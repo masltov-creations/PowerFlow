@@ -22,4 +22,13 @@ public sealed class WindowsSystemMetricsProviderTests
     {
         Assert.Equal(0d, WindowsSystemMetricsProvider.CalculateUsedPercent(0, 0), 3);
     }
-}
+
+    [Fact]
+    public void TotalProcessorCount_NormalizesNativeCountAndActiveCoresRemainUnavailable()
+    {
+        Assert.Equal(24, WindowsSystemMetricsProvider.NormalizeTotalProcessorCount(24));
+        Assert.Null(WindowsSystemMetricsProvider.NormalizeTotalProcessorCount(0));
+        var snapshot = new SystemMetricsSnapshot(null, "reference-host", null, 24);
+        Assert.Null(snapshot.ActiveCores);
+        Assert.Equal(24, snapshot.TotalCores);
+    }}

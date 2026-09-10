@@ -18,6 +18,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private DateTimeOffset? _lastSampleAt;
     private IReadOnlyList<TransitionRecord> _history = Array.Empty<TransitionRecord>();
+    private string _governorDryRunLabel = "DRY RUN · OBSERVING";
+    private string _governorDryRunExplanation = "Waiting for retained observations";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -101,6 +103,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
     public IReadOnlyList<DashboardSample> Samples => _samples;
     public IReadOnlyList<OperatingObservation> OperatingHistory => _operatingHistory;
+    public string GovernorDryRunLabel => _governorDryRunLabel;
+    public string GovernorDryRunExplanation => _governorDryRunExplanation;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
     public string PromotionRuleLabel => $"CPU > {_config.CpuPromotionThresholdPercent:0.#}% for {_config.CpuPromotionWindow.TotalSeconds:0.#}s";
@@ -122,6 +126,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public void Configure(PowerFlowConfig config)
     {
         _config = config;
+        if (_samples.Count > 0) RebuildOperatingHistory();
         RaiseAll(historyChanged: false);
     }
 
@@ -134,7 +139,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         _telemetry = telemetry;
         _samples.Clear();
         foreach (var sample in continuity.OrderBy(x => x.At))
-            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State));
+            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State, sample.TriggerApplication, sample.ActiveCores, sample.TotalCores));
         _lastSampleAt = _samples.Count > 0 ? _samples[^1].At : null;
         RebuildOperatingHistory();
         RaiseAll(historyChanged);
@@ -151,7 +156,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             _telemetry = telemetry;
             if (_lastSampleAt != telemetry.At)
             {
-                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State));
+                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State, snapshot.TriggerApplication, telemetry.ActiveCores, telemetry.TotalCores));
                 _lastSampleAt = telemetry.At;
                 while (_samples.Count > 120) _samples.RemoveAt(0);
                 RebuildOperatingHistory();
@@ -163,9 +168,61 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private void RebuildOperatingHistory()
     {
         _operatingHistory.Clear();
-        foreach (var sample in _samples)
-            _operatingHistory.Add(OperatingObservationProjection.FromDashboardSample(sample));
+        var raw = _samples
+            .OrderBy(sample => sample.At)
+            .Select(OperatingObservationProjection.FromDashboardSample)
+            .ToArray();
+        if (raw.Length == 0)
+        {
+            _governorDryRunLabel = "DRY RUN · OBSERVING";
+            _governorDryRunExplanation = "Waiting for retained observations";
+            return;
+        }
+
+        var calibration = EnvelopeCalibration.Calibrate(raw);
+        var governor = new EnvelopeGovernor();
+        GovernorDecision? latest = null;
+        foreach (var observation in raw)
+        {
+            var entitlement = ResolveDryRunEntitlement(observation.Actor);
+            var decision = governor.Evaluate(observation, calibration.Envelope, entitlement, observation.At, calibration.Confidence);
+            latest = decision;
+            _operatingHistory.Add(new OperatingObservation(
+                observation.At,
+                observation.CpuPressurePercent,
+                observation.PackageWatts,
+                observation.EffectiveClockMhz,
+                observation.ActiveCores,
+                observation.TotalCores,
+                decision.AllowedZone,
+                observation.Actor,
+                decision.Kind));
+        }
+
+        _governorDryRunLabel = latest!.Kind switch
+        {
+            EnvelopeDecisionKind.Brake => "DRY RUN · BRAKE",
+            EnvelopeDecisionKind.Qualifying => "DRY RUN · QUALIFYING",
+            EnvelopeDecisionKind.Lease => "DRY RUN · LEASE",
+            _ => $"DRY RUN · {latest.AllowedZone.ToString().ToUpperInvariant()}"
+        };
+        _governorDryRunExplanation = latest.Explanation;
     }
+
+    private PerformanceEntitlement ResolveDryRunEntitlement(string? actor)
+    {
+        if (string.IsNullOrWhiteSpace(actor)) return PerformanceEntitlement.LegacyPerformance;
+        var rule = _config.AppRules.FirstOrDefault(candidate => DryRunActorMatches(candidate.ExecutablePath, actor));
+        return rule?.EffectiveEntitlement ?? PerformanceEntitlement.LegacyPerformance;
+    }
+
+    private static bool DryRunActorMatches(string executablePath, string actor)
+    {
+        if (string.Equals(executablePath, actor, StringComparison.OrdinalIgnoreCase)) return true;
+        try { return string.Equals(Path.GetFileName(executablePath), Path.GetFileName(actor), StringComparison.OrdinalIgnoreCase); }
+        catch { return false; }
+    }
+
     private void RaiseAll(bool historyChanged)
     {
         OnPropertyChanged(nameof(StateLabel));
@@ -176,6 +233,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
         OnPropertyChanged(nameof(OperatingHistory));
+        OnPropertyChanged(nameof(GovernorDryRunLabel));
+        OnPropertyChanged(nameof(GovernorDryRunExplanation));
         OnPropertyChanged(nameof(MemoryPercent));
         OnPropertyChanged(nameof(MemoryLabel));
         OnPropertyChanged(nameof(MachineLabel));

@@ -97,6 +97,22 @@ public sealed class TelemetryContinuityRecorderTests
     }
 
     [Fact]
+    public async Task RichSamplePreservesTruthfulCoreAvailability()
+    {
+        var source = new FakeTelemetrySource { Next = new DashboardTelemetry(42, 3800, BaseTime.AddSeconds(5), null, "reference-host", null, 24) };
+        var ticks = new FakeTickFactory();
+        await using var sut = NewRecorder(source, ticks, capacity: 8);
+        sut.UpdateControllerSnapshot(Snapshot(PowerState.Balanced, 35));
+        await sut.StartAsync();
+
+        ticks.Current.ReleaseOne();
+        await sut.WaitForRichSampleAsync();
+
+        var latest = sut.History[^1];
+        Assert.Null(latest.ActiveCores);
+        Assert.Equal(24, latest.TotalCores);
+    }
+    [Fact]
     public async Task RichSourceExceptionDoesNotEscapeRecorderOrEraseContinuity()
     {
         var source = new FakeTelemetrySource { ThrowOnRead = true };

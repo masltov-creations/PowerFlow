@@ -5,7 +5,15 @@ using PowerFlow.Core.Rules;
 
 namespace PowerFlow.App.Dashboard;
 
-public sealed record DashboardSample(DateTimeOffset At, double CpuPercent, double? PackageWatts, double? AverageMhz, PowerState State);
+public sealed record DashboardSample(
+    DateTimeOffset At,
+    double CpuPercent,
+    double? PackageWatts,
+    double? AverageMhz,
+    PowerState State,
+    string? Actor = null,
+    int? ActiveCores = null,
+    int? TotalCores = null);
 
 public static class OperatingObservationProjection
 {
@@ -14,8 +22,8 @@ public static class OperatingObservationProjection
         sample.CpuPercent,
         sample.PackageWatts,
         sample.AverageMhz,
-        null,
-        null,
+        sample.ActiveCores,
+        sample.TotalCores,
         sample.State switch
         {
             PowerState.PowerSaver => EnvelopeZone.Eco,
@@ -23,7 +31,7 @@ public static class OperatingObservationProjection
             PowerState.HighPerformance => EnvelopeZone.Boost,
             _ => EnvelopeZone.Efficient
         },
-        null,
+        sample.Actor,
         EnvelopeDecisionKind.None);
 }
 public sealed record DashboardRuleCard(string Title, string Condition, string Target, string Status, double Activity);

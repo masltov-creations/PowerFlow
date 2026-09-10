@@ -12,4 +12,6 @@ public sealed record DashboardTelemetry(
     double? AverageMhz,
     DateTimeOffset At,
     double? MemoryUsedPercent = null,
-    string? MachineName = null);
+    string? MachineName = null,
+    int? ActiveCores = null,
+    int? TotalCores = null);
