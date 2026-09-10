@@ -13,6 +13,11 @@ public sealed class TimelineCursorChangedEventArgs(int? observationIndex) : Even
     public int? ObservationIndex { get; } = observationIndex;
 }
 
+public sealed class TimelineSelectionChangedEventArgs(IReadOnlyList<int> observationIndices) : EventArgs
+{
+    public IReadOnlyList<int> ObservationIndices { get; } = observationIndices;
+}
+
 public sealed partial class PerformanceTimelineControl : UserControl
 {
     private static readonly OperatingEnvelope DefaultEnvelope = new(25, 55, 80, null, null, null);
@@ -22,6 +27,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private double _windowSeconds = 60;
     private double _plotWidth = 1;
     private double _plotHeight = 1;
+    private HashSet<int> _selectedObservationIndices = [];
 
     public PerformanceTimelineControl()
     {
@@ -57,6 +63,15 @@ public sealed partial class PerformanceTimelineControl : UserControl
         Redraw();
     }
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
+    public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;
+
+    public void SetSelectedObservationIndices(IEnumerable<int>? observationIndices)
+    {
+        _selectedObservationIndices = observationIndices is null
+            ? []
+            : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
+        RedrawSelection();
+    }
 
     public void Apply(
         IReadOnlyList<OperatingObservation> observations,
@@ -87,6 +102,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         PlotCanvas.Children.Clear();
         EnvelopeRailLayer.Children.Clear();
         ActorDecisionLayer.Children.Clear();
+        SelectionLayer.Children.Clear();
 
         var laneHeight = height / 4d;
         var light = ActualTheme == ElementTheme.Light;
@@ -111,6 +127,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
         DrawEnvelopeRails(laneHeight);
         DrawDecisionEvents(height);
+        RedrawSelection();
     }
 
     private void DrawLane(TimelineLaneProjection lane, double top, double height, Brush stroke)
@@ -194,6 +211,41 @@ public sealed partial class PerformanceTimelineControl : UserControl
                 AddText(ActorDecisionLayer, caption, Math.Clamp(x + 3, 3, Math.Max(3, _plotWidth - 120)), 3, 11, brush);
             }
         }
+    }
+
+    private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(CursorLayer).Position;
+        var index = ObservationIndexAt(point);
+        _selectedObservationIndices = index is int observationIndex ? [observationIndex] : [];
+        RedrawSelection();
+        SelectionChanged?.Invoke(this, new TimelineSelectionChangedEventArgs(_selectedObservationIndices.OrderBy(value => value).ToArray()));
+        e.Handled = true;
+    }
+
+    private int? ObservationIndexAt(Point point)
+    {
+        if (_data.Lanes.Count == 0 || _data.Lanes[0].Points.Count == 0) return null;
+        if (point.X < 0 || point.X > _plotWidth || point.Y < 0 || point.Y > _plotHeight) return null;
+        var normalized = Math.Clamp(point.X / Math.Max(1, _plotWidth), 0, 1);
+        return PerformanceTimelineProjection.FindNearestObservationIndex(_data, normalized);
+    }
+
+    private void RedrawSelection()
+    {
+        SelectionLayer.Children.Clear();
+        if (_selectedObservationIndices.Count == 0 || _data.Lanes.Count == 0 || _plotWidth <= 1 || _plotHeight <= 1) return;
+        var points = _data.Lanes[0].Points.Where(point => _selectedObservationIndices.Contains(point.ObservationIndex)).OrderBy(point => point.X).ToArray();
+        if (points.Length == 0) return;
+        var selectionBrush = Brush(244, 250, 255, 220);
+        if (points.Length > 1)
+        {
+            var left = points[0].X * _plotWidth;
+            var right = points[^1].X * _plotWidth;
+            var band = new Rectangle { Width = Math.Max(3, right - left), Height = _plotHeight, Fill = Brush(85, 214, 242, 22), Stroke = Brush(85, 214, 242, 75), StrokeThickness = 1, IsHitTestVisible = false };
+            Canvas.SetLeft(band, left); Canvas.SetTop(band, 0); SelectionLayer.Children.Add(band);
+        }
+        foreach (var point in points) { var x = point.X * _plotWidth; AddLine(SelectionLayer, x, 0, x, _plotHeight, selectionBrush, 1.5); }
     }
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)

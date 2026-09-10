@@ -65,7 +65,8 @@
                     <Canvas x:Name="PlotCanvas" SizeChanged="OnSizeChanged" IsHitTestVisible="False"/>
                     <Canvas x:Name="EnvelopeRailLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="ActorDecisionLayer" IsHitTestVisible="False"/>
-                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited">
+                    <Canvas x:Name="SelectionLayer" IsHitTestVisible="False"/>
+                    <Canvas x:Name="CursorLayer" Background="Transparent" PointerMoved="OnPointerMoved" PointerExited="OnPointerExited" PointerPressed="OnPointerPressed">
                         <Line x:Name="InspectionCursor" Stroke="#8294A6" StrokeThickness="1" Visibility="Collapsed" IsHitTestVisible="False"/>
                     </Canvas>
                     <Border x:Name="CursorCard" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Top"
