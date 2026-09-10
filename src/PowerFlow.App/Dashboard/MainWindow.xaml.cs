@@ -54,7 +54,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
-        ShellHeaderHost.IsPreviewMode = previewMode;
+        SystemHeaderHost.IsPreviewMode = previewMode;
         _controller = controller;
         _recorder = recorder;
         _previewMode = previewMode;
@@ -237,34 +237,23 @@ public sealed partial class MainWindow : Window
 
     private void ApplyShellLayout(PowerFlowShellState state, int width, int height)
     {
-        var shell = PowerFlowShellLayout.Resolve(width, height, state, _currentSection);
-        if (shell.State != state && state == PowerFlowShellState.Compact) _shellState = shell.State;
+        var profile = PowerFlowShellLayout.Resolve(width, height, state, _currentSection);
+        if (profile.State != state && state == PowerFlowShellState.Compact) _shellState = profile.State;
+
+        SystemHeaderHost.Presentation = profile.Header;
+        PowerModeBandHost.Presentation = profile.Modes;
+        LiveStatsHost.Presentation = profile.Stats;
+        ControlContextBandHost.Presentation = profile.ControlContext;
+        SecondaryOperationalRow.Presentation = profile.Secondary;
+        Trajectory.SetShellPresentation(profile.Trajectory, ResolveTrajectoryHeight(profile, height));
+
+        ApplyNavigationPresentation(profile.Navigation, profile.Geometry.NavigationWidth);
+        ApplyCockpitGeometry(profile, state, width, height);
+
         var glance = state == PowerFlowShellState.Glance;
-        var compact = state == PowerFlowShellState.Compact;
         var expanded = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen;
-
-        // Temporary semantic-to-current-XAML adapter. Task 4 replaces this with the reference cockpit composition.
-        ShellHeaderHost.Presentation = shell.Header;
-        PowerModeHost.Presentation = shell.Modes;
-
-        var showNavigationRail = shell.Navigation == NavigationPresentation.Rail;
-        var showModeSurface = shell.Modes != ModePresentation.CurrentChip;
-        var showFullStats = shell.Stats == StatsPresentation.FullRail;
-        var showExpandedContext = shell.ControlContext == ControlContextPresentation.Modules || shell.Secondary == SecondaryPresentation.Full;
-
-        NavigationRail.IsPaneVisible = showNavigationRail;
-        NavigationRail.IsPaneToggleButtonVisible = showNavigationRail;
-        ModeSelectorHost.Visibility = showModeSurface ? Visibility.Visible : Visibility.Collapsed;
-        LiveStatsPanel.Visibility = showFullStats ? Visibility.Visible : Visibility.Collapsed;
-        LowerContextGrid.Visibility = showExpandedContext ? Visibility.Visible : Visibility.Collapsed;
-        NavigationRail.PaneDisplayMode = showNavigationRail ? NavigationViewPaneDisplayMode.Left : NavigationViewPaneDisplayMode.LeftMinimal;
-        if (showNavigationRail) NavigationRail.OpenPaneLength = shell.Geometry.NavigationWidth;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
         PresentationActions.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        CompactTelemetryStrip.Visibility = glance || compact ? Visibility.Visible : Visibility.Collapsed;
-        TelemetryCard.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        ExpandedContextRail.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        FullScreenContext.Visibility = state == PowerFlowShellState.FullScreen ? Visibility.Visible : Visibility.Collapsed;
         CompactButton.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         PresentationToggleButton.Content = state switch
         {
@@ -273,37 +262,63 @@ public sealed partial class MainWindow : Window
             PowerFlowShellState.FullScreen => "RESTORE",
             _ => "OPEN"
         };
-
-        StateLabelText.FontSize = glance ? 16 : compact ? 18 : 21;
-        ReasonText.MaxWidth = glance ? 160 : compact ? 280 : Math.Clamp(width * 0.32, 360, 620);
-        DashboardPanel.Padding = new Thickness(shell.Geometry.ContentPadding);
-        DashboardPanel.RowSpacing = shell.Geometry.Gap;
-        HeaderGrid.ColumnSpacing = shell.Geometry.Gap;
-        ExpandedContextGrid.ColumnSpacing = shell.Geometry.Gap;
-
-        DashboardLayoutProfile legacy;
-        if (glance)
-        {
-            legacy = new DashboardLayoutProfile(DashboardPresentationMode.Compressed, true, false, false, false,
-                16, 13, 6, 4, 6, 160, Math.Clamp(height - 110d, 48, 66), 3, 180, 8);
-            Trajectory.Height = Math.Clamp(height - 110d, 48, 66);
-            Trajectory.MinHeight = 0;
-        }
-        else
-        {
-            legacy = DashboardResponsiveLayout.Resolve(width, height, state == PowerFlowShellState.FullScreen);
-            Trajectory.Height = double.NaN;
-            Trajectory.MinHeight = 0;
-        }
-        Trajectory.SetLayoutProfile(legacy);
-        CpuValueText.FontSize = legacy.MetricFontSize;
-        WattsValueText.FontSize = legacy.MetricFontSize;
-        ClockValueText.FontSize = legacy.MetricFontSize;
-        CompactCpuValue.FontSize = Math.Max(14, legacy.MetricFontSize - 1);
-        CompactWattsValue.FontSize = Math.Max(14, legacy.MetricFontSize - 1);
-        CompactClockValue.FontSize = Math.Max(14, legacy.MetricFontSize - 1);
     }
 
+    private void ApplyNavigationPresentation(NavigationPresentation presentation, double openWidth)
+    {
+        NavigationRail.OpenPaneLength = Math.Max(128, openWidth);
+        NavigationRail.CompactPaneLength = 46;
+        switch (presentation)
+        {
+            case NavigationPresentation.Rail:
+                NavigationRail.IsPaneVisible = true;
+                NavigationRail.IsPaneToggleButtonVisible = false;
+                NavigationRail.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+                NavigationRail.IsPaneOpen = true;
+                break;
+            case NavigationPresentation.Overlay:
+                NavigationRail.IsPaneVisible = true;
+                NavigationRail.IsPaneToggleButtonVisible = true;
+                NavigationRail.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+                NavigationRail.IsPaneOpen = false;
+                break;
+            default:
+                NavigationRail.IsPaneVisible = false;
+                NavigationRail.IsPaneToggleButtonVisible = false;
+                NavigationRail.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+                NavigationRail.IsPaneOpen = false;
+                break;
+        }
+    }
+
+    private void ApplyCockpitGeometry(ShellPresentationProfile profile, PowerFlowShellState state, int width, int height)
+    {
+        CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
+        CockpitSurface.RowSpacing = profile.Geometry.Gap;
+        SystemHeaderRow.ColumnSpacing = profile.Geometry.Gap;
+        PrimaryAnalyticalRow.ColumnSpacing = profile.Geometry.Gap;
+
+        var graphFraction = Math.Clamp(profile.Geometry.PrimaryGraphFraction, 0.05, 0.95);
+        PrimaryGraphColumn.Width = new GridLength(graphFraction, GridUnitType.Star);
+        PrimaryStatsColumn.Width = new GridLength(1d - graphFraction, GridUnitType.Star);
+
+        SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
+        ModeBandRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.ModeBandHeight));
+        ControlBandRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.ControlBandHeight));
+        SecondaryBandRowDefinition.Height = profile.Secondary == SecondaryPresentation.Hidden
+            ? new GridLength(0)
+            : new GridLength(Math.Max(0, profile.Geometry.SecondaryBandHeight));
+        FooterRowDefinition.Height = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen
+            ? GridLength.Auto
+            : new GridLength(0);
+    }
+
+    private static double ResolveTrajectoryHeight(ShellPresentationProfile profile, int height) => profile.Trajectory switch
+    {
+        TrajectoryPresentation.Minimal => Math.Clamp(height - 112d, 48, 66),
+        TrajectoryPresentation.Compact => Math.Clamp(height * 0.46, 150, 225),
+        _ => Math.Clamp(height * 0.48, 300, 560)
+    };
     private RectInt32 ResolveTargetBounds(PowerFlowShellState state)
     {
         if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work)
@@ -394,29 +409,23 @@ public sealed partial class MainWindow : Window
         var low = Math.Min(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
         var high = Math.Max(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
         if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Compact) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Compact))
-        {
-            yield return ModeSelectorHost;
             yield return PresentationActions;
-        }
         if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Expanded) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Expanded))
         {
             yield return NavigationRail;
-            yield return LiveStatsPanel;
-            yield return LowerContextGrid;
-            yield return TelemetryCard;
-            yield return ExpandedContextRail;
+            yield return SecondaryOperationalRow;
+            yield return StatusFooter;
         }
     }
 
     private void ResetTransitionDetailPresentation()
     {
-        foreach (var element in new UIElement[] { ModeSelectorHost, PresentationActions, NavigationRail, LiveStatsPanel, LowerContextGrid, TelemetryCard, ExpandedContextRail })
+        foreach (var element in new UIElement[] { PresentationActions, NavigationRail, SecondaryOperationalRow, StatusFooter })
         {
             element.Opacity = 1;
             ElementCompositionPreview.GetElementVisual(element).Offset = Vector3.Zero;
         }
     }
-
     private void ApplyActivationMode(ShellActivationMode mode, PowerFlowShellState state)
     {
         var style = GetWindowLongPtr(_hwnd, GwlExStyle).ToInt64();
@@ -492,16 +501,24 @@ public sealed partial class MainWindow : Window
                 break;
         }
     }
-    private async void OnOpenRulesClicked(object sender, RoutedEventArgs e)
+    private Task OpenSectionAsync(string section)
     {
-        SelectSection("rules");
-        await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
+        SelectSection(section);
+        return TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
     }
 
-    private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e)
+    private async void OnOpenRulesClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("rules");
+    private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("settings");
+    private async void OnOperationalRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
+    private async void OnOperationalSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
+
+    private async void OnReleaseManualRequested(object? sender, EventArgs e)
     {
-        SelectSection("settings");
-        await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
+        var snapshot = _controller.Snapshot;
+        if (!snapshot.IsLatched || !string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase)) return;
+        await _controller.ReleaseManualLatchAsync();
+        ViewModel.UpdateContinuity(_controller.Snapshot, _recorder.History, _recorder.LatestRichTelemetry);
+        ApplyVisualState(_controller.Snapshot);
     }
     private async void OnTrajectoryAutoRequested(object? sender, EventArgs e)
     {
@@ -566,7 +583,7 @@ public sealed partial class MainWindow : Window
         _currentSection = tag;
         if (tag != "flow" && _shellState is PowerFlowShellState.Glance or PowerFlowShellState.Compact)
             await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
-        DashboardPanel.Visibility = tag == "flow" ? Visibility.Visible : Visibility.Collapsed;
+        CockpitSurface.Visibility = tag == "flow" ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
     }

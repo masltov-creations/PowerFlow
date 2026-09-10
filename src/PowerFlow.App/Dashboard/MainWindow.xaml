@@ -5,85 +5,101 @@
     xmlns:dash="using:PowerFlow.App.Dashboard"
     xmlns:settings="using:PowerFlow.App.Settings">
     <Grid x:Name="ShellRoot" Background="{ThemeResource PowerFlowCanvasBrush}">
-        <NavigationView x:Name="NavigationRail" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" PaneDisplayMode="LeftMinimal" IsPaneToggleButtonVisible="False" SelectionChanged="OnNavigationChanged" Background="Transparent">
-            <NavigationView.MenuItems>
-                <NavigationViewItem Content="Dashboard" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Home"/></NavigationViewItem.Icon></NavigationViewItem>
-                <NavigationViewItem Content="Rules" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
-                <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
-            </NavigationView.MenuItems>
-            <Grid>
-                <Grid x:Name="DashboardPanel" Padding="14" RowSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+        <Grid x:Name="CockpitRoot">
+            <NavigationView
+                x:Name="NavigationRail"
+                IsBackButtonVisible="Collapsed"
+                IsSettingsVisible="False"
+                IsPaneToggleButtonVisible="False"
+                IsPaneOpen="True"
+                PaneDisplayMode="Left"
+                OpenPaneLength="144"
+                CompactPaneLength="46"
+                SelectionChanged="OnNavigationChanged"
+                Background="Transparent">
+                <NavigationView.PaneHeader>
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,8,0,12">
+                        <Grid Width="28" Height="28">
+                            <Ellipse Fill="{ThemeResource PowerFlowGlowBrush}"/>
+                            <Image Source="Assets/PowerFlow.png" Width="25" Height="25" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center" Spacing="0">
+                            <TextBlock Text="POWERFLOW" FontSize="12" FontWeight="SemiBold" CharacterSpacing="70"/>
+                            <TextBlock Text="POWER CONTROL" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </NavigationView.PaneHeader>
+                <NavigationView.MenuItems>
+                    <NavigationViewItem Content="Dashboard" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Home"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Rules / Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
+                </NavigationView.MenuItems>
 
-                    <Border x:Name="BrandHeader" CornerRadius="15" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="14,9">
-                        <Grid ColumnSpacing="12">
+                <Grid x:Name="SectionHost">
+                    <Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/>
+                            <RowDefinition x:Name="ModeBandRowDefinition" Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition x:Name="ControlBandRowDefinition" Height="Auto"/>
+                            <RowDefinition x:Name="SecondaryBandRowDefinition" Height="Auto"/>
+                            <RowDefinition x:Name="FooterRowDefinition" Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <dash:ShellHeaderControl x:Name="ShellHeaderHost"/>
+                            <dash:ShellHeaderControl x:Name="SystemHeaderHost"/>
                             <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <Button x:Name="CompactButton" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/>
                                 <Button x:Name="PresentationToggleButton" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/>
                             </StackPanel>
                         </Grid>
-                    </Border>
-                    <Grid x:Name="ModeSelectorHost" Grid.Row="1">
-                        <dash:PowerModeControl x:Name="PowerModeHost" ModeRequested="OnPowerModeRequested"/>
-                    </Grid>
-                    <Grid x:Name="MainContentGrid" Grid.Row="2" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="2.1*"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
-                        <Border x:Name="HeroTrajectoryPanel" Grid.Column="0" CornerRadius="15" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="13">
-                            <Grid RowSpacing="8">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <Grid x:Name="HeaderGrid" ColumnSpacing="10">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel x:Name="IdentityPanel" Spacing="1" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock x:Name="StateLabelText" Text="{Binding StateLabel}" FontSize="18" FontWeight="SemiBold"/>
-                                            <Border Padding="7,2" CornerRadius="8" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding BadgeLabel}" FontSize="11"/></Border>
-                                        </StackPanel>
-                                        <TextBlock x:Name="ReasonText" Text="{Binding Reason}" FontSize="12" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="480"/>
-                                    </StackPanel>
-                                    <Border x:Name="CompactTelemetryStrip" Grid.Column="1" CornerRadius="11" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="10,6">
-                                        <Grid ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                            <StackPanel><TextBlock Text="CPU" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="CompactCpuValue" Text="{Binding CpuLabel}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowCpuBrush}"/></StackPanel>
-                                            <StackPanel Grid.Column="1"><TextBlock Text="PACKAGE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="CompactWattsValue" Text="{Binding WattsLabel}" FontSize="15" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowPowerBrush}"/></StackPanel>
-                                            <StackPanel Grid.Column="2"><TextBlock Text="AVG CLOCK" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="CompactClockValue" Text="{Binding FrequencyLabel}" FontSize="15" FontWeight="SemiBold"/></StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
-                                <dash:TrajectoryControl x:Name="Trajectory" Grid.Row="1"/>
-                            </Grid>
-                        </Border>
 
-                        <Border x:Name="LiveStatsPanel" Grid.Column="1" CornerRadius="15" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="13">
-                            <Grid RowSpacing="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="LIVE STATS" FontSize="13" FontWeight="SemiBold"/><Border Grid.Column="1" Background="{ThemeResource PowerFlowSaverSurfaceBrush}" CornerRadius="9" Padding="7,3"><StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="7" Height="7" Fill="{ThemeResource PowerFlowHealthyBrush}"/><TextBlock Text="ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowHealthyBrush}"/></StackPanel></Border></Grid>
-                                <Grid Grid.Row="1" ColumnSpacing="7"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Border CornerRadius="11" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" Padding="9"><StackPanel><TextBlock Text="CPU" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="CpuValueText" Text="{Binding CpuLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowCpuBrush}"/></StackPanel></Border>
-                                    <Border Grid.Column="1" CornerRadius="11" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" Padding="9"><StackPanel><TextBlock Text="PACKAGE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="WattsValueText" Text="{Binding WattsLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowPowerBrush}"/></StackPanel></Border>
-                                    <Border Grid.Column="2" CornerRadius="11" Background="{ThemeResource PowerFlowSurfaceElevatedBrush}" Padding="9"><StackPanel><TextBlock Text="AVG CLOCK" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock x:Name="ClockValueText" Text="{Binding FrequencyLabel}" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
-                                </Grid>
-                                <Border x:Name="TelemetryCard" Grid.Row="2" CornerRadius="11" Background="{ThemeResource PowerFlowPanelBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="10"><StackPanel Spacing="5"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="POLICY PRESSURE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Grid.Column="1" Text="{Binding BadgeLabel}" FontSize="11"/></Grid><ProgressBar Maximum="1" Value="{Binding FlowProgress}" Height="6"/><TextBlock Text="{Binding NextActionLabel}" FontSize="12" TextWrapping="Wrap"/></StackPanel></Border>
-                                <StackPanel Grid.Row="3" Spacing="6"><TextBlock Text="CURRENT CONTEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding TriggerApplication}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Reason}" FontSize="12" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextWrapping="Wrap"/></StackPanel>
-                            </Grid>
-                        </Border>
+                        <dash:PowerModeControl x:Name="PowerModeBandHost" Grid.Row="1" ModeRequested="OnPowerModeRequested"/>
+
+                        <Grid x:Name="PrimaryAnalyticalRow" Grid.Row="2" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="7*" x:Name="PrimaryGraphColumn"/>
+                                <ColumnDefinition Width="3*" x:Name="PrimaryStatsColumn"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="TrajectoryInstrument" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,10">
+                                <dash:TrajectoryControl x:Name="Trajectory"/>
+                            </Border>
+                            <Border x:Name="LiveStatsInstrument" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}">
+                                <dash:LiveStatsControl x:Name="LiveStatsHost"/>
+                            </Border>
+                        </Grid>
+
+                        <dash:ControlContextControl
+                            x:Name="ControlContextBandHost"
+                            Grid.Row="3"
+                            ReleaseManualRequested="OnReleaseManualRequested"/>
+
+                        <dash:OperationalContextControl
+                            x:Name="SecondaryOperationalRow"
+                            Grid.Row="4"
+                            RulesRequested="OnOperationalRulesRequested"
+                            SettingsRequested="OnOperationalSettingsRequested"/>
+
+                        <Grid x:Name="StatusFooter" Grid.Row="5" ColumnSpacing="10" Opacity="0.78">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/>
+                                <TextBlock Text="POWERFLOW ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                <TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding NextActionLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/>
+                            </StackPanel>
+                        </Grid>
                     </Grid>
 
-                    <Grid x:Name="LowerContextGrid" Grid.Row="3" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                        <Border x:Name="ActiveRulePanel" CornerRadius="14" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="12"><StackPanel Spacing="4"><TextBlock Text="ACTIVE POLICY" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding TriggerApplication}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding NextActionLabel}" FontSize="12" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextWrapping="Wrap"/><ProgressBar Maximum="1" Value="{Binding FlowProgress}" Height="5"/></StackPanel></Border>
-                        <Border x:Name="RecentEventsPanel" Grid.Column="1" CornerRadius="14" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="12"><StackPanel Spacing="5"><TextBlock Text="RECENT EVENTS" FontSize="12" FontWeight="SemiBold"/><ItemsControl ItemsSource="{Binding RecentEventLines}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></StackPanel></Border>
-                        <Border x:Name="QuickActionsPanel" Grid.Column="2" CornerRadius="14" Background="{ThemeResource PowerFlowSurfaceBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="12"><Grid RowSpacing="6"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition/></Grid.RowDefinitions><TextBlock Text="QUICK ACTIONS" FontSize="12" FontWeight="SemiBold"/><Grid Grid.Row="1" ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Button Content="RULES" Click="OnOpenRulesClicked" HorizontalAlignment="Stretch" FontSize="11"/><Button Grid.Column="1" Content="SETTINGS" Click="OnOpenSettingsClicked" HorizontalAlignment="Stretch" FontSize="11"/></Grid><Border x:Name="ExpandedContextRail" Grid.Row="2" CornerRadius="9" Background="{ThemeResource PowerFlowPanelBrush}" Padding="8"><Grid x:Name="ExpandedContextGrid" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="PROMOTE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding PromotionRuleLabel}" FontSize="11" TextWrapping="Wrap"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="QUIET" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding QuietRuleLabel}" FontSize="11" TextWrapping="Wrap"/></StackPanel><StackPanel x:Name="FullScreenContext" Grid.ColumnSpan="2" Visibility="Collapsed" HorizontalAlignment="Right"><TextBlock Text="FULL COCKPIT" FontSize="11" Foreground="{ThemeResource PowerFlowAccentBrush}"/></StackPanel></Grid></Border></Grid></Border>
-                    </Grid>
+                    <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
+                    <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
                 </Grid>
-                <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
-                <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
-            </Grid>
-        </NavigationView>
+            </NavigationView>
+        </Grid>
         <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" AutomationProperties.Name="Open PowerFlow dashboard"/>
     </Grid>
 </Window>

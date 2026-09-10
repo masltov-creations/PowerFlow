@@ -99,6 +99,16 @@ public sealed class DashboardInformationArchitectureTests
         Assert.Contains("game.exe", meter.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void ExpandedPresentation_PreservesAllFiveOperationalAnswers()
+    {
+        var profile = PowerFlowShellLayout.Resolve(1280, 800, PowerFlowShellState.Expanded, "flow");
+        Assert.Equal(ModePresentation.Cards, profile.Modes);
+        Assert.Equal(StatsPresentation.FullRail, profile.Stats);
+        Assert.Equal(TrajectoryPresentation.Full, profile.Trajectory);
+        Assert.Equal(ControlContextPresentation.Modules, profile.ControlContext);
+        Assert.Equal(SecondaryPresentation.Full, profile.Secondary);
+    }
     private static ControllerSnapshot Snapshot(PowerState state, double cpu, DateTimeOffset at) =>
         new(state, "test", false, null, cpu, 0, null, null, at, [], 0, 0);
 }

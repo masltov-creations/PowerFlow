@@ -2,7 +2,8 @@
 <Application
     x:Class="PowerFlow.App.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dash="using:PowerFlow.App.Dashboard">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -10,14 +11,14 @@
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF07111E"/>
-                    <SolidColorBrush x:Key="PowerFlowCanvasBrush" Color="#FF07111E"/>
-                    <SolidColorBrush x:Key="PowerFlowSurfaceBrush" Color="#D90B1828"/>
-                    <SolidColorBrush x:Key="PowerFlowSurfaceElevatedBrush" Color="#F0102034"/>
+                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF071019"/>
+                    <SolidColorBrush x:Key="PowerFlowCanvasBrush" Color="#FF071019"/>
+                    <SolidColorBrush x:Key="PowerFlowSurfaceBrush" Color="#F20C1824"/>
+                    <SolidColorBrush x:Key="PowerFlowSurfaceElevatedBrush" Color="#FF112331"/>
                     <SolidColorBrush x:Key="PowerFlowCardBrush" Color="#E00C1929"/>
-                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#D2081423"/>
-                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#55406A89"/>
-                    <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF21D9FF"/>
+                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#F20A1520"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#FF244151"/>
+                    <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF55E6F2"/>
                     <SolidColorBrush x:Key="PowerFlowGlowBrush" Color="#5421D9FF"/>
                     <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#B8C3D8EA"/>
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1C9FDFFF"/>
@@ -25,29 +26,29 @@
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FA10243A"/>
                     <SolidColorBrush x:Key="PowerFlowCpuBrush" Color="#FF24D8FF"/>
                     <SolidColorBrush x:Key="PowerFlowPowerBrush" Color="#FFB55CFF"/>
-                    <SolidColorBrush x:Key="PowerFlowSaverAccentBrush" Color="#FF3EEFA4"/>
-                    <SolidColorBrush x:Key="PowerFlowBalancedAccentBrush" Color="#FF28C7FF"/>
-                    <SolidColorBrush x:Key="PowerFlowPerformanceAccentBrush" Color="#FFFF754B"/>
-                    <SolidColorBrush x:Key="PowerFlowAutoAccentBrush" Color="#FFB264FF"/>
+                    <SolidColorBrush x:Key="PowerFlowSaverAccentBrush" Color="#FF57D77A"/>
+                    <SolidColorBrush x:Key="PowerFlowBalancedAccentBrush" Color="#FF4EDCFF"/>
+                    <SolidColorBrush x:Key="PowerFlowPerformanceAccentBrush" Color="#FFFFB24C"/>
+                    <SolidColorBrush x:Key="PowerFlowAutoAccentBrush" Color="#FFB58BFF"/>
                     <SolidColorBrush x:Key="PowerFlowSaverSurfaceBrush" Color="#3820D786"/>
                     <SolidColorBrush x:Key="PowerFlowBalancedSurfaceBrush" Color="#3828BFFF"/>
                     <SolidColorBrush x:Key="PowerFlowPerformanceSurfaceBrush" Color="#38FF623A"/>
                     <SolidColorBrush x:Key="PowerFlowAutoSurfaceBrush" Color="#38A75CFF"/>
                     <SolidColorBrush x:Key="PowerFlowHealthyBrush" Color="#FF43E69A"/>
-                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF3EEFA4"/>
-                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF28C7FF"/>
-                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFFF754B"/>
+                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF57D77A"/>
+                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF4EDCFF"/>
+                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFFFB24C"/>
                     <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FFF4FAFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF07111E"/>
-                    <SolidColorBrush x:Key="PowerFlowCanvasBrush" Color="#FF07111E"/>
-                    <SolidColorBrush x:Key="PowerFlowSurfaceBrush" Color="#D90B1828"/>
-                    <SolidColorBrush x:Key="PowerFlowSurfaceElevatedBrush" Color="#F0102034"/>
+                    <SolidColorBrush x:Key="PowerFlowWindowBackgroundBrush" Color="#FF071019"/>
+                    <SolidColorBrush x:Key="PowerFlowCanvasBrush" Color="#FF071019"/>
+                    <SolidColorBrush x:Key="PowerFlowSurfaceBrush" Color="#F20C1824"/>
+                    <SolidColorBrush x:Key="PowerFlowSurfaceElevatedBrush" Color="#FF112331"/>
                     <SolidColorBrush x:Key="PowerFlowCardBrush" Color="#E00C1929"/>
-                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#D2081423"/>
-                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#55406A89"/>
-                    <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF21D9FF"/>
+                    <SolidColorBrush x:Key="PowerFlowPanelBrush" Color="#F20A1520"/>
+                    <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#FF244151"/>
+                    <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF55E6F2"/>
                     <SolidColorBrush x:Key="PowerFlowGlowBrush" Color="#5421D9FF"/>
                     <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#B8C3D8EA"/>
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1C9FDFFF"/>
@@ -55,18 +56,18 @@
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FA10243A"/>
                     <SolidColorBrush x:Key="PowerFlowCpuBrush" Color="#FF24D8FF"/>
                     <SolidColorBrush x:Key="PowerFlowPowerBrush" Color="#FFB55CFF"/>
-                    <SolidColorBrush x:Key="PowerFlowSaverAccentBrush" Color="#FF3EEFA4"/>
-                    <SolidColorBrush x:Key="PowerFlowBalancedAccentBrush" Color="#FF28C7FF"/>
-                    <SolidColorBrush x:Key="PowerFlowPerformanceAccentBrush" Color="#FFFF754B"/>
-                    <SolidColorBrush x:Key="PowerFlowAutoAccentBrush" Color="#FFB264FF"/>
+                    <SolidColorBrush x:Key="PowerFlowSaverAccentBrush" Color="#FF57D77A"/>
+                    <SolidColorBrush x:Key="PowerFlowBalancedAccentBrush" Color="#FF4EDCFF"/>
+                    <SolidColorBrush x:Key="PowerFlowPerformanceAccentBrush" Color="#FFFFB24C"/>
+                    <SolidColorBrush x:Key="PowerFlowAutoAccentBrush" Color="#FFB58BFF"/>
                     <SolidColorBrush x:Key="PowerFlowSaverSurfaceBrush" Color="#3820D786"/>
                     <SolidColorBrush x:Key="PowerFlowBalancedSurfaceBrush" Color="#3828BFFF"/>
                     <SolidColorBrush x:Key="PowerFlowPerformanceSurfaceBrush" Color="#38FF623A"/>
                     <SolidColorBrush x:Key="PowerFlowAutoSurfaceBrush" Color="#38A75CFF"/>
                     <SolidColorBrush x:Key="PowerFlowHealthyBrush" Color="#FF43E69A"/>
-                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF3EEFA4"/>
-                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF28C7FF"/>
-                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFFF754B"/>
+                    <SolidColorBrush x:Key="PowerFlowStateSaverBrush" Color="#FF57D77A"/>
+                    <SolidColorBrush x:Key="PowerFlowStateBalancedBrush" Color="#FF4EDCFF"/>
+                    <SolidColorBrush x:Key="PowerFlowStatePerformanceBrush" Color="#FFFFB24C"/>
                     <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FFF4FAFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
@@ -100,6 +101,14 @@
                     <SolidColorBrush x:Key="PowerFlowNowBrush" Color="#FF152A3B"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <dash:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+            <Style x:Key="PowerFlowInstrumentCardStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="13"/>
+                <Setter Property="Background" Value="{ThemeResource PowerFlowSurfaceBrush}"/>
+                <Setter Property="BorderBrush" Value="{ThemeResource PowerFlowCardBorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="12"/>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
