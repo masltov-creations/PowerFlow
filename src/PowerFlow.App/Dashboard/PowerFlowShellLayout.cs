@@ -3,44 +3,56 @@ namespace PowerFlow.App.Dashboard;
 public static class PowerFlowShellLayout
 {
     public static ShellPresentationProfile Resolve(int width, int height, PowerFlowShellState requestedState, string section)
+        => Resolve(width, height, requestedState, section, DefaultDensity(requestedState));
+
+    public static ShellPresentationProfile Resolve(int width, int height, PowerFlowShellState requestedState, string section, ShellDensity density)
     {
         width = Math.Max(1, width);
         height = Math.Max(1, height);
         section = string.IsNullOrWhiteSpace(section) ? "flow" : section;
 
-        var state = requestedState;
-        if (!string.Equals(section, "flow", StringComparison.OrdinalIgnoreCase) && state == PowerFlowShellState.Compact)
-            state = PowerFlowShellState.Expanded;
-
-        return state switch
-        {
-            PowerFlowShellState.Glance => new(
-                state,
+        if (requestedState == PowerFlowShellState.Hidden)
+            return new ShellPresentationProfile(
+                requestedState,
                 NavigationPresentation.None,
                 HeaderPresentation.Minimal,
                 TimelinePresentation.Glance,
                 GovernorControlPresentation.Summary,
-                new ShellGeometry(0, 5, 3, 22, 0)),
+                new ShellGeometry(0, 0, 0, 0, 0));
 
-            PowerFlowShellState.Compact => new(
-                state,
-                NavigationPresentation.Overlay,
-                HeaderPresentation.Compact,
-                TimelinePresentation.Compact,
-                GovernorControlPresentation.Bias,
-                new ShellGeometry(0, 10, 8, 42, 82)),
-
-            PowerFlowShellState.FullScreen => Expanded(width, height, state, fullDensity: true),
-            PowerFlowShellState.Expanded => Expanded(width, height, state, fullDensity: false),
-            _ => new(
-                PowerFlowShellState.Hidden,
+        if (requestedState == PowerFlowShellState.Glance)
+            return new ShellPresentationProfile(
+                requestedState,
                 NavigationPresentation.None,
                 HeaderPresentation.Minimal,
                 TimelinePresentation.Glance,
                 GovernorControlPresentation.Summary,
-                new ShellGeometry(0, 0, 0, 0, 0))
-        };
+                new ShellGeometry(0, 5, 3, 22, 0));
+
+        if (requestedState == PowerFlowShellState.FullScreen)
+            return Expanded(width, height, requestedState, fullDensity: true);
+
+        var effectiveDensity = string.Equals(section, "flow", StringComparison.OrdinalIgnoreCase)
+            ? density
+            : ShellDensity.Expanded;
+
+        return effectiveDensity == ShellDensity.Compact
+            ? Compact(requestedState)
+            : Expanded(width, height, requestedState, fullDensity: false);
     }
+
+    private static ShellDensity DefaultDensity(PowerFlowShellState state)
+        => state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen
+            ? ShellDensity.Expanded
+            : ShellDensity.Compact;
+
+    private static ShellPresentationProfile Compact(PowerFlowShellState state) => new(
+        state,
+        NavigationPresentation.Overlay,
+        HeaderPresentation.Compact,
+        TimelinePresentation.Compact,
+        GovernorControlPresentation.Bias,
+        new ShellGeometry(0, 10, 8, 42, 82));
 
     private static ShellPresentationProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
     {

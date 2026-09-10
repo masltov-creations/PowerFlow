@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
     private bool _shellVisible;
     private double _graphWindowSeconds = 60;
     private PowerFlowShellState _shellState = PowerFlowShellState.Hidden;
+    private ShellDensity _layoutDensity = ShellDensity.Compact;
     private ShellActivationMode _activationMode = ShellActivationMode.PinnedActive;
     private TrayRect? _lastTrayAnchor;
     private TrayRect? _lastWorkArea;
@@ -104,7 +105,6 @@ public sealed partial class MainWindow : Window
         if (trayAnchor is { } anchor) _lastTrayAnchor = anchor;
         if (workArea is { } area) _lastWorkArea = area;
         _currentSection = string.IsNullOrWhiteSpace(section) ? "flow" : section;
-        if (_currentSection != "flow" && state == PowerFlowShellState.Compact) state = PowerFlowShellState.Expanded;
         _visibilityLease ??= _recorder.AcquireVisibility();
         ViewModel.UpdateContinuity(_controller.Snapshot, _recorder.History, _recorder.LatestRichTelemetry);
         ApplyVisualState(_controller.Snapshot);
@@ -119,6 +119,9 @@ public sealed partial class MainWindow : Window
             await HideShellAsync();
             return;
         }
+
+        if (state == PowerFlowShellState.Compact) _layoutDensity = ShellDensity.Compact;
+        else if (state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen) _layoutDensity = ShellDensity.Expanded;
 
         if (state == PowerFlowShellState.FullScreen)
         {
@@ -221,13 +224,11 @@ public sealed partial class MainWindow : Window
 
     private async void OnPresentationToggleClicked(object sender, RoutedEventArgs e)
     {
-        var next = _shellState switch
-        {
-            PowerFlowShellState.Compact => PowerFlowShellState.Expanded,
-            PowerFlowShellState.Expanded => PowerFlowShellState.FullScreen,
-            PowerFlowShellState.FullScreen => PowerFlowShellState.Expanded,
-            _ => PowerFlowShellState.Compact
-        };
+        var next = _shellState == PowerFlowShellState.FullScreen
+            ? PowerFlowShellState.Expanded
+            : _layoutDensity == ShellDensity.Compact
+                ? PowerFlowShellState.Expanded
+                : PowerFlowShellState.FullScreen;
         await TransitionToAsync(next, ShellActivationMode.PinnedActive, animate: true);
     }
 
@@ -238,16 +239,14 @@ public sealed partial class MainWindow : Window
     {
         if ((!args.DidSizeChange && !args.DidPresenterChange) || _suppressResizeModeSync || !_shellVisible) return;
         var logical = CurrentLogicalAppWindowSize();
-        if (IsFullScreenPresenter()) _shellState = PowerFlowShellState.FullScreen;
-        else if (_shellState != PowerFlowShellState.Glance)
-            _shellState = logical.Width >= 900 && logical.Height >= 560 ? PowerFlowShellState.Expanded : PowerFlowShellState.Compact;
+        if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen && !IsFullScreenPresenter())
+            _layoutDensity = ShellResponsiveDensity.Resolve(logical, _layoutDensity);
         ApplyShellLayout(_shellState, logical.Width, logical.Height);
     }
 
     private void ApplyShellLayout(PowerFlowShellState state, int width, int height)
     {
-        var profile = PowerFlowShellLayout.Resolve(width, height, state, _currentSection);
-        if (profile.State != state && state == PowerFlowShellState.Compact) _shellState = profile.State;
+        var profile = PowerFlowShellLayout.Resolve(width, height, state, _currentSection, _layoutDensity);
 
         SystemHeaderHost.Presentation = profile.Header;
         PerformanceTimeline.SetPresentation(profile.Timeline);
@@ -257,17 +256,15 @@ public sealed partial class MainWindow : Window
         ApplyTuningPresentation();
 
         var glance = state == PowerFlowShellState.Glance;
-        var expanded = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen;
+        var expanded = state == PowerFlowShellState.FullScreen || profile.Navigation == NavigationPresentation.Rail;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
         PresentationActions.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         CompactButton.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        PresentationToggleButton.Content = state switch
-        {
-            PowerFlowShellState.Compact => "EXPAND",
-            PowerFlowShellState.Expanded => "FULL SCREEN",
-            PowerFlowShellState.FullScreen => "RESTORE",
-            _ => "OPEN"
-        };
+        PresentationToggleButton.Content = state == PowerFlowShellState.FullScreen
+            ? "RESTORE"
+            : _layoutDensity == ShellDensity.Compact
+                ? "EXPAND"
+                : "FULL SCREEN";
     }
 
     private void ApplyNavigationPresentation(NavigationPresentation presentation, double openWidth)
@@ -337,7 +334,7 @@ public sealed partial class MainWindow : Window
         AdaptiveControlRegion.Visibility = !tuning && profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
         TuneControlRegion.Visibility = tuning ? Visibility.Visible : Visibility.Collapsed;
         SelectedActorPanel.Visibility = profile.GovernorControls == GovernorControlPresentation.Bias && width < 680 ? Visibility.Collapsed : Visibility.Visible;
-        FooterRowDefinition.Height = state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? GridLength.Auto : new GridLength(0);
+        FooterRowDefinition.Height = state == PowerFlowShellState.FullScreen || _layoutDensity == ShellDensity.Expanded ? GridLength.Auto : new GridLength(0);
     }
     private RectInt32 ResolveTargetBounds(PowerFlowShellState state)
     {
@@ -375,8 +372,8 @@ public sealed partial class MainWindow : Window
         _presentationTimer = null;
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var duration = ShellMotionPolicy.Duration(fromState, toState, reducedMotion);
-        var fromProfile = PowerFlowShellLayout.Resolve(Math.Max(1, start.Width), Math.Max(1, start.Height), fromState, _currentSection);
-        var toProfile = PowerFlowShellLayout.Resolve(Math.Max(1, target.Width), Math.Max(1, target.Height), toState, _currentSection);
+        var fromProfile = PowerFlowShellLayout.Resolve(Math.Max(1, start.Width), Math.Max(1, start.Height), fromState, _currentSection, fromState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
+        var toProfile = PowerFlowShellLayout.Resolve(Math.Max(1, target.Width), Math.Max(1, target.Height), toState, _currentSection, toState is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
 
         if (duration == TimeSpan.Zero || start.Equals(target))
         {
