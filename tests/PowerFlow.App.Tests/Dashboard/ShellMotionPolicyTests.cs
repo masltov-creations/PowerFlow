@@ -56,4 +56,48 @@ public sealed class ShellMotionPolicyTests
         Assert.InRange(ShellMotionPolicy.DetailProgress(PowerFlowShellState.Expanded, PowerFlowShellState.Compact, 0.25), 0.45, 0.75);
         Assert.Equal(0, ShellMotionPolicy.DetailProgress(PowerFlowShellState.Expanded, PowerFlowShellState.Compact, 0.67), 6);
     }
-}
+
+    [Fact]
+    public void Expansion_ReformsModesBeforeNavigationArrives()
+    {
+        Assert.True(ShellMotionPolicy.ModeMorphProgress(.35) > 0);
+        Assert.Equal(0, ShellMotionPolicy.NavigationProgress(.35), 6);
+        Assert.True(ShellMotionPolicy.NavigationProgress(.85) > 0);
+    }
+
+    [Fact]
+    public void Expansion_StagesStatsThenContextAfterPrimaryMotionBegins()
+    {
+        Assert.True(ShellMotionPolicy.PrimaryAnchorProgress(.20) > 0);
+        Assert.True(ShellMotionPolicy.StatsMorphProgress(.30) > 0);
+        Assert.Equal(0, ShellMotionPolicy.ContextMorphProgress(.30), 6);
+        Assert.True(ShellMotionPolicy.ContextMorphProgress(.60) > 0);
+    }
+
+    [Fact]
+    public void Collapse_RemovesNavigationBeforePrimaryAnchors()
+    {
+        Assert.True(ShellMotionPolicy.NavigationProgress(.30, collapsing: true) <
+                    ShellMotionPolicy.PrimaryAnchorProgress(.30, collapsing: true));
+    }
+
+    [Theory]
+    [InlineData(-1d)]
+    [InlineData(0d)]
+    [InlineData(.5d)]
+    [InlineData(1d)]
+    [InlineData(2d)]
+    public void SemanticProgressFunctions_AreBounded(double t)
+    {
+        foreach (var value in new[]
+        {
+            ShellMotionPolicy.ModeMorphProgress(t),
+            ShellMotionPolicy.StatsMorphProgress(t),
+            ShellMotionPolicy.ContextMorphProgress(t),
+            ShellMotionPolicy.NavigationProgress(t),
+            ShellMotionPolicy.NavigationProgress(t, collapsing: true),
+            ShellMotionPolicy.PrimaryAnchorProgress(t),
+            ShellMotionPolicy.PrimaryAnchorProgress(t, collapsing: true)
+        })
+            Assert.InRange(value, 0d, 1d);
+    }}

@@ -144,7 +144,6 @@ public sealed partial class MainWindow : Window
             start = ResolveTargetBounds(PowerFlowShellState.Hidden);
             AppWindow.MoveAndResize(start);
             ApplyShellLayout(state, start.Width, start.Height);
-            ApplyTransitionDetailProgress(fromState, state, 0);
             if (activation == ShellActivationMode.TransientNoActivate) ShowWindow(_hwnd, SwShowNoActivate);
             else Activate();
             _shellVisible = true;
@@ -156,7 +155,6 @@ public sealed partial class MainWindow : Window
 
         await AnimateShellBoundsAsync(start, target, fromState, state, animate);
         ApplyShellLayout(state, target.Width, target.Height);
-        ResetTransitionDetailPresentation();
         if (activation == ShellActivationMode.PinnedActive) Activate();
     }
 
@@ -179,7 +177,6 @@ public sealed partial class MainWindow : Window
         _shellVisible = false;
         _shellState = PowerFlowShellState.Hidden;
         GlanceTapTarget.Visibility = Visibility.Collapsed;
-        ResetTransitionDetailPresentation();
         ReleaseDashboardVisibility();
     }
 
@@ -392,13 +389,17 @@ public sealed partial class MainWindow : Window
         _presentationTimer = null;
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var duration = ShellMotionPolicy.Duration(fromState, toState, reducedMotion);
+        var fromProfile = PowerFlowShellLayout.Resolve(Math.Max(1, start.Width), Math.Max(1, start.Height), fromState, _currentSection);
+        var toProfile = PowerFlowShellLayout.Resolve(Math.Max(1, target.Width), Math.Max(1, target.Height), toState, _currentSection);
+
         if (duration == TimeSpan.Zero || start.Equals(target))
         {
             _suppressResizeModeSync = true;
             AppWindow.MoveAndResize(target);
             _suppressResizeModeSync = false;
             ApplyShellLayout(toState, target.Width, target.Height);
-            ResetTransitionDetailPresentation();
+            ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: true);
+            ResetSemanticMorphPresentation(toProfile);
             return Task.CompletedTask;
         }
 
@@ -416,56 +417,114 @@ public sealed partial class MainWindow : Window
         void Tick(DispatcherQueueTimer sender, object args)
         {
             frame++;
-            var t = Math.Clamp(frame / (double)frames, 0, 1);
+            var t = Math.Clamp(frame / (double)frames, 0d, 1d);
             var eased = ShellMotionPolicy.Ease(fromState, toState, t);
-            var detail = ShellMotionPolicy.DetailProgress(fromState, toState, t);
             var rect = ShellTransitionGeometry.Interpolate(start, target, eased);
             AppWindow.MoveAndResize(rect);
-            var layoutState = ShellMotionPolicy.IsGrowth(fromState, toState) || detail <= 0.001 ? toState : fromState;
+
+            var layoutState = ShellMotionPolicy.IsGrowth(fromState, toState) ? toState : fromState;
             ApplyShellLayout(layoutState, rect.Width, rect.Height);
-            ApplyTransitionDetailProgress(fromState, toState, detail);
+            ApplyShellTransitionFrame(fromProfile, toProfile, t, reducedMotion: false);
+
             if (frame < frames) return;
             sender.Stop();
             sender.Tick -= Tick;
             AppWindow.MoveAndResize(target);
             _presentationTimer = null;
             _suppressResizeModeSync = false;
+            ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: false);
             ApplyShellLayout(toState, target.Width, target.Height);
-            ResetTransitionDetailPresentation();
+            ResetSemanticMorphPresentation(toProfile);
             tcs.TrySetResult();
         }
     }
 
-    private void ApplyTransitionDetailProgress(PowerFlowShellState fromState, PowerFlowShellState toState, double progress)
+    private void ApplyShellTransitionFrame(
+        ShellPresentationProfile from,
+        ShellPresentationProfile to,
+        double progress,
+        bool reducedMotion)
     {
-        var value = Math.Clamp(progress, 0d, 1d);
-        foreach (var element in TransitionDetailElements(fromState, toState))
+        if (reducedMotion)
         {
-            element.Opacity = value;
-            var visual = ElementCompositionPreview.GetElementVisual(element);
-            visual.Offset = new Vector3(0, (float)((1d - value) * 7d), 0);
+            SystemHeaderHost.ApplyMorph(from.Header, to.Header, 1d, reducedMotion: true);
+            PowerModeBandHost.ApplyMorph(from.Modes, to.Modes, 1d, reducedMotion: true);
+            LiveStatsHost.ApplyMorph(from.Stats, to.Stats, 1d, reducedMotion: true);
+            ControlContextBandHost.ApplyMorph(from.ControlContext, to.ControlContext, 1d, reducedMotion: true);
+            Trajectory.ApplyMorph(from.Trajectory, to.Trajectory, 1d, reducedMotion: true);
+            ResetSemanticMorphPresentation(to);
+            return;
         }
+
+        var t = Math.Clamp(progress, 0d, 1d);
+        var collapsing = !ShellMotionPolicy.IsGrowth(from.State, to.State);
+        SystemHeaderHost.ApplyMorph(from.Header, to.Header, ShellMotionPolicy.PrimaryAnchorProgress(t), reducedMotion: false);
+        PowerModeBandHost.ApplyMorph(from.Modes, to.Modes, ShellMotionPolicy.ModeMorphProgress(t), reducedMotion: false);
+        LiveStatsHost.ApplyMorph(from.Stats, to.Stats, ShellMotionPolicy.StatsMorphProgress(t), reducedMotion: false);
+        ControlContextBandHost.ApplyMorph(from.ControlContext, to.ControlContext, ShellMotionPolicy.ContextMorphProgress(t), reducedMotion: false);
+        Trajectory.ApplyMorph(from.Trajectory, to.Trajectory, ShellMotionPolicy.PrimaryAnchorProgress(t), reducedMotion: false);
+        ApplyNavigationMorph(from.Navigation, to.Navigation, ShellMotionPolicy.NavigationProgress(t, collapsing));
+        ApplySecondaryMorph(from.Secondary, to.Secondary, ShellMotionPolicy.ContextMorphProgress(t));
+        ApplyPresentationActionsMorph(from.State, to.State, ShellMotionPolicy.ModeMorphProgress(t));
     }
 
-    private IEnumerable<UIElement> TransitionDetailElements(PowerFlowShellState fromState, PowerFlowShellState toState)
+    private void ApplyNavigationMorph(NavigationPresentation from, NavigationPresentation to, double visibility)
     {
-        var low = Math.Min(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
-        var high = Math.Max(ShellMotionPolicy.Rank(fromState), ShellMotionPolicy.Rank(toState));
-        if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Compact) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Compact))
-            yield return PresentationActions;
-        if (low < ShellMotionPolicy.Rank(PowerFlowShellState.Expanded) && high >= ShellMotionPolicy.Rank(PowerFlowShellState.Expanded))
+        if (from != NavigationPresentation.Rail && to != NavigationPresentation.Rail)
         {
-            yield return NavigationRail;
-            yield return SecondaryOperationalRow;
-            yield return StatusFooter;
+            NavigationRail.Opacity = 1d;
+            ElementCompositionPreview.GetElementVisual(NavigationRail).Offset = Vector3.Zero;
+            return;
         }
+        var value = Math.Clamp(visibility, 0d, 1d);
+        NavigationRail.Opacity = value;
+        ElementCompositionPreview.GetElementVisual(NavigationRail).Offset = new Vector3((float)(-10d * (1d - value)), 0, 0);
     }
 
-    private void ResetTransitionDetailPresentation()
+    private void ApplySecondaryMorph(SecondaryPresentation from, SecondaryPresentation to, double targetProgress)
     {
+        if (from == to)
+        {
+            SecondaryOperationalRow.Opacity = 1d;
+            StatusFooter.Opacity = 1d;
+            return;
+        }
+        var p = Math.Clamp(targetProgress, 0d, 1d);
+        var showing = to != SecondaryPresentation.Hidden;
+        var value = showing ? p : 1d - p;
+        SecondaryOperationalRow.Opacity = value;
+        StatusFooter.Opacity = value;
+        var offset = (float)((1d - value) * 6d);
+        ElementCompositionPreview.GetElementVisual(SecondaryOperationalRow).Offset = new Vector3(0, offset, 0);
+        ElementCompositionPreview.GetElementVisual(StatusFooter).Offset = new Vector3(0, offset, 0);
+    }
+
+    private void ApplyPresentationActionsMorph(PowerFlowShellState from, PowerFlowShellState to, double targetProgress)
+    {
+        var fromVisible = from != PowerFlowShellState.Glance && from != PowerFlowShellState.Hidden;
+        var toVisible = to != PowerFlowShellState.Glance && to != PowerFlowShellState.Hidden;
+        if (fromVisible == toVisible)
+        {
+            PresentationActions.Opacity = 1d;
+            ElementCompositionPreview.GetElementVisual(PresentationActions).Offset = Vector3.Zero;
+            return;
+        }
+        var p = Math.Clamp(targetProgress, 0d, 1d);
+        var value = toVisible ? p : 1d - p;
+        PresentationActions.Opacity = value;
+        ElementCompositionPreview.GetElementVisual(PresentationActions).Offset = new Vector3(0, (float)(-4d * (1d - value)), 0);
+    }
+
+    private void ResetSemanticMorphPresentation(ShellPresentationProfile target)
+    {
+        SystemHeaderHost.ApplyMorph(target.Header, target.Header, 1d, reducedMotion: true);
+        PowerModeBandHost.ApplyMorph(target.Modes, target.Modes, 1d, reducedMotion: true);
+        LiveStatsHost.ApplyMorph(target.Stats, target.Stats, 1d, reducedMotion: true);
+        ControlContextBandHost.ApplyMorph(target.ControlContext, target.ControlContext, 1d, reducedMotion: true);
+        Trajectory.ApplyMorph(target.Trajectory, target.Trajectory, 1d, reducedMotion: true);
         foreach (var element in new UIElement[] { PresentationActions, NavigationRail, SecondaryOperationalRow, StatusFooter })
         {
-            element.Opacity = 1;
+            element.Opacity = 1d;
             ElementCompositionPreview.GetElementVisual(element).Offset = Vector3.Zero;
         }
     }

@@ -5,7 +5,6 @@ public static class ShellMotionPolicy
     public static TimeSpan Duration(PowerFlowShellState from, PowerFlowShellState to, bool reducedMotion)
     {
         if (reducedMotion || from == to) return TimeSpan.Zero;
-
         return (from, to) switch
         {
             (PowerFlowShellState.Hidden, PowerFlowShellState.Glance) => TimeSpan.FromMilliseconds(130),
@@ -40,6 +39,17 @@ public static class ShellMotionPolicy
             return Math.Clamp((t - (1d / 3d)) / (2d / 3d), 0d, 1d);
         return Math.Clamp(1d - (t / 0.67d), 0d, 1d);
     }
+
+    public static double ModeMorphProgress(double t) => Window(t, 0.10, 0.65);
+    public static double StatsMorphProgress(double t) => Window(t, 0.15, 0.80);
+    public static double ContextMorphProgress(double t) => Window(t, 0.35, 0.90);
+    public static double NavigationProgress(double t, bool collapsing = false)
+        => collapsing ? 1d - Window(t, 0.05, 0.35) : Window(t, 0.65, 0.95);
+    public static double PrimaryAnchorProgress(double t, bool collapsing = false)
+        => collapsing ? 1d - Window(t, 0.55, 0.95) : Window(t, 0.05, 0.90);
+
+    private static double Window(double value, double start, double end)
+        => Math.Clamp((Math.Clamp(value, 0d, 1d) - start) / Math.Max(.001d, end - start), 0d, 1d);
 
     public static int Rank(PowerFlowShellState state) => state switch
     {

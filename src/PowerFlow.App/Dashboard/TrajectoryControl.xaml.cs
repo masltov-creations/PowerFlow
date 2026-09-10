@@ -1,6 +1,8 @@
+using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
@@ -74,6 +76,35 @@ public sealed partial class TrajectoryControl : UserControl
 
         SetLayoutProfile(profile);
     }
+    public void ApplyMorph(TrajectoryPresentation from, TrajectoryPresentation to, double progress, bool reducedMotion)
+    {
+        var t = Math.Clamp(progress, 0d, 1d);
+        var visual = ElementCompositionPreview.GetElementVisual(this);
+        if (reducedMotion || from == to || t <= 0d || t >= 1d)
+        {
+            SetShellPresentation(t >= 1d || reducedMotion ? to : from, Math.Max(48d, ActualHeight));
+            Opacity = 1d;
+            visual.Offset = Vector3.Zero;
+            return;
+        }
+
+        var active = t < 0.52d ? from : to;
+        SetShellPresentation(active, Math.Max(48d, ActualHeight));
+        var arc = Math.Sin(Math.PI * t);
+        var direction = IsTrajectoryGrowth(from, to) ? -1f : 1f;
+        Opacity = 1d - (0.035d * arc);
+        visual.Offset = new Vector3(0, direction * (float)(3d * arc), 0);
+    }
+
+    private static bool IsTrajectoryGrowth(TrajectoryPresentation from, TrajectoryPresentation to)
+        => TrajectoryRank(to) > TrajectoryRank(from);
+
+    private static int TrajectoryRank(TrajectoryPresentation value) => value switch
+    {
+        TrajectoryPresentation.Minimal => 0,
+        TrajectoryPresentation.Compact => 1,
+        _ => 2
+    };
     public event EventHandler? AutoRequested;
     public event EventHandler<TrajectoryManualStateEventArgs>? ManualStateRequested;
     public event EventHandler<TrajectoryRangeChangedEventArgs>? RangeChanged;
