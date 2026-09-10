@@ -4,14 +4,17 @@ public sealed record LogicalProcessorTelemetry(
     int LogicalProcessorIndex,
     int PhysicalCoreIndex,
     bool IsParked,
-    double? UtilizationPercent = null);
+    double? UtilizationPercent = null,
+    double? FrequencyMhz = null,
+    double? PercentOfMaximumFrequency = null);
 
 public sealed record SystemMetricsSnapshot(
     double? MemoryUsedPercent,
     string? MachineName,
     int? ActiveCores = null,
     int? TotalCores = null,
-    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null);
+    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
+    double? ProcessorQueueLength = null);
 
 public interface ISystemMetricsProvider
 {

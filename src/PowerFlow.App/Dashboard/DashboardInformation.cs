@@ -13,13 +13,14 @@ public sealed record DashboardSample(
     PowerState State,
     string? Actor = null,
     int? ActiveCores = null,
-    int? TotalCores = null);
+    int? TotalCores = null,
+    double? PressurePercent = null);
 
 public static class OperatingObservationProjection
 {
     public static OperatingObservation FromDashboardSample(DashboardSample sample) => new(
         sample.At,
-        sample.CpuPercent,
+        sample.PressurePercent ?? sample.CpuPercent,
         sample.PackageWatts,
         sample.AverageMhz,
         sample.ActiveCores,

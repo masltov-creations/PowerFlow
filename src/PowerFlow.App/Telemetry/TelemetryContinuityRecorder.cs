@@ -187,7 +187,9 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
                     snapshot.TriggerApplication,
                     telemetry.ActiveCores,
                     telemetry.TotalCores,
-                    telemetry.LogicalProcessors));
+                    telemetry.LogicalProcessors,
+                    telemetry.ProcessorQueueLength,
+                    DemandPressureModel.Project(telemetry)));
                 changed = true;
             }
             Interlocked.Increment(ref _richSampleCount);

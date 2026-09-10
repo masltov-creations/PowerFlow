@@ -141,7 +141,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         _telemetry = telemetry;
         _samples.Clear();
         foreach (var sample in continuity.OrderBy(x => x.At))
-            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State, sample.TriggerApplication, sample.ActiveCores, sample.TotalCores));
+            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State, sample.TriggerApplication, sample.ActiveCores, sample.TotalCores, sample.DemandPressure?.PressurePercent));
         _lastSampleAt = _samples.Count > 0 ? _samples[^1].At : null;
         RebuildOperatingHistory();
         RaiseAll(historyChanged);
@@ -158,7 +158,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             _telemetry = telemetry;
             if (_lastSampleAt != telemetry.At)
             {
-                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State, snapshot.TriggerApplication, telemetry.ActiveCores, telemetry.TotalCores));
+                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State, snapshot.TriggerApplication, telemetry.ActiveCores, telemetry.TotalCores, DemandPressureModel.Project(telemetry)?.PressurePercent));
                 _lastSampleAt = telemetry.At;
                 while (_samples.Count > 120) _samples.RemoveAt(0);
                 RebuildOperatingHistory();
@@ -170,8 +170,10 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private void RebuildOperatingHistory()
     {
         _operatingHistory.Clear();
-        var raw = _samples
-            .OrderBy(sample => sample.At)
+        var orderedSamples = _samples.OrderBy(sample => sample.At).ToArray();
+        var hasObservedPressure = orderedSamples.Any(sample => sample.PressurePercent is not null);
+        var raw = orderedSamples
+            .Where(sample => !hasObservedPressure || sample.PressurePercent is not null)
             .Select(OperatingObservationProjection.FromDashboardSample)
             .ToArray();
         if (raw.Length == 0)

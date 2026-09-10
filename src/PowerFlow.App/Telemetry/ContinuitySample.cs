@@ -17,4 +17,6 @@ public sealed record ContinuitySample(
     string? TriggerApplication,
     int? ActiveCores = null,
     int? TotalCores = null,
-    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null);
+    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
+    double? ProcessorQueueLength = null,
+    DemandPressureTelemetry? DemandPressure = null);

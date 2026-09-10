@@ -71,7 +71,7 @@ public static class PerformanceTimelineProjection
 
         var lanes = new[]
         {
-            Lane(PerformanceTimelineMetric.CpuPressure, "CPU PRESSURE", "%", 100, visible, X, x => x.CpuPressurePercent),
+            Lane(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, visible, X, x => x.CpuPressurePercent),
             Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerMax, visible, X, x => x.PackageWatts),
             Lane(PerformanceTimelineMetric.EffectiveClock, "EFFECTIVE CLOCK", "MHz", clockMax, visible, X, x => x.EffectiveClockMhz),
             Lane(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", coreMax, visible, X, x => x.ActiveCores)
@@ -134,7 +134,7 @@ public static class PerformanceTimelineProjection
     {
         var lanes = new[]
         {
-            new TimelineLaneProjection(PerformanceTimelineMetric.CpuPressure, "CPU PRESSURE", "%", 100, Array.Empty<TimelineSamplePoint>()),
+            new TimelineLaneProjection(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, Array.Empty<TimelineSamplePoint>()),
             new TimelineLaneProjection(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", 25, Array.Empty<TimelineSamplePoint>()),
             new TimelineLaneProjection(PerformanceTimelineMetric.EffectiveClock, "EFFECTIVE CLOCK", "MHz", 1000, Array.Empty<TimelineSamplePoint>()),
             new TimelineLaneProjection(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 1, Array.Empty<TimelineSamplePoint>())

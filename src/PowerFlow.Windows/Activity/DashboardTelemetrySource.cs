@@ -23,7 +23,8 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             system.MachineName,
             system.ActiveCores,
             system.TotalCores,
-            system.LogicalProcessors);
+            system.LogicalProcessors,
+            system.ProcessorQueueLength);
     }
 
     public void Dispose()

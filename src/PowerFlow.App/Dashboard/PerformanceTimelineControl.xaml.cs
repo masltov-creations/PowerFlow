@@ -245,13 +245,19 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var data = _coreStateTimeline;
         if (data.Samples.Count == 0 || data.TotalCores <= 0)
         {
-            CoreActivePath.Data = CoreAwakePath.Data = CoreParkedPath.Data = null;
+            CoreActivePath.Data = CoreActiveMediumPath.Data = CoreActiveHighPath.Data = CoreActiveHotPath.Data = CoreAwakePath.Data = CoreParkedPath.Data = null;
             return;
         }
 
         var light = ActualTheme == ElementTheme.Light;
         CoreActivePath.Fill = activeBrush;
-        CoreActivePath.Opacity = .94;
+        CoreActiveMediumPath.Fill = activeBrush;
+        CoreActiveHighPath.Fill = activeBrush;
+        CoreActiveHotPath.Fill = activeBrush;
+        CoreActivePath.Opacity = .38;
+        CoreActiveMediumPath.Opacity = .58;
+        CoreActiveHighPath.Opacity = .78;
+        CoreActiveHotPath.Opacity = .98;
         CoreAwakePath.Fill = light ? Brush(194, 112, 43, 135) : Brush(255, 177, 92, 125);
         CoreParkedPath.Fill = light ? Brush(17, 34, 51, 46) : Brush(255, 255, 255, 34);
 
@@ -259,7 +265,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var usableHeight = Math.Max(8, laneHeight - 6);
         var rowPitch = usableHeight / data.TotalCores;
         var cellGapY = Math.Clamp(rowPitch * .16, .25, .8);
-        var activeCells = new List<Rect>();
+        var activeLow = new List<Rect>();
+        var activeMedium = new List<Rect>();
+        var activeHigh = new List<Rect>();
+        var activeHot = new List<Rect>();
         var awakeCells = new List<Rect>();
         var parkedCells = new List<Rect>();
         var samples = data.Samples;
@@ -277,20 +286,49 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var sliceSpan = Math.Max(1, nextX - x);
             var cellWidth = Math.Max(1, sliceSpan - Math.Min(.8, sliceSpan * .10));
             var row = 0;
-            AddStateCells(activeCells, sample.ActiveCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
+            AddLoadCells(activeLow, activeMedium, activeHigh, activeHot, sample.ActiveCoreLoadsPercent ?? Array.Empty<double>(), ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY);
             AddStateCells(awakeCells, sample.AwakeIdleCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
             AddStateCells(parkedCells, sample.ParkedCores, ref row, x, cellWidth, usableTop, usableHeight, rowPitch, cellGapY, data.TotalCores);
         }
 
-        CoreActivePath.Data = BuildCoreCellGeometry(activeCells);
+        CoreActivePath.Data = BuildCoreCellGeometry(activeLow);
+        CoreActiveMediumPath.Data = BuildCoreCellGeometry(activeMedium);
+        CoreActiveHighPath.Data = BuildCoreCellGeometry(activeHigh);
+        CoreActiveHotPath.Data = BuildCoreCellGeometry(activeHot);
         CoreAwakePath.Data = BuildCoreCellGeometry(awakeCells);
         CoreParkedPath.Data = BuildCoreCellGeometry(parkedCells);
 
-        // Calm count guides: quarters only, not a dense grid.
         for (var q = 1; q < 4; q++)
         {
             var y = usableTop + usableHeight * (1 - q / 4d);
             AddLine(GridLayer, 0, y, _plotWidth, y, labelBrush, .45).Opacity = .18;
+        }
+    }
+
+    private static void AddLoadCells(
+        List<Rect> low,
+        List<Rect> medium,
+        List<Rect> high,
+        List<Rect> hot,
+        IReadOnlyList<double> loads,
+        ref int row,
+        double x,
+        double width,
+        double top,
+        double height,
+        double rowPitch,
+        double gapY)
+    {
+        foreach (var raw in loads)
+        {
+            var load = Math.Clamp(raw, 0d, 100d);
+            var y = top + height - (row + 1) * rowPitch + gapY / 2;
+            var rect = new Rect(x, y, width, Math.Max(.7, rowPitch - gapY));
+            if (load >= 75) hot.Add(rect);
+            else if (load >= 50) high.Add(rect);
+            else if (load >= 25) medium.Add(rect);
+            else low.Add(rect);
+            row++;
         }
     }
 
@@ -630,7 +668,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
         InspectionCursor.Y1 = 0;
         InspectionCursor.Y2 = _plotHeight;
         SetTransient(InspectionCursor, true);
-        CursorReadout.Text = InspectionExplanationProjection.ForObservation(observation).AsPlainText();
+        var explanation = InspectionExplanationProjection.ForObservation(observation).AsPlainText();
+        var pressure = FindDemandPressureNear(observation.At);
+        CursorReadout.Text = pressure is null
+            ? explanation
+            : $"{explanation}\nPressure {pressure.PressurePercent:0}% ({pressure.Driver}) · demand {pressure.DemandPercent:0}% · awake saturation {pressure.AwakeSaturationPercent:0}% · queue {pressure.QueueLength:0.##} ({pressure.QueuePressurePercent:0}% pressure)";
         SetTransient(CursorCard, true);
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(observationIndex));
     }
@@ -765,7 +807,12 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
 
         var latest = current.Latest;
-        CpuValueText.Text = $"{latest.CpuPressurePercent:0.0}%";
+        var observedPressure = LatestDemandPressure();
+        CpuValueText.Text = observedPressure is null
+            ? $"{latest.CpuPressurePercent:0.0}%"
+            : $"{observedPressure.PressurePercent:0}% {PressureDriverShort(observedPressure.Driver)}";
+        if (observedPressure is not null)
+            ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, awake-core saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, awake saturation {observedPressure.AwakeSaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). Display-only for now; controller actuation still uses legacy CPU busy percent.");
         UpdatePressureContextLabel();
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
         ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
@@ -791,9 +838,26 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var latest = _coreStateTimeline.Samples.LastOrDefault();
         if (latest is null) return;
         CoresValueText.Text = $"{latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}";
-        ToolTipService.SetToolTip(CoresValueText, "Active / awake-idle / parked physical cores at the latest rich telemetry sample. Active means at least one logical thread is above the activity threshold.");
+        var frequency = latest.AverageAwakeFrequencyMhz is double mhz ? $" · {mhz / 1000d:0.00} GHz avg" : string.Empty;
+        var maxFrequency = latest.AverageAwakePercentOfMaximumFrequency is double max ? $" · {max:0}% max freq" : string.Empty;
+        ToolTipService.SetToolTip(CoresValueText, $"Active / awake-idle / parked physical cores. Active cells vary in intensity by core load: <25%, 25-49%, 50-74%, 75%+. Current awake-core load averages {latest.AverageAwakeLoadPercent:0}%{frequency}{maxFrequency}.");
     }
 
+    private DemandPressureTelemetry? LatestDemandPressure()
+        => _coreThreadHistory.LastOrDefault(sample => sample.DemandPressure is not null)?.DemandPressure;
+
+    private DemandPressureTelemetry? FindDemandPressureNear(DateTimeOffset at)
+        => _coreThreadHistory
+            .Where(sample => sample.DemandPressure is not null)
+            .OrderBy(sample => Math.Abs((sample.At - at).TotalMilliseconds))
+            .FirstOrDefault()?.DemandPressure;
+
+    private static string PressureDriverShort(string driver) => driver switch
+    {
+        "SATURATION" => "SAT",
+        "QUEUE" => "QUEUE",
+        _ => "LOAD"
+    };
     private static string FormatObservation(OperatingObservation value)
     {
         var watts = value.PackageWatts is double w ? $"{w:0.0} W" : "— W";

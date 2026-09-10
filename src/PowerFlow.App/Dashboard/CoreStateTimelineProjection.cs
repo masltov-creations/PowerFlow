@@ -8,7 +8,11 @@ public sealed record CoreStateTimelineSample(
     int ActiveCores,
     int AwakeIdleCores,
     int ParkedCores,
-    int TotalCores);
+    int TotalCores,
+    IReadOnlyList<double>? ActiveCoreLoadsPercent = null,
+    double AverageAwakeLoadPercent = 0,
+    double? AverageAwakeFrequencyMhz = null,
+    double? AverageAwakePercentOfMaximumFrequency = null);
 
 public sealed record CoreStateTimelineData(
     IReadOnlyList<CoreStateTimelineSample> Samples,
@@ -47,9 +51,13 @@ public static class CoreStateTimelineProjection
             .OrderBy(group => group.Key)
             .ToArray();
 
-        var active = 0;
+        var activeLoads = new List<double>();
+        var awakeLoads = new List<double>();
+        var awakeFrequency = new List<double>();
+        var awakePercentMax = new List<double>();
         var awakeIdle = 0;
         var parked = 0;
+
         foreach (var core in groups)
         {
             var threads = core.ToArray();
@@ -59,15 +67,33 @@ public static class CoreStateTimelineProjection
                 continue;
             }
 
-            var isActive = threads.Any(thread =>
-                !thread.IsParked &&
-                thread.UtilizationPercent is double value &&
-                double.IsFinite(value) &&
-                value >= CoreThreadMapProjection.ActiveThresholdPercent);
-            if (isActive) active++;
+            var load = Math.Clamp(threads
+                .Where(thread => !thread.IsParked && thread.UtilizationPercent is double value && double.IsFinite(value) && value >= 0)
+                .Sum(thread => Math.Max(0d, thread.UtilizationPercent!.Value)), 0d, 100d);
+            awakeLoads.Add(load);
+
+            var frequencies = threads.Where(thread => !thread.IsParked && thread.FrequencyMhz is double value && double.IsFinite(value) && value > 0)
+                .Select(thread => thread.FrequencyMhz!.Value).ToArray();
+            if (frequencies.Length > 0) awakeFrequency.Add(frequencies.Average());
+
+            var percentMax = threads.Where(thread => !thread.IsParked && thread.PercentOfMaximumFrequency is double value && double.IsFinite(value) && value > 0)
+                .Select(thread => thread.PercentOfMaximumFrequency!.Value).ToArray();
+            if (percentMax.Length > 0) awakePercentMax.Add(percentMax.Average());
+
+            if (load >= CoreThreadMapProjection.ActiveThresholdPercent) activeLoads.Add(load);
             else awakeIdle++;
         }
 
-        return new CoreStateTimelineSample(at, active, awakeIdle, parked, groups.Length);
+        activeLoads.Sort((a, b) => b.CompareTo(a));
+        return new CoreStateTimelineSample(
+            at,
+            activeLoads.Count,
+            awakeIdle,
+            parked,
+            groups.Length,
+            activeLoads,
+            awakeLoads.Count == 0 ? 0 : awakeLoads.Average(),
+            awakeFrequency.Count == 0 ? null : awakeFrequency.Average(),
+            awakePercentMax.Count == 0 ? null : awakePercentMax.Average());
     }
 }

@@ -15,4 +15,5 @@ public sealed record DashboardTelemetry(
     string? MachineName = null,
     int? ActiveCores = null,
     int? TotalCores = null,
-    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null);
+    IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
+    double? ProcessorQueueLength = null);
