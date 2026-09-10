@@ -105,7 +105,7 @@ Initial required lanes:
 - CPU demand / pressure;
 - CPU package power;
 - effective / average clock;
-- active or unparked core count when truthfully measurable;
+- awake physical-core count, derived from Windows parking state and CPU topology when truthfully measurable;
 - current Adaptive Performance Envelope region / actuator state;
 - application attribution and decision events.
 
@@ -150,7 +150,7 @@ Selectable dimensions may include:
 
 - package power;
 - effective clock;
-- active cores;
+- awake physical cores;
 - CPU pressure;
 - observed workload throughput/benefit where measurable;
 - envelope region;
@@ -265,7 +265,7 @@ The tray icon is the smallest expression of the governor. Its state treatment co
 Glance answers the immediate five questions without requiring interpretation:
 
 - what envelope the machine occupies now;
-- current package power, effective clock, and active-core summary;
+- current package power, effective clock, and awake-core summary;
 - a tiny synchronized trend derived from the same Timeline data;
 - the notable application/workload actor and whether PowerFlow is braking or leasing performance;
 - what PowerFlow expects to do next.
@@ -274,7 +274,7 @@ Canonical information form:
 
 ```text
 EFFICIENT                         BRAKING
-42 W · 2.0 GHz · 4/16 cores
+42 W · 2.0 GHz · 4/16 cores awake
 CPU/PWR  ▁▂▃▅▆▅▃▂▂▃▅
 Chrome -> held at Efficient
 Next: continue Efficient · qualify 2.1 / 4.0 s
@@ -374,3 +374,103 @@ No actuator mutation should be introduced merely to make a visualization demo wo
 ## 19. Success Definition
 
 PowerFlow succeeds when the user can see and understand how the machine spends performance, identify the applications/workloads responsible for expensive operating regions, see the learned efficient frontier, understand why a boost was granted or denied, tune or override those decisions visually, and allow the machine to remain efficient by default while still releasing real performance when evidence says it is worth the cost.
+## 20. Corrective First-User Interaction Contract
+
+The implementation must behave as a consumer product for a first-time user, not as an inspector for PowerFlow's internal model. A user must be able to open the app and understand what the machine is doing, what PowerFlow is doing about it, and how to change that behavior without learning internal terms first.
+
+### 20.1 One live control surface
+
+The Timeline remains the primary surface in Observe and Tune. Model reorganizes the same observations into the Atlas but must retain the same selection, current-machine marker, policy state, and plain-language explanation.
+
+The graph must answer three questions without leaving the surface:
+
+1. **What is happening now?** Live CPU pressure, package power, effective clock, awake physical cores, current app/workload attribution when truthful, and current machine mode.
+2. **What policy is acting on it?** Policy is physically overlaid on the same data in both dimensions.
+3. **What happens if I change it?** Tune turns those overlays into direct-manipulation handles and shows a counterfactual before Save.
+
+### 20.2 Policy overlays use both graph dimensions
+
+The Timeline's X axis is time. Time-domain policy appears as vertical bands, edges, or markers on that axis: qualification duration, boost-lease duration, release/cooldown, app-rule intervals, and decision events.
+
+Each KPI lane retains its truthful native Y axis. Value-domain policy appears as horizontal rails or regions on the relevant lane: CPU-pressure qualification and release thresholds, learned package-power efficiency frontier, core-expansion boundary where supported, and any app entitlement ceiling that has a truthful relationship to that metric.
+
+A policy control must never be represented only in a detached settings form when it can be represented on the graph it governs.
+
+### 20.3 Tune is direct manipulation
+
+Tune keeps the same live Timeline visible. Entering Tune reveals handles on policy overlays instead of replacing the graph with a settings page.
+
+- Drag a horizontal rail to change a value threshold.
+- Drag a vertical time edge to change qualification, lease, or release duration.
+- Select an app actor to expose that app's entitlement ceiling and burst behavior on the same graph.
+- Every draggable control has a mirrored keyboard/numeric control in the contextual inspector for precision and accessibility.
+- Unsaved movement is counterfactual only. The learned position remains visible as a ghost/reference. `SAVE TUNING` is the commit point; `RESET TO LEARNED` restores the learned position.
+
+### 20.4 Smooth, truthful, artifact-free Timeline renderer
+
+The Timeline must not use raw `Polyline` rendering as the primary trace implementation. Each lane uses persistent clipped geometry with a monotone cubic interpolation (or an equivalent shape-preserving curve) that passes through measured samples without overshooting their local extrema or fabricating peaks. Missing telemetry produces real gaps.
+
+Telemetry, policy rails/bands, hover, selection, and labels are independent persistent layers. A telemetry update updates geometry in place; it must not clear and rebuild unrelated layers. Resize/reflow updates transforms and geometry deterministically without leaving stale shapes, duplicate strokes, or transient clipping artifacts.
+
+The visual target is fluid and swoopy, but truthfulness wins over decorative smoothing.
+
+### 20.5 Stable resize model
+
+Window presentation state and responsive layout density are separate concepts.
+
+- Glance and Full Screen are explicit presentation states.
+- The normal resizable window remains a normal window; manual resize changes disclosure/layout density, not the semantic shell state beneath the user.
+- All layout calculations use logical DIPs. Physical `AppWindow` pixels are converted once at the boundary and are never fed directly into DIP-authored layout profiles.
+- PowerFlow-owned resize animations preserve selection, time range, graph layers, and current section. They cannot cause state reclassification feedback.
+- Responsive breakpoints use hysteresis so content does not flap when the user hovers around a boundary.
+- Reduced Motion disables geometric animation without changing final layout.
+
+### 20.6 Primary mode control
+
+From Compact upward, the primary header exposes an obvious machine control:
+
+`AUTO | ECO | EFFICIENT | RESPONSIVE | BOOST`
+
+Selecting Eco/Efficient/Responsive/Boost applies an immediate explicit manual mode through the existing controller and visibly marks the machine **MANUAL**. Selecting Auto releases the manual latch and returns authority to PowerFlow. The user does not need to understand `AdaptiveActuationEnabled`, Windows plan names, or governor internals to make the machine use less or more performance.
+
+Windows plan mappings remain an Expert/Actuator detail.
+
+### 20.7 Model explains itself
+
+Model is not accepted as a naked heatmap. Above or alongside the Atlas it must answer in plain language:
+
+- **What PowerFlow learned** about this machine's efficient and expensive operating regions.
+- **What PowerFlow is doing now** because of that model.
+- **How confident PowerFlow is**, including why confidence is limited when evidence is sparse.
+
+The Atlas includes a prominent **YOU ARE HERE** marker for the current operating point when both selected dimensions are available, a visible learned-efficient region/frontier, and hover explanations for occupied regions. Internal terms such as frontier, lease, and actuator may appear as secondary/expert detail, never as the only explanation.
+
+### 20.8 Unified hover and selection lens
+
+Hovering any Timeline lane produces one synchronized inspection lens for the same timestamp: time, CPU pressure, package watts, effective clock, cores awake, actor when known, mode/policy, and the decision in plain English. Hovering a policy rail explains what crossing or moving it changes.
+
+Hovering an Atlas cell highlights the corresponding Timeline observations and explains residency, selected dimensions, associated actors/decisions when evidence supports them, and whether the region lies inside/outside the learned efficient region. Hover is restrained and fluid; selection persists independently of hover.
+
+### 20.9 Telemetry naming and availability
+
+The core-width metric is **CORES AWAKE**. It counts physical CPU cores for which at least one hardware thread is unparked. On reference-host this is derived from `Processor Information(*)\\Parking Status` plus Windows processor-core topology. Hover may disclose logical-thread parking details, but the primary value is physical cores, e.g. `5/16`.
+
+If a visible metric is unavailable, PowerFlow must explicitly say `Unavailable` with a short reason. An unavailable metric cannot silently render as an empty lane, and Atlas cannot offer a dimension that has no usable observations in the selected range.
+
+### 20.10 First-user acceptance
+
+A feature does not pass because its type, test, selector, or graph lane exists. Every visible feature must be exercised end-to-end on the target machine before it is called working:
+
+`sensor -> retained observation -> projection -> renderer -> hover/selection -> policy interaction (when applicable)`.
+
+The visual acceptance pass must explicitly verify:
+
+- no empty KPI lane for a supported sensor;
+- no selectable Atlas dimension that produces an unexplained empty view;
+- no clipped labels, controls, rails, hover cards, or handles at the target DPI;
+- no stale/duplicate geometry after repeated telemetry updates, manual resize, Compact/Expanded transitions, Full Screen/Restore, or Timeline/Atlas switching;
+- mode changes work from the primary header and the visible state matches controller state;
+- graph-level policy edits change the counterfactual immediately and persist only after Save;
+- Model can be understood without prior knowledge of PowerFlow terminology.
+
+The reference-host UI safety rule in section 17 still applies: live acceptance requires a fresh explicit authorization for that pass.
