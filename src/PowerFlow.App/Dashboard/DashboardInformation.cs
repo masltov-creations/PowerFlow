@@ -1,4 +1,5 @@
 using PowerFlow.App.Controller;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 
@@ -6,6 +7,25 @@ namespace PowerFlow.App.Dashboard;
 
 public sealed record DashboardSample(DateTimeOffset At, double CpuPercent, double? PackageWatts, double? AverageMhz, PowerState State);
 
+public static class OperatingObservationProjection
+{
+    public static OperatingObservation FromDashboardSample(DashboardSample sample) => new(
+        sample.At,
+        sample.CpuPercent,
+        sample.PackageWatts,
+        sample.AverageMhz,
+        null,
+        null,
+        sample.State switch
+        {
+            PowerState.PowerSaver => EnvelopeZone.Eco,
+            PowerState.Balanced => EnvelopeZone.Efficient,
+            PowerState.HighPerformance => EnvelopeZone.Boost,
+            _ => EnvelopeZone.Efficient
+        },
+        null,
+        EnvelopeDecisionKind.None);
+}
 public sealed record DashboardRuleCard(string Title, string Condition, string Target, string Status, double Activity);
 
 public static class DashboardRuleProjection

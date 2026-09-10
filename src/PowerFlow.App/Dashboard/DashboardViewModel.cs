@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Telemetry;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -11,6 +12,7 @@ namespace PowerFlow.App.Dashboard;
 public sealed class DashboardViewModel : INotifyPropertyChanged
 {
     private readonly List<DashboardSample> _samples = [];
+    private readonly List<OperatingObservation> _operatingHistory = [];
     private ControllerSnapshot? _snapshot;
     private DashboardTelemetry? _telemetry;
     private PowerFlowConfig _config = PowerFlowConfig.Default;
@@ -98,6 +100,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public IReadOnlyList<TransitionRecord> History => _history;
     public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
     public IReadOnlyList<DashboardSample> Samples => _samples;
+    public IReadOnlyList<OperatingObservation> OperatingHistory => _operatingHistory;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
     public string PromotionRuleLabel => $"CPU > {_config.CpuPromotionThresholdPercent:0.#}% for {_config.CpuPromotionWindow.TotalSeconds:0.#}s";
@@ -133,6 +136,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         foreach (var sample in continuity.OrderBy(x => x.At))
             _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State));
         _lastSampleAt = _samples.Count > 0 ? _samples[^1].At : null;
+        RebuildOperatingHistory();
         RaiseAll(historyChanged);
     }
     public void Update(ControllerSnapshot snapshot, DashboardTelemetry? telemetry)
@@ -150,11 +154,18 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
                 _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State));
                 _lastSampleAt = telemetry.At;
                 while (_samples.Count > 120) _samples.RemoveAt(0);
+                RebuildOperatingHistory();
             }
         }
         RaiseAll(historyChanged);
     }
 
+    private void RebuildOperatingHistory()
+    {
+        _operatingHistory.Clear();
+        foreach (var sample in _samples)
+            _operatingHistory.Add(OperatingObservationProjection.FromDashboardSample(sample));
+    }
     private void RaiseAll(bool historyChanged)
     {
         OnPropertyChanged(nameof(StateLabel));
@@ -164,6 +175,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CpuLabel));
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
+        OnPropertyChanged(nameof(OperatingHistory));
         OnPropertyChanged(nameof(MemoryPercent));
         OnPropertyChanged(nameof(MemoryLabel));
         OnPropertyChanged(nameof(MachineLabel));
