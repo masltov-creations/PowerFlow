@@ -36,9 +36,9 @@ The graph keeps a rolling recent history so you can see both what the machine is
 
 Apps can be assigned one of three importance levels:
 
-- **Low** ΓÇö background or non-urgent work. It cannot push Auto into PERF by itself.
-- **Normal** ΓÇö the default for ordinary applications.
-- **High** ΓÇö latency-sensitive work that should be allowed to reach higher performance sooner.
+- **Low** - background or non-urgent work. It cannot push Auto into PERF by itself.
+- **Normal** - the default for ordinary applications.
+- **High** - latency-sensitive work that should be allowed to reach higher performance sooner.
 
 These rules influence Auto; they do not permanently lock the machine into a power mode.
 
