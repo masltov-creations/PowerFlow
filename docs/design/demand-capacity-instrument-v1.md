@@ -29,3 +29,19 @@ Per-core frequency and percent-of-maximum-frequency are retained in telemetry an
 
 ## Safety / promotion gate
 Do not use Observed Pressure for automatic actuation until it has been compared against real workloads and its thresholds/timing have been explicitly accepted. The dashboard/dry-run may use the new pressure now; controller actuation remains legacy CPU busy percentage.
+## Graduated performance entitlement
+
+PowerFlow must not reduce CPU actuation to a binary capped/performance choice or only switch among coarse Windows power plans. The long-term control target is a continuous 0-100 performance entitlement (capacity target) that can move gradually as observed pressure, ramp rate, burst age, sustained demand, and recovery evolve.
+
+Envelope zones remain useful descriptive regions, but they are not the actuator granularity. A zone can contain a range of performance entitlements. For example, Responsive may span many intermediate capacity targets rather than mapping to the same static Balanced state as Efficient.
+
+The eventual actuator should be able to express independent or coordinated targets for:
+- available core capacity / parking aggressiveness;
+- processor performance preference or equivalent frequency-performance bias where Windows exposes a durable control;
+- boost qualification, burst allowance, lease duration, and release hysteresis;
+- processor performance floor/ceiling when supported safely;
+- package power constraints only where a verified, reversible control surface exists.
+
+The dashboard must distinguish requested entitlement from delivered capacity. It should show both on the common timeline so we can see whether the OS/hardware actually delivered the requested cores/frequency/boost and whether pressure subsequently rose or fell.
+
+Initial implementation remains observation/dry-run only. Do not replace the existing power-plan actuator until the graduated policy has been measured against real workloads and each control surface is verified to be reversible and stable on reference-host.
