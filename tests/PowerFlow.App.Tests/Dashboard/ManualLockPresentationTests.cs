@@ -16,9 +16,9 @@ public sealed class ManualLockPresentationTests
     [Fact]
     public void ManualPowerSaverLock_IsNamedAsPowerSaverInTray()
     {
-        var model = TrayMenuCommands.Build(Snapshot(PowerState.PowerSaver));
-        Assert.Equal("Power Saver Locked - Manual", model.StatusText);
-        Assert.True(model.PowerSaverChecked);
+        var model = TrayMenuCommands.Build(Snapshot(PowerState.PowerSaver), PowerFlowOperatingMode.Saver);
+        Assert.Equal("Saver - Manual", model.StatusText);
+        Assert.True(model.SaverChecked);
         Assert.True(model.ReleaseLatchEnabled);
     }
 

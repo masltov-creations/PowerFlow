@@ -125,7 +125,7 @@ public partial class App : Application
             var evaluation = _adaptiveGovernorRuntime.Evaluate(snapshot, _telemetryRecorder.History, _config);
             if (evaluation is not null) _ = ApplyAdaptiveGovernorEvaluationAsync(evaluation);
         }
-        _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
+        _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot, _powerModeProfileRuntime.CurrentProfile?.Mode));
     }
 
     private void OnTelemetryContinuityChanged(object? sender, EventArgs e)
@@ -264,12 +264,12 @@ public partial class App : Application
             switch (e.CommandId)
             {
                 case TrayMenuCommands.OpenDashboard: await OpenDashboardAsync(false); break;
-                case TrayMenuCommands.PowerSaver: await _controller.SetManualStateAsync(PowerState.PowerSaver); break;
-                case TrayMenuCommands.Balanced: await _controller.SetManualStateAsync(PowerState.Balanced); break;
-                case TrayMenuCommands.HighPerformance: await _controller.SetManualStateAsync(PowerState.HighPerformance); break;
-                case TrayMenuCommands.ReleaseLatch:
-                    if (string.Equals(_controller.Snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase)) await _controller.ReleaseManualLatchAsync();
-                    break;
+                case TrayMenuCommands.Auto: await ApplyOperatingModeAsync(PowerModeSelection.Auto); break;
+                case TrayMenuCommands.PowerSaver: await ApplyOperatingModeAsync(PowerModeSelection.Eco); break;
+                case TrayMenuCommands.Balanced: await ApplyOperatingModeAsync(PowerModeSelection.Efficient); break;
+                case TrayMenuCommands.HighPerformance: await ApplyOperatingModeAsync(PowerModeSelection.Boost); break;
+                case TrayMenuCommands.Ultra: await ApplyOperatingModeAsync(PowerModeSelection.Ultra); break;
+                case TrayMenuCommands.ReleaseLatch: await ApplyOperatingModeAsync(PowerModeSelection.Auto); break;
                 case TrayMenuCommands.Settings: await OpenDashboardAsync(true); break;
                 case TrayMenuCommands.Exit: await ShutdownAsync(true); break;
             }
@@ -309,6 +309,7 @@ public partial class App : Application
         if (selection == PowerModeSelection.Auto)
         {
             await _controller.ReleaseManualLatchAsync();
+            _tray?.Update(_controller.Snapshot, null);
             return;
         }
 
@@ -325,6 +326,7 @@ public partial class App : Application
         var status = _powerModeProfileRuntime.Apply(profile, liveWritesEnabled: !_previewMode);
         if (!status.Applied && status.LiveWritesEnabled)
             throw new InvalidOperationException(status.Message);
+        _tray?.Update(_controller.Snapshot, _powerModeProfileRuntime.CurrentProfile?.Mode);
     }
     private async Task ApplyConfigAsync(PowerFlowConfig updated)
     {

@@ -41,11 +41,13 @@ public sealed class TrayIconHost : IDisposable
     private ushort _classAtom;
     private bool _iconAdded;
     private ControllerSnapshot _snapshot;
+    private PowerFlowOperatingMode? _manualMode;
     private TrayRect? _observedHoverRect;
 
-    public TrayIconHost(ControllerSnapshot initialSnapshot)
+    public TrayIconHost(ControllerSnapshot initialSnapshot, PowerFlowOperatingMode? manualMode = null)
     {
         _snapshot = initialSnapshot;
+        _manualMode = manualMode;
         _windowProc = WndProc;
         _instance = GetModuleHandle(null);
         _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
@@ -57,9 +59,10 @@ public sealed class TrayIconHost : IDisposable
     public event EventHandler<TrayInteractionRequestedEventArgs>? InteractionRequested;
     public event EventHandler? HoverActivity;
 
-    public void Update(ControllerSnapshot snapshot)
+    public void Update(ControllerSnapshot snapshot, PowerFlowOperatingMode? manualMode = null)
     {
         _snapshot = snapshot;
+        _manualMode = manualMode;
         AddOrUpdateIcon(add: false);
     }
 
@@ -191,7 +194,7 @@ public sealed class TrayIconHost : IDisposable
     }
     private void ShowContextMenu()
     {
-        var model = TrayMenuCommands.Build(_snapshot);
+        var model = TrayMenuCommands.Build(_snapshot, _manualMode);
         var menu = CreatePopupMenu();
         if (menu == IntPtr.Zero) return;
         try
@@ -200,11 +203,11 @@ public sealed class TrayIconHost : IDisposable
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, TrayMenuCommands.OpenDashboard, "Open PowerFlow");
             AppendMenu(menu, MfSeparator, 0, null);
-            AppendMenu(menu, MfString | Check(model.PowerSaverChecked), TrayMenuCommands.PowerSaver, "Power Saver");
+            AppendMenu(menu, MfString | Check(model.AutoChecked), TrayMenuCommands.Auto, "Auto");
+            AppendMenu(menu, MfString | Check(model.SaverChecked), TrayMenuCommands.PowerSaver, "Saver");
             AppendMenu(menu, MfString | Check(model.BalancedChecked), TrayMenuCommands.Balanced, "Balanced");
-            AppendMenu(menu, MfString | Check(model.HighPerformanceChecked), TrayMenuCommands.HighPerformance, "High Performance (Lock)");
-            var releaseFlags = MfString | (model.ReleaseLatchEnabled ? 0u : MfDisabled | MfGrayed);
-            AppendMenu(menu, releaseFlags, TrayMenuCommands.ReleaseLatch, "Release Manual Lock");
+            AppendMenu(menu, MfString | Check(model.PerformanceChecked), TrayMenuCommands.HighPerformance, "Performance");
+            AppendMenu(menu, MfString | Check(model.UltraChecked), TrayMenuCommands.Ultra, "Ultra");
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString, TrayMenuCommands.Settings, "Settings");
             AppendMenu(menu, MfSeparator, 0, null);
@@ -243,7 +246,7 @@ public sealed class TrayIconHost : IDisposable
 
     private NotifyIconData CreateNotifyData()
     {
-        var model = TrayMenuCommands.Build(_snapshot);
+        var model = TrayMenuCommands.Build(_snapshot, _manualMode);
         return new NotifyIconData
         {
             CbSize = (uint)Marshal.SizeOf<NotifyIconData>(),
