@@ -30,6 +30,7 @@ public partial class App : Application
     private DispatcherQueueTimer? _trayHoverTimer;
     private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
     private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
+    private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
@@ -75,6 +76,7 @@ public partial class App : Application
             _controller.SnapshotChanged += OnSnapshotChanged;
             await _controller.StartAsync();
             await _telemetryRecorder.StartAsync();
+            _telemetryRecorder.ContinuityChanged += OnTelemetryContinuityChanged;
 
             if (LaunchIntent.ShouldCreateTray(launchArgs))
             {
@@ -125,6 +127,17 @@ public partial class App : Application
         _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot));
     }
 
+    private void OnTelemetryContinuityChanged(object? sender, EventArgs e)
+    {
+        if (_telemetryRecorder is null || _shuttingDown) return;
+        var input = GraduatedCoreFloorActuatorRuntime.BuildInput(_telemetryRecorder.History);
+        _graduatedCoreActuatorRuntime.Evaluate(
+            input,
+            enabled: _config.GraduatedCoreActuationEnabled,
+            previewMode: _previewMode,
+            coarseAdaptiveActuationEnabled: _config.AdaptiveActuationEnabled,
+            qualifiedSchemeId: _config.PowerSaverPlanId ?? PowerPlanIds.PowerSaver);
+    }
     private async Task ApplyAdaptiveGovernorEvaluationAsync(AdaptiveGovernorRuntimeEvaluation evaluation)
     {
         if (_controller is null || _shuttingDown) return;
@@ -278,7 +291,7 @@ public partial class App : Application
         if (_controller is null || _telemetryRecorder is null) return;
         if (_shellWindow is null)
         {
-            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode);
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status);
             _shellWindow.Closed += async (_, _) =>
             {
                 _shellWindow = null;
@@ -293,7 +306,10 @@ public partial class App : Application
         if (_configStore is null) return;
         if (!_previewMode) await _configStore.SaveAsync(updated);
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
+        var graduatedWasEnabled = _config.GraduatedCoreActuationEnabled;
         _config = updated;
+        if (graduatedWasEnabled && !updated.GraduatedCoreActuationEnabled)
+            _graduatedCoreActuatorRuntime.StopAndRestore("Graduated core-floor actuation disabled; baseline restored.");
         _games?.UpdateRules(updated.AppRules);
         if (!_previewMode) _startupRegistration?.SetEnabled(updated.StartWithWindows);
     }
@@ -311,8 +327,10 @@ public partial class App : Application
                 _controller.SnapshotChanged -= OnSnapshotChanged;
                 await _controller.StopAsync();
             }
+            _graduatedCoreActuatorRuntime.StopAndRestore("Application shutdown restored the graduated core-floor baseline.");
             if (_telemetryRecorder is not null)
             {
+                _telemetryRecorder.ContinuityChanged -= OnTelemetryContinuityChanged;
                 await _telemetryRecorder.DisposeAsync();
                 _telemetryRecorder = null;
             }

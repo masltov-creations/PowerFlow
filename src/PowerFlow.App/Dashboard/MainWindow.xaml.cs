@@ -57,13 +57,14 @@ public sealed partial class MainWindow : Window
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
     private DateTimeOffset _nextProcessorPolicyReadAt;
+    private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -71,6 +72,7 @@ public sealed partial class MainWindow : Window
         _controller = controller;
         _recorder = recorder;
         _previewMode = previewMode;
+        _coreActuatorStatusProvider = coreActuatorStatusProvider;
         _config = config;
         _applyConfig = applyConfig;
         var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
@@ -569,6 +571,7 @@ public sealed partial class MainWindow : Window
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
         PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
         PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
+        PerformanceTimeline.SetCoreActuatorStatus(_coreActuatorStatusProvider?.Invoke());
         PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
         PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
         PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);

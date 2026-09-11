@@ -99,3 +99,24 @@ The first reversible live characterization used the compiled `WindowsProcessorPo
 - Core-floor `10 -> 75 -> 10`: awake logical processors moved 14 -> 24 -> 14, delivered capacity moved 22.3% -> 38.2% -> 22.3%, and capacity saturation moved about 49% -> 31-35% -> 52% under roughly comparable demand. This qualifies core-floor control for the next guarded closed-loop stage.
 
 The advisory actuator translator therefore normalizes requested capacity by current percent-of-maximum-frequency to estimate a required logical-processor floor, uses a 3-point delivery deadband, rises at no more than 15 core-floor percentage points per control step, and releases at no more than 10 points per step. EPP is explicitly held.
+### Guarded closed-loop core-floor actuator v1
+
+The first live graduated actuator is deliberately narrow. It owns only `CPMINCORES` on the qualified Power Saver scheme. It never writes EPP, boost policy, processor min/max state, or parking timing controls.
+
+Hard gates:
+- separate `GraduatedCoreActuationEnabled` flag, default off;
+- preview mode cannot write;
+- legacy/coarse `AdaptiveActuationEnabled` and graduated core-floor actuation are mutually exclusive;
+- only the configured Power Saver scheme is qualified; scheme changes restore the qualified baseline and suspend writes;
+- baseline core floor is captured before the first write and restored on disable, shutdown, scheme change, or fault;
+- floor cannot be lowered below the captured baseline or raised above the experimentally qualified 75% ceiling;
+- one planner step is at most +15/-10 points and writes are separated by at least five seconds of delivered-capacity feedback;
+- every write is read back; a write/readback fault restores baseline and fault-latches the actuator;
+- EPP remains HOLD/unqualified.
+
+The loop runs from background rich telemetry, not dashboard visibility. The dashboard receives actuator status only for explanation.
+#### Live closed-loop qualification evidence
+
+On reference-host / Power Saver, the guarded runtime was exercised against the real processor-policy API and live delivered-capacity telemetry. Baseline was `CPMINCORES=10`, `EPP=60`. With a fixed 35% requested-capacity target, delivered capacity naturally moved between roughly 31% and 37.5%. The actuator correctly held while delivered capacity was sufficient. When delivered capacity fell to ~31.2%, it applied one bounded `10 -> 25` core-floor step while holding EPP at 60. Three seconds later it planned a further step but the five-second write cooldown blocked it. `StopAndRestore()` then returned the policy to `CPMINCORES=10`, `EPP=60` with readback verification.
+
+This qualifies the core-floor feedback loop and its first safety envelope. It does not qualify EPP, boost, >75% core-floor writes, or removal of the separate enable gate.

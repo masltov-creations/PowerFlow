@@ -19,6 +19,7 @@ public sealed record PowerFlowConfig(
     bool? ReducedMotionOverride,
     ThemePreference Theme = ThemePreference.System,
     bool AdaptiveActuationEnabled = false,
+    bool GraduatedCoreActuationEnabled = false,
     AdaptiveGovernorSettings? AdaptiveGovernor = null)
 {
     public AdaptiveGovernorSettings EffectiveAdaptiveGovernorSettings => AdaptiveGovernor ?? AdaptiveGovernorSettings.Default;
