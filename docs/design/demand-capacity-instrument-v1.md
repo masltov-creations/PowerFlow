@@ -136,7 +136,8 @@ The product modes are operating envelopes, not aliases for three Windows plan na
 | PowerFlow mode | Windows base plan | Core floor | EPP | Boost mode | Intent |
 | --- | --- | ---: | ---: | --- | --- |
 | Saver | Power Saver | 10% | 60 | Disabled (0) | Low floor; make demand prove itself before capacity/boost is granted. |
-| Balanced | Balanced | 25% | 35 | Efficient Enabled (3) | Adaptive equilibrium; modest readiness while retaining strong burst performance. |
+| Balanced Efficient (`BAL-E`) | Balanced | 25% | 35 | Efficient Enabled (3) | Efficiency-biased equilibrium; modest readiness while retaining burst performance. |
+| Balanced Performance (`BAL-P`) | Balanced | 50% | 20 | Efficient Enabled (3) | Mid-readiness bridge between BAL-E and Performance. |
 | Performance | Balanced | 75% | 10 | Aggressive (2) | High readiness without forcing High Performance's 100% minimum processor state. |
 | Ultra | High Performance | 100% | 10 | Aggressive (2) | Fully pre-armed; all cores ready and High Performance floor semantics accepted. |
 
@@ -147,4 +148,79 @@ Qualification measurements on reference-host under the contemporaneous backgroun
 - PowerFlow Performance candidate: about 128.2%, 99.8 W, roughly 12 awake cores.
 - Compiled profile live qualification: Saver ~99.3% / 50.1 W / 6 cores; Balanced ~126.1% / 87.4 W / 5.3 cores; Performance ~121.9% / 97.8 W / 12 cores; Ultra ~122.7% / 109.6 W / 16 cores. These are observations, not fixed targets; workload changes the absolute values.
 
-The readiness ladder is intentional: Saver < Balanced < Performance < Ultra. Saver and Balanced remain dynamic; Performance and Ultra increasingly pay idle/readiness cost to reduce capacity wake-up latency.
+The readiness ladder is intentional: Saver < BAL-E < BAL-P < Performance < Ultra. Saver and both Balanced modes remain dynamic; Performance and Ultra increasingly pay idle/readiness cost to reduce capacity wake-up latency.
+## Efficiency Compare and control-layer status
+
+### Control layers currently owned by PowerFlow
+
+The measured manual Saver / BAL-E / BAL-P / Performance / Ultra profiles currently apply four concrete processor-policy layers:
+
+1. Windows power-plan state (Saver, Balanced, or High Performance as the substrate).
+2. Core-parking minimum (`CPMINCORES`) as the readiness/capacity floor.
+3. Energy-performance preference (`PERFEPP`).
+4. Processor performance boost mode (`PERFBOOSTMODE`).
+
+`CPMINCORES` is causally qualified as the graduated capacity actuator. `PERFBOOSTMODE` is causally qualified as a strong performance/power actuator (Saver Aggressive vs Disabled produced a large measured performance/watt difference). `PERFEPP` is writable and restored exactly, but the earlier isolated sweep on the then-current path did not show a material response; do not treat EPP as an independently qualified actuator until it is re-characterized under the current performance-control path.
+
+PowerFlow does **not** currently write the deeper Windows processor-control family: minimum/maximum processor state, autonomous-mode ownership, performance increase/decrease thresholds, increase/decrease timing/policy, boost policy percentage, core concurrency/headroom, core increase/decrease timing/policy, or related scheduler/performance-state knobs. Those remain Windows-owned. The goal is not to own every hidden setting; a new layer should only be adopted after an isolated reversible characterization proves that it adds useful control beyond core readiness + boost without destabilizing Saver.
+
+### Remaining Auto work
+
+Auto is not yet the final multi-layer controller. The intended control order is:
+
+1. Core-floor / delivered-capacity loop as the primary continuous actuator.
+2. Boost availability/mode as the next performance-side actuator, with mode-envelope constraints.
+3. EPP or deeper performance-state timing/threshold controls only after isolated qualification.
+4. A top-level `POWERFLOW | WINDOWS` ownership switch so Windows-native plans can be selected as a true monitor-only baseline with all PowerFlow writes and plan switching disabled.
+
+### Efficiency Compare
+
+The Compare experiment is app-owned so recording can continue while the dashboard is closed. It supports 5-minute, 30-minute, and 5-hour Baseline/After phases. Recording itself performs no policy mutation.
+
+Generic Windows telemetry cannot truthfully report application jobs completed. Compare therefore uses a named **CPU work index** derived from `DemandPressureTelemetry.DemandPercent`. That signal is Windows Processor Utility summed over logical processors and normalized to the machine's nominal full-CPU capacity. Integrating `DemandPercent / 100` over time yields **nominal full-CPU equivalent minutes**. It is a consistent CPU-service proxy, not an application throughput counter.
+
+Package energy is the trapezoidal integral of measured package watts over the same intervals, reported in Wh. Intervals larger than 15 seconds are excluded rather than integrated across suspend or telemetry loss; each phase reports coverage.
+
+For the After phase, equivalent-work baseline energy is:
+
+`baseline Wh / baseline work-min * after work-min`
+
+Estimated energy avoided is that equivalent-work baseline energy minus actual After Wh. Compare also reports work/Wh, CPU work rate, average/peak compute pressure, and average processor queue length so a lower-energy result is not called a win if service rate or responsiveness materially regresses.
+
+Application-specific work counters may later replace the generic CPU work index for known workloads when a trustworthy throughput signal exists.
+### Task-Manager-aligned CPU speed
+
+PowerFlow now separates two processor-performance meanings instead of mixing them:
+
+- **aggregate CPU speed/readout:** Windows PDH `\Processor Information(_Total)\% Processor Performance` multiplied by the processor nominal/base MHz. This is the Task-Manager-style machine-level speed context shown in tooltips/readouts;
+- **capacity modeling:** per-logical-processor `% Processor Performance`, retained because delivered capacity depends on which logical processors are awake and how much performance each is delivering.
+
+On reference-host, the aggregate counter was observed around 129-130% while the nominal/base value remained 3401 MHz, yielding roughly 4.4 GHz machine-level speed context. `Processor Frequency` and `% of Maximum Frequency` remain flat on this platform and are not used as the primary dynamic speed signal.
+
+### Telemetry cadence controls
+
+Rich telemetry cadence is user-configurable and takes effect at runtime without replacing the telemetry source:
+
+- visible/dashboard interval: 250-5000 ms;
+- background/tray interval: 500-10000 ms.
+
+The default remains conservative. The recorder restarts only its cadence timer when the configured interval changes; ownership/history remain app-level so Compare and background continuity are preserved.
+
+### Dense live instrument
+
+The live timeline uses three visual rows while retaining four aligned logical data series:
+
+1. Compute Pressure.
+2. Package Power + CPU Performance overlay.
+3. Capacity / Cores.
+
+CPU Performance no longer consumes an entire row on reference-host because it is often near-flat during sustained boost. Power remains the primary scale in the middle row; CPU Performance is a secondary percent overlay with its own labeled focus range and explicit headroom. Both share the same time axis but not the same numeric scale.
+
+### Balanced split calibration
+
+The product now distinguishes two Balanced envelopes on the same Windows Balanced substrate:
+
+- **BAL-E:** core floor 25%, EPP 35, efficient boost mode 3.
+- **BAL-P:** core floor 50%, EPP 20, efficient boost mode 3.
+
+A same-plan exploratory sweep under the contemporaneous workload observed approximately 72.7 W / 125.5% performance for BAL-E settings, 86.4 W / 128.6% for BAL-P settings, and 91.8 W / 128.4% for Performance settings. Because that sweep was intentionally performed without switching the underlying Windows plan, it is useful only as evidence that the midpoint settings create a graduated readiness/power ladder; it is not the final product-mode watt characterization. Absolute wattage remains workload-dependent.

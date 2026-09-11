@@ -19,11 +19,11 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             .Where(thread => !thread.IsParked && thread.ProcessorPerformancePercent is double value && double.IsFinite(value) && value > 0)
             .Select(thread => thread.ProcessorPerformancePercent!.Value)
             .ToArray();
-        double? processorPerformance = awakePerformance is { Length: > 0 } ? awakePerformance.Average() : null;
+        double? processorPerformance = system.AggregateProcessorPerformancePercent is double aggregate && double.IsFinite(aggregate) && aggregate > 0
+            ? aggregate
+            : awakePerformance is { Length: > 0 } ? awakePerformance.Average() : null;
         var nominalMhz = TryReadNominalMhz();
-        var equivalentMhz = nominalMhz is double nominal && processorPerformance is double performance
-            ? nominal * performance / 100d
-            : nominalMhz;
+        var equivalentMhz = EstimateAggregateSpeedMhz(nominalMhz, processorPerformance);
         return new DashboardTelemetry(
             _energy.TryReadWatts(),
             equivalentMhz,
@@ -35,6 +35,13 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             system.LogicalProcessors,
             system.ProcessorQueueLength,
             processorPerformance);
+    }
+
+    public static double? EstimateAggregateSpeedMhz(double? nominalMhz, double? processorPerformancePercent)
+    {
+        if (nominalMhz is not double nominal || !double.IsFinite(nominal) || nominal <= 0) return null;
+        if (processorPerformancePercent is not double performance || !double.IsFinite(performance) || performance <= 0) return nominal;
+        return nominal * performance / 100d;
     }
 
     public void Dispose()

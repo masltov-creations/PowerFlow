@@ -34,6 +34,7 @@
                     <NavigationViewItem Content="Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Model" Tag="model"><NavigationViewItem.Icon><SymbolIcon Symbol="View"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Tune Auto" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Compare" Tag="compare"><NavigationViewItem.Icon><SymbolIcon Symbol="Document"/></NavigationViewItem.Icon></NavigationViewItem>
                 </NavigationView.MenuItems>
                 <NavigationView.FooterMenuItems>
                     <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
@@ -161,6 +162,7 @@
                         </Grid>
                     </Grid>
 
+                    <dash:EfficiencyCompareControl x:Name="EfficiencyComparePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
                 </Grid>

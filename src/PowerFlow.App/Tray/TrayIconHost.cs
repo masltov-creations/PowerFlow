@@ -205,7 +205,8 @@ public sealed class TrayIconHost : IDisposable
             AppendMenu(menu, MfSeparator, 0, null);
             AppendMenu(menu, MfString | Check(model.AutoChecked), TrayMenuCommands.Auto, "Auto");
             AppendMenu(menu, MfString | Check(model.SaverChecked), TrayMenuCommands.PowerSaver, "Saver");
-            AppendMenu(menu, MfString | Check(model.BalancedChecked), TrayMenuCommands.Balanced, "Balanced");
+            AppendMenu(menu, MfString | Check(model.BalancedChecked), TrayMenuCommands.Balanced, "Balanced Efficient");
+            AppendMenu(menu, MfString | Check(model.BalancedPerformanceChecked), TrayMenuCommands.BalancedPerformance, "Balanced Performance");
             AppendMenu(menu, MfString | Check(model.PerformanceChecked), TrayMenuCommands.HighPerformance, "Performance");
             AppendMenu(menu, MfString | Check(model.UltraChecked), TrayMenuCommands.Ultra, "Ultra");
             AppendMenu(menu, MfSeparator, 0, null);

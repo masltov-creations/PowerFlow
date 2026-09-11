@@ -59,13 +59,14 @@ public sealed partial class MainWindow : Window
     private DateTimeOffset _nextProcessorPolicyReadAt;
     private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
     private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
+    private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, EfficiencyExperimentRuntime? efficiencyExperimentRuntime = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -75,6 +76,7 @@ public sealed partial class MainWindow : Window
         _previewMode = previewMode;
         _coreActuatorStatusProvider = coreActuatorStatusProvider;
         _applyOperatingMode = applyOperatingMode;
+        _efficiencyExperimentRuntime = efficiencyExperimentRuntime ?? new EfficiencyExperimentRuntime();
         _config = config;
         _applyConfig = applyConfig;
         var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
@@ -98,6 +100,7 @@ public sealed partial class MainWindow : Window
         ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
+        EfficiencyComparePanel.Initialize(_efficiencyExperimentRuntime);
         SystemHeaderHost.ModeRequested += OnModeRequested;
         PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
         PerformanceTimeline.CursorChanged += OnTimelineCursorChanged;
@@ -566,6 +569,7 @@ public sealed partial class MainWindow : Window
     {
         var snapshot = _controller.Snapshot;
         ViewModel.UpdateContinuity(snapshot, _recorder.History, _recorder.LatestRichTelemetry);
+        EfficiencyComparePanel.Refresh();
         ApplyVisualState(snapshot);
     });
 
@@ -611,7 +615,8 @@ public sealed partial class MainWindow : Window
             ? _manualModeSelection switch
             {
                 PowerModeSelection.Eco => "SAVER",
-                PowerModeSelection.Efficient or PowerModeSelection.Responsive => "BALANCED",
+                PowerModeSelection.Efficient => "BALANCED EFFICIENT",
+                PowerModeSelection.Responsive => "BALANCED PERFORMANCE",
                 PowerModeSelection.Boost => "PERFORMANCE",
                 PowerModeSelection.Ultra => "ULTRA",
                 _ => "MANUAL"
@@ -873,6 +878,7 @@ public sealed partial class MainWindow : Window
         PerformanceTimeline.SetTuneMode(tag == "tune");
         var cockpitSection = tag is "flow" or "model" or "tune";
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
+        EfficiencyComparePanel.Visibility = tag == "compare" ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
         if (cockpitSection)

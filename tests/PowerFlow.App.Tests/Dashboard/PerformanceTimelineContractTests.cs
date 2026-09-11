@@ -5,7 +5,7 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class PerformanceTimelineContractTests
 {
     [Fact]
-    public void Timeline_IsOneSharedInstrumentWithFourAlignedKpiLanesAndPolicyLayers()
+    public void Timeline_IsOneSharedInstrumentWithThreeVisualRowsAndFourAlignedDataSeries()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
@@ -19,8 +19,7 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("x:Name=\"PolicyHandleLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ActorDecisionLayer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("COMPUTE PRESSURE", xaml, StringComparison.Ordinal);
-        Assert.Contains("PACKAGE POWER", xaml, StringComparison.Ordinal);
-        Assert.Contains("CPU PERFORMANCE", xaml, StringComparison.Ordinal);
+        Assert.Contains("POWER / CPU PERF", xaml, StringComparison.Ordinal);
         Assert.Contains("CAPACITY / CORES", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceTimelineProjection.Build", code, StringComparison.Ordinal);
         Assert.Contains("FindNearestObservationIndex", code, StringComparison.Ordinal);
@@ -43,12 +42,13 @@ public sealed class PerformanceTimelineContractTests
         var projection = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineProjection.cs");
 
         Assert.Contains("Height=\"1.5*\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("LaneWeights = [1.5d, 1d, 1d, 1.5d]", code, StringComparison.Ordinal);
+        Assert.Contains("LaneWeights = [1.4d, 1.1d, 1.5d]", code, StringComparison.Ordinal);
         Assert.DoesNotContain("_plotHeight / 4d", code, StringComparison.Ordinal);
         Assert.Contains("DomainMin", projection, StringComparison.Ordinal);
         Assert.Contains("minimumSpan: 40d", projection, StringComparison.Ordinal);
         Assert.Contains("minimumSpan: 30d", projection, StringComparison.Ordinal);
-        Assert.Contains("100d - _data.Lanes[lane].DomainMin", code, StringComparison.Ordinal);
+        Assert.Contains("100d - _data.Lanes[2].DomainMin", code, StringComparison.Ordinal);
+        Assert.Contains("CPU performance overlays package power", code, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)

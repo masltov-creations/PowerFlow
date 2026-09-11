@@ -45,15 +45,15 @@ public sealed class PerformanceTimelineProjectionTests
 
         Assert.Equal(0, pressure.DomainMin);
         Assert.Equal(100, pressure.DomainMax);
-        Assert.Equal(50, power.DomainMin);
-        Assert.Equal(100, power.DomainMax);
-        Assert.Equal(60, performance.DomainMin);
-        Assert.Equal(125, performance.DomainMax);
+        Assert.Equal(45, power.DomainMin);
+        Assert.Equal(105, power.DomainMax);
+        Assert.Equal(55, performance.DomainMin);
+        Assert.Equal(130, performance.DomainMax);
         Assert.Equal(0, cores.DomainMin);
         Assert.Equal(16, cores.DomainMax);
         Assert.Equal(.5, pressure.Points[0].Y!.Value, 3);
-        Assert.Equal(0, power.Points[0].Y!.Value, 3);
-        Assert.Equal((62.5 - 60) / 65, performance.Points[0].Y!.Value, 3);
+        Assert.Equal((50d - 45d) / 60d, power.Points[0].Y!.Value, 3);
+        Assert.Equal((62.5 - 55) / 75, performance.Points[0].Y!.Value, 3);
         Assert.Equal(.5, cores.Points[0].Y!.Value, 3);
         Assert.Equal(50, power.Points[0].Value);
         Assert.Equal(62.5, performance.Points[0].Value);
@@ -73,8 +73,8 @@ public sealed class PerformanceTimelineProjectionTests
         var power = Lane(data, PerformanceTimelineMetric.PackagePower);
         var performance = Lane(data, PerformanceTimelineMetric.EffectiveClock);
 
-        Assert.True(power.DomainMax - power.DomainMin <= 50);
-        Assert.True(performance.DomainMax - performance.DomainMin <= 40);
+        Assert.True(power.DomainMax - power.DomainMin <= 60);
+        Assert.True(performance.DomainMax - performance.DomainMin <= 50);
         Assert.True(performance.DomainMin <= 100 && performance.DomainMax >= 100);
         Assert.Equal(new[] { 82d, 88d, 94d }, power.Points.Select(point => point.Value!.Value));
         Assert.Equal(new[] { 126d, 128d, 129d }, performance.Points.Select(point => point.Value!.Value));

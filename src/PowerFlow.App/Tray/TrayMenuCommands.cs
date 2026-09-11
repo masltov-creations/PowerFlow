@@ -12,6 +12,7 @@ public static class TrayMenuCommands
     public const int HighPerformance = 1103;
     public const int ReleaseLatch = 1104; // Legacy command id; routes to Auto.
     public const int Ultra = 1105;
+    public const int BalancedPerformance = 1106;
     public const int Settings = 1201;
     public const int Exit = 1999;
 
@@ -46,6 +47,7 @@ public static class TrayMenuCommands
             AutoChecked: !manualAuthority && manualMode is null,
             SaverChecked: selectedMode == PowerFlowOperatingMode.Saver,
             BalancedChecked: selectedMode == PowerFlowOperatingMode.Balanced,
+            BalancedPerformanceChecked: selectedMode == PowerFlowOperatingMode.BalancedPerformance,
             PerformanceChecked: selectedMode == PowerFlowOperatingMode.Performance,
             UltraChecked: selectedMode == PowerFlowOperatingMode.Ultra,
             ReleaseLatchEnabled: manualAuthority);
@@ -54,7 +56,8 @@ public static class TrayMenuCommands
     private static string Friendly(PowerFlowOperatingMode mode) => mode switch
     {
         PowerFlowOperatingMode.Saver => "Saver",
-        PowerFlowOperatingMode.Balanced => "Balanced",
+        PowerFlowOperatingMode.Balanced => "Balanced Efficient",
+        PowerFlowOperatingMode.BalancedPerformance => "Balanced Performance",
         PowerFlowOperatingMode.Performance => "Performance",
         PowerFlowOperatingMode.Ultra => "Ultra",
         _ => mode.ToString()
@@ -66,6 +69,7 @@ public sealed record TrayMenuModel(
     bool AutoChecked,
     bool SaverChecked,
     bool BalancedChecked,
+    bool BalancedPerformanceChecked,
     bool PerformanceChecked,
     bool UltraChecked,
     bool ReleaseLatchEnabled);

@@ -32,7 +32,8 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             coreSnapshot.AwakePhysicalCores,
             coreSnapshot.TotalPhysicalCores,
             coreSnapshot.LogicalProcessors,
-            coreSnapshot.ProcessorQueueLength);
+            coreSnapshot.ProcessorQueueLength,
+            coreSnapshot.AggregateProcessorPerformancePercent);
     }
 
     public void Dispose() => _parking.Dispose();
@@ -73,6 +74,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         private readonly List<LogicalProcessorCounters> _counters = [];
         private IntPtr _query;
         private IntPtr _queueCounter;
+        private IntPtr _totalPerformanceCounter;
 
         public CoreParkingReader()
         {
@@ -87,6 +89,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
                 }
 
                 _ = PdhAddEnglishCounter(_query, @"\System\Processor Queue Length", IntPtr.Zero, out _queueCounter);
+                _ = PdhAddEnglishCounter(_query, @"\Processor Information(_Total)\% Processor Performance", IntPtr.Zero, out _totalPerformanceCounter);
 
                 foreach (var pair in topology.OrderBy(pair => pair.Key))
                 {
@@ -131,16 +134,17 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         public CoreParkingSnapshot Read()
         {
             if (_query == IntPtr.Zero || _counters.Count == 0)
-                return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
+                return new CoreParkingSnapshot(null, TotalPhysicalCores, null, null, null);
             if (PdhCollectQueryData(_query) != 0)
-                return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
+                return new CoreParkingSnapshot(null, TotalPhysicalCores, null, null, null);
 
             var queueLength = ReadOptionalCounter(_queueCounter, 0d, 1024d);
+            var aggregatePerformance = ReadOptionalCounter(_totalPerformanceCounter, 0d, 250d);
             var logical = new List<LogicalProcessorTelemetry>(_counters.Count);
             foreach (var entry in _counters)
             {
                 if (PdhGetFormattedCounterValue(entry.ParkingCounter, PdhFmtDouble, out _, out var parkedValue) != 0 || parkedValue.CStatus != 0)
-                    return new CoreParkingSnapshot(null, TotalPhysicalCores, null);
+                    return new CoreParkingSnapshot(null, TotalPhysicalCores, null, null, null);
 
                 var utilization = ReadOptionalCounter(entry.UtilityCounter, 0d, 250d);
                 var frequency = ReadOptionalCounter(entry.FrequencyCounter, 0d, 10000d);
@@ -158,7 +162,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             }
 
             var awake = CountAwakePhysicalCores(logical.Select(state => new CoreParkingState(state.PhysicalCoreIndex, state.IsParked)));
-            return new CoreParkingSnapshot(awake, TotalPhysicalCores, logical, queueLength);
+            return new CoreParkingSnapshot(awake, TotalPhysicalCores, logical, queueLength, aggregatePerformance);
         }
 
         public void Dispose() => ResetQuery();
@@ -168,6 +172,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             if (_query != IntPtr.Zero) PdhCloseQuery(_query);
             _query = IntPtr.Zero;
             _queueCounter = IntPtr.Zero;
+            _totalPerformanceCounter = IntPtr.Zero;
             _counters.Clear();
         }
 
@@ -265,5 +270,6 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
         int? AwakePhysicalCores,
         int? TotalPhysicalCores,
         IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors,
-        double? ProcessorQueueLength = null);
+        double? ProcessorQueueLength = null,
+        double? AggregateProcessorPerformancePercent = null);
 }

@@ -7,20 +7,20 @@ namespace PowerFlow.App.Tests.Controller;
 public sealed class PowerFlowOperatingProfileTests
 {
     [Fact]
-    public void Profiles_FormIncreasingReadinessLadder()
+    public void BalancedEfficientAndBalancedPerformance_AreDistinctReadinessStepsOnBalancedPlan()
     {
-        var saver = PowerFlowOperatingProfiles.Saver;
-        var balanced = PowerFlowOperatingProfiles.Balanced;
-        var performance = PowerFlowOperatingProfiles.Performance;
-        var ultra = PowerFlowOperatingProfiles.Ultra;
-        Assert.Equal(PowerState.PowerSaver, saver.WindowsState);
-        Assert.Equal((uint)0, saver.BoostMode);
-        Assert.True(saver.CoreFloorPercent < balanced.CoreFloorPercent);
-        Assert.True(balanced.CoreFloorPercent < performance.CoreFloorPercent);
-        Assert.True(performance.CoreFloorPercent < ultra.CoreFloorPercent);
-        Assert.Equal((uint)100, ultra.CoreFloorPercent);
-        Assert.Equal(PowerState.HighPerformance, ultra.WindowsState);
-        Assert.True(saver.PromotionQualificationSeconds > balanced.PromotionQualificationSeconds);
-        Assert.True(balanced.PromotionQualificationSeconds > performance.PromotionQualificationSeconds);
+        var efficient = PowerFlowOperatingProfiles.Balanced;
+        var performance = PowerFlowOperatingProfiles.BalancedPerformance;
+
+        Assert.Equal(PowerState.Balanced, efficient.WindowsState);
+        Assert.Equal(PowerState.Balanced, performance.WindowsState);
+        Assert.Equal((uint)25, efficient.CoreFloorPercent);
+        Assert.Equal((uint)50, performance.CoreFloorPercent);
+        Assert.Equal((uint)35, efficient.EnergyPerformancePreferencePercent);
+        Assert.Equal((uint)20, performance.EnergyPerformancePreferencePercent);
+        Assert.Equal((uint)3, efficient.BoostMode);
+        Assert.Equal((uint)3, performance.BoostMode);
+        Assert.True(efficient.ReadinessFloorPercent < performance.ReadinessFloorPercent);
+        Assert.True(performance.ReadinessFloorPercent < PowerFlowOperatingProfiles.Performance.ReadinessFloorPercent);
     }
 }

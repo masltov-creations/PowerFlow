@@ -10,6 +10,8 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
     private readonly IControllerTickSourceFactory _tickFactory;
     private readonly IControllerClock _clock;
     private readonly int _capacity;
+    private TimeSpan _visibleInterval;
+    private TimeSpan _hiddenInterval;
     private readonly List<ContinuitySample> _history = [];
     private IDashboardTelemetrySource? _source;
     private ControllerSnapshot? _snapshot;
@@ -25,13 +27,17 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
         Func<IDashboardTelemetrySource> sourceFactory,
         IControllerTickSourceFactory tickFactory,
         IControllerClock clock,
-        int capacity = 1800)
+        int capacity = 1800,
+        TimeSpan? visibleInterval = null,
+        TimeSpan? hiddenInterval = null)
     {
         if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
         _sourceFactory = sourceFactory;
         _tickFactory = tickFactory;
         _clock = clock;
         _capacity = capacity;
+        _visibleInterval = TelemetryCadencePolicy.NormalizeVisible(visibleInterval ?? TelemetryCadencePolicy.DefaultVisibleInterval);
+        _hiddenInterval = TelemetryCadencePolicy.NormalizeHidden(hiddenInterval ?? TelemetryCadencePolicy.DefaultHiddenInterval);
     }
 
     public event EventHandler? ContinuityChanged;
@@ -95,6 +101,26 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
         return new TelemetryVisibilityLease(ReleaseVisibility);
     }
 
+    public void UpdateCadence(TimeSpan visibleInterval, TimeSpan hiddenInterval)
+    {
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            var visible = TelemetryCadencePolicy.NormalizeVisible(visibleInterval);
+            var hidden = TelemetryCadencePolicy.NormalizeHidden(hiddenInterval);
+            if (visible == _visibleInterval && hidden == _hiddenInterval) return;
+            _visibleInterval = visible;
+            _hiddenInterval = hidden;
+            if (_started)
+            {
+                _runnerCts?.Cancel();
+                _runnerCts = null;
+                _runner = null;
+                Mode = TelemetryCadenceMode.Off;
+                ReconfigureLocked();
+            }
+        }
+    }
     public Task WaitForRichSampleAsync()
     {
         lock (_gate) return _richSampleCount > 0 ? Task.CompletedTask : _richSampleSignal.Task;
@@ -124,7 +150,7 @@ public sealed class TelemetryContinuityRecorder : IAsyncDisposable
         _runner = null;
         Mode = desired;
 
-        var interval = TelemetryCadencePolicy.IntervalFor(desired);
+        var interval = TelemetryCadencePolicy.IntervalFor(desired, _visibleInterval, _hiddenInterval);
         if (interval is null) return;
 
         _source ??= _sourceFactory();

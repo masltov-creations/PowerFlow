@@ -32,6 +32,7 @@ public partial class App : Application
     private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
+    private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime = new();
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
@@ -73,7 +74,7 @@ public partial class App : Application
                 ? new PreviewPowerPlanController(new WindowsPowerPlanController())
                 : new WindowsPowerPlanController();
             _controller = new PowerFlowController(_config, planController, new SystemTimesActivitySource(), _games, new PeriodicControllerTickSourceFactory(), new SystemControllerDelay(), new SystemControllerClock(), new WindowsPowerPlanObserver());
-            _telemetryRecorder = new TelemetryContinuityRecorder(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock());
+            _telemetryRecorder = new TelemetryContinuityRecorder(() => new DashboardTelemetrySource(), new PeriodicControllerTickSourceFactory(), new SystemControllerClock(), visibleInterval: _config.EffectiveTelemetryVisibleInterval, hiddenInterval: _config.EffectiveTelemetryBackgroundInterval);
             _controller.SnapshotChanged += OnSnapshotChanged;
             await _controller.StartAsync();
             await _telemetryRecorder.StartAsync();
@@ -131,6 +132,7 @@ public partial class App : Application
     private void OnTelemetryContinuityChanged(object? sender, EventArgs e)
     {
         if (_telemetryRecorder is null || _shuttingDown) return;
+        _efficiencyExperimentRuntime.Observe(_telemetryRecorder.History);
         var input = GraduatedCoreFloorActuatorRuntime.BuildInput(_telemetryRecorder.History);
         _graduatedCoreActuatorRuntime.Evaluate(
             input,
@@ -267,6 +269,7 @@ public partial class App : Application
                 case TrayMenuCommands.Auto: await ApplyOperatingModeAsync(PowerModeSelection.Auto); break;
                 case TrayMenuCommands.PowerSaver: await ApplyOperatingModeAsync(PowerModeSelection.Eco); break;
                 case TrayMenuCommands.Balanced: await ApplyOperatingModeAsync(PowerModeSelection.Efficient); break;
+                case TrayMenuCommands.BalancedPerformance: await ApplyOperatingModeAsync(PowerModeSelection.Responsive); break;
                 case TrayMenuCommands.HighPerformance: await ApplyOperatingModeAsync(PowerModeSelection.Boost); break;
                 case TrayMenuCommands.Ultra: await ApplyOperatingModeAsync(PowerModeSelection.Ultra); break;
                 case TrayMenuCommands.ReleaseLatch: await ApplyOperatingModeAsync(PowerModeSelection.Auto); break;
@@ -292,7 +295,7 @@ public partial class App : Application
         if (_controller is null || _telemetryRecorder is null) return;
         if (_shellWindow is null)
         {
-            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync);
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime);
             _shellWindow.Closed += async (_, _) =>
             {
                 _shellWindow = null;
@@ -316,7 +319,8 @@ public partial class App : Application
         var mode = selection switch
         {
             PowerModeSelection.Eco => PowerFlowOperatingMode.Saver,
-            PowerModeSelection.Efficient or PowerModeSelection.Responsive => PowerFlowOperatingMode.Balanced,
+            PowerModeSelection.Efficient => PowerFlowOperatingMode.Balanced,
+            PowerModeSelection.Responsive => PowerFlowOperatingMode.BalancedPerformance,
             PowerModeSelection.Boost => PowerFlowOperatingMode.Performance,
             PowerModeSelection.Ultra => PowerFlowOperatingMode.Ultra,
             _ => PowerFlowOperatingMode.Balanced
@@ -335,6 +339,7 @@ public partial class App : Application
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
         var graduatedWasEnabled = _config.GraduatedCoreActuationEnabled;
         _config = updated;
+        _telemetryRecorder?.UpdateCadence(updated.EffectiveTelemetryVisibleInterval, updated.EffectiveTelemetryBackgroundInterval);
         if (graduatedWasEnabled && !updated.GraduatedCoreActuationEnabled)
             _graduatedCoreActuatorRuntime.StopAndRestore("Graduated core-floor actuation disabled; baseline restored.");
         _games?.UpdateRules(updated.AppRules);

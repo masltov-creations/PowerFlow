@@ -33,16 +33,18 @@ public sealed class TrayMenuCommandsTests
     }
 
     [Theory]
-    [InlineData(PowerFlowOperatingMode.Saver, PowerState.PowerSaver, true, false, false, false)]
-    [InlineData(PowerFlowOperatingMode.Balanced, PowerState.Balanced, false, true, false, false)]
-    [InlineData(PowerFlowOperatingMode.Performance, PowerState.Balanced, false, false, true, false)]
-    [InlineData(PowerFlowOperatingMode.Ultra, PowerState.HighPerformance, false, false, false, true)]
-    public void ManualMode_ChecksExactPowerFlowProfile(PowerFlowOperatingMode mode, PowerState state, bool saver, bool balanced, bool performance, bool ultra)
+    [InlineData(PowerFlowOperatingMode.Saver, PowerState.PowerSaver, true, false, false, false, false)]
+    [InlineData(PowerFlowOperatingMode.Balanced, PowerState.Balanced, false, true, false, false, false)]
+    [InlineData(PowerFlowOperatingMode.BalancedPerformance, PowerState.Balanced, false, false, true, false, false)]
+    [InlineData(PowerFlowOperatingMode.Performance, PowerState.Balanced, false, false, false, true, false)]
+    [InlineData(PowerFlowOperatingMode.Ultra, PowerState.HighPerformance, false, false, false, false, true)]
+    public void ManualMode_ChecksExactPowerFlowProfile(PowerFlowOperatingMode mode, PowerState state, bool saver, bool balanced, bool balancedPerformance, bool performance, bool ultra)
     {
         var model = TrayMenuCommands.Build(Snapshot(state, true, "Manual"), mode);
         Assert.False(model.AutoChecked);
         Assert.Equal(saver, model.SaverChecked);
         Assert.Equal(balanced, model.BalancedChecked);
+        Assert.Equal(balancedPerformance, model.BalancedPerformanceChecked);
         Assert.Equal(performance, model.PerformanceChecked);
         Assert.Equal(ultra, model.UltraChecked);
     }
@@ -62,7 +64,7 @@ public sealed class TrayMenuCommandsTests
     public void CommandIds_AreUnique()
     {
         var ids = new[] { TrayMenuCommands.OpenDashboard, TrayMenuCommands.Auto, TrayMenuCommands.PowerSaver, TrayMenuCommands.Balanced,
-            TrayMenuCommands.HighPerformance, TrayMenuCommands.Ultra, TrayMenuCommands.ReleaseLatch, TrayMenuCommands.Settings, TrayMenuCommands.Exit };
+            TrayMenuCommands.BalancedPerformance, TrayMenuCommands.HighPerformance, TrayMenuCommands.Ultra, TrayMenuCommands.ReleaseLatch, TrayMenuCommands.Settings, TrayMenuCommands.Exit };
         Assert.Equal(ids.Length, ids.Distinct().Count());
     }
 }

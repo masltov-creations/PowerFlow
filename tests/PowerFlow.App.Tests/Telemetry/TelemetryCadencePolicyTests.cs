@@ -24,4 +24,12 @@ public sealed class TelemetryCadencePolicyTests
         Assert.Equal(TimeSpan.FromSeconds(5), TelemetryCadencePolicy.IntervalFor(TelemetryCadenceMode.HiddenAuto));
         Assert.Null(TelemetryCadencePolicy.IntervalFor(TelemetryCadenceMode.Off));
     }
+    [Fact]
+    public void Interval_AllowsGranularConfiguredRatesWithinSafeBounds()
+    {
+        Assert.Equal(TimeSpan.FromMilliseconds(375), TelemetryCadencePolicy.IntervalFor(TelemetryCadenceMode.Visible, TimeSpan.FromMilliseconds(375), TimeSpan.FromMilliseconds(1750)));
+        Assert.Equal(TimeSpan.FromMilliseconds(1750), TelemetryCadencePolicy.IntervalFor(TelemetryCadenceMode.HiddenAuto, TimeSpan.FromMilliseconds(375), TimeSpan.FromMilliseconds(1750)));
+        Assert.Equal(TimeSpan.FromMilliseconds(250), TelemetryCadencePolicy.NormalizeVisible(TimeSpan.FromMilliseconds(10)));
+        Assert.Equal(TimeSpan.FromSeconds(10), TelemetryCadencePolicy.NormalizeHidden(TimeSpan.FromMinutes(1)));
+    }
 }

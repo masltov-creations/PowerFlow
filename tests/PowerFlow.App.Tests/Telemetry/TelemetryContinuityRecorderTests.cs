@@ -64,6 +64,22 @@ public sealed class TelemetryContinuityRecorderTests
     }
 
     [Fact]
+    public async Task UpdateCadence_ReconfiguresCurrentVisibilityModeWithoutReplacingTelemetrySource()
+    {
+        var source = new FakeTelemetrySource();
+        var ticks = new FakeTickFactory();
+        await using var sut = NewRecorder(source, ticks, capacity: 8);
+        sut.UpdateControllerSnapshot(Snapshot(PowerState.Balanced, 20));
+        await sut.StartAsync();
+        using var lease = sut.AcquireVisibility();
+
+        sut.UpdateCadence(TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(2));
+
+        Assert.Equal(TelemetryCadenceMode.Visible, sut.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), ticks.Periods[^1]);
+        Assert.Equal(1, source.FactoryCount);
+    }
+    [Fact]
     public async Task ControllerSnapshotsPopulateCpuStateWithoutReadingRichSourceAndRingIsBounded()
     {
         var source = new FakeTelemetrySource();

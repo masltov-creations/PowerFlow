@@ -37,8 +37,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private double _windowSeconds = 60;
     private double _plotWidth = 1;
     private double _plotHeight = 1;
-    private static readonly double[] LaneWeights = [1.5d, 1d, 1d, 1.5d];
-    private const double LaneWeightTotal = 5d;
+    private static readonly double[] LaneWeights = [1.4d, 1.1d, 1.5d];
+    private const double LaneWeightTotal = 4d;
     private const double LegacyPressureLaneFraction = .25d;
     private HashSet<int> _selectedObservationIndices = [];
     private HashSet<int> _linkedHoveredObservationIndices = [];
@@ -222,24 +222,25 @@ public sealed partial class PerformanceTimelineControl : UserControl
             light ? Brush(194, 112, 43, 225) : Brush(255, 177, 92, 235)
         };
 
-        for (var lane = 0; lane < 3; lane++)
+        var pressureGeometry = LaneBounds(0, height);
+        AddLine(GridLayer, 0, pressureGeometry.Top + pressureGeometry.Height * .5, width, pressureGeometry.Top + pressureGeometry.Height * .5, grid, 1).Opacity = .55;
+        UpdateTracePath(0, _data.Lanes[0], pressureGeometry.Top + 3, Math.Max(1, pressureGeometry.Height - 6), series[0]);
+        AddText(GridLayer, FormatDomain(_data.Lanes[0]), Math.Max(0, width - 86), pressureGeometry.Top + 1, 11, text);
+
+        var powerGeometry = LaneBounds(1, height);
+        AddLine(GridLayer, 0, powerGeometry.Top, width, powerGeometry.Top, grid, 1);
+        AddLine(GridLayer, 0, powerGeometry.Top + powerGeometry.Height * .5, width, powerGeometry.Top + powerGeometry.Height * .5, grid, 1).Opacity = .55;
+        UpdateTracePath(1, _data.Lanes[1], powerGeometry.Top + 3, Math.Max(1, powerGeometry.Height - 6), series[1]);
+        UpdateTracePath(2, _data.Lanes[2], powerGeometry.Top + 3, Math.Max(1, powerGeometry.Height - 6), series[2]);
+        if (_data.Lanes[2].DomainMin <= 100d && _data.Lanes[2].DomainMax >= 100d)
         {
-            var geometry = LaneBounds(lane, height);
-            var top = geometry.Top;
-            var laneHeight = geometry.Height;
-            if (lane > 0) AddLine(GridLayer, 0, top, width, top, grid, 1);
-            AddLine(GridLayer, 0, top + laneHeight * .5, width, top + laneHeight * .5, grid, 1).Opacity = .55;
-            UpdateTracePath(lane, _data.Lanes[lane], top + 3, Math.Max(1, laneHeight - 6), series[lane]);
-            if (_data.Lanes[lane].Metric == PerformanceTimelineMetric.EffectiveClock &&
-                _data.Lanes[lane].DomainMin <= 100d && _data.Lanes[lane].DomainMax >= 100d)
-            {
-                var span = Math.Max(double.Epsilon, _data.Lanes[lane].DomainMax - _data.Lanes[lane].DomainMin);
-                var normalized = Math.Clamp((100d - _data.Lanes[lane].DomainMin) / span, 0d, 1d);
-                var baselineY = top + 3 + (1d - normalized) * Math.Max(1, laneHeight - 6);
-                AddLine(GridLayer, 0, baselineY, width, baselineY, baseline, .8).Opacity = .52;
-            }
-            AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 86), top + 1, 11, text);
+            var performanceSpan = Math.Max(double.Epsilon, _data.Lanes[2].DomainMax - _data.Lanes[2].DomainMin);
+            var normalized = Math.Clamp((100d - _data.Lanes[2].DomainMin) / performanceSpan, 0d, 1d);
+            var baselineY = powerGeometry.Top + 3 + (1d - normalized) * Math.Max(1, powerGeometry.Height - 6);
+            AddLine(GridLayer, 0, baselineY, width, baselineY, baseline, .8).Opacity = .42;
         }
+        AddText(GridLayer, FormatDomain(_data.Lanes[1]), Math.Max(0, width - 86), powerGeometry.Top + 1, 11, text);
+        AddText(GridLayer, $"PERF {FormatDomain(_data.Lanes[2])}", Math.Max(0, width - 116), powerGeometry.Top + 14, 11, series[2]);
 
         var coreLane = LaneBounds(3, height);
         AddLine(GridLayer, 0, coreLane.Top, width, coreLane.Top, grid, 1);
@@ -555,8 +556,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
     }
 
-    private static (double Top, double Height) LaneBounds(int laneIndex, double totalHeight)
+    private static (double Top, double Height) LaneBounds(int dataLaneIndex, double totalHeight)
     {
+        var laneIndex = dataLaneIndex switch
+        {
+            2 => 1, // CPU performance overlays package power.
+            3 => 2, // Capacity / cores is the third visual row.
+            _ => dataLaneIndex
+        };
         if (laneIndex < 0 || laneIndex >= LaneWeights.Length) return (0d, Math.Max(1d, totalHeight));
         var topWeight = 0d;
         for (var i = 0; i < laneIndex; i++) topWeight += LaneWeights[i];
@@ -971,14 +978,13 @@ public sealed partial class PerformanceTimelineControl : UserControl
     };
     private static string FormatObservation(OperatingObservation value)
     {
-        var watts = value.PackageWatts is double w ? $"{w:0.0} W" : "— W";
-        var ghz = value.ProcessorPerformancePercent is double performance
-            ? value.EffectiveClockMhz is double mhz ? $"{performance:0}% (~{mhz / 1000d:0.00} GHz eq)" : $"{performance:0}%"
-            : "—%";
-        var cores = value.ActiveCores is int active ? value.TotalCores is int total ? $"{active}/{total} cores" : $"{active} cores" : "— cores";
+        var watts = value.PackageWatts is double w ? $"{w:0.0} W" : "- W";
+        var performanceText = value.ProcessorPerformancePercent is double performance ? $"PERF {performance:0}%" : "PERF -%";
+        var speedText = value.EffectiveClockMhz is double mhz ? $"SPEED {mhz / 1000d:0.00} GHz" : "SPEED - GHz";
+        var cores = value.ActiveCores is int active ? value.TotalCores is int total ? $"{active}/{total} cores" : $"{active} cores" : "- cores";
         var actor = string.IsNullOrWhiteSpace(value.Actor) ? string.Empty : $" · {ShortActor(value.Actor)}";
         var decision = value.Decision == EnvelopeDecisionKind.None ? string.Empty : $" · {value.Decision}";
-        return $"{value.At:HH:mm:ss} · CPU {value.CpuPressurePercent:0.0}% · {watts} · {ghz} · {cores} · {value.Zone}{actor}{decision}";
+        return $"{value.At:HH:mm:ss} | CPU {value.CpuPressurePercent:0.0}% | {watts} | {performanceText} | {speedText} | {cores} | {value.Zone}{actor}{decision}";
     }
 
     private static string ShortActor(string? actor)

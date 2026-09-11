@@ -6,6 +6,7 @@ public enum PowerFlowOperatingMode
 {
     Saver,
     Balanced,
+    BalancedPerformance,
     Performance,
     Ultra
 }
@@ -32,7 +33,13 @@ public static class PowerFlowOperatingProfiles
         PowerFlowOperatingMode.Balanced, PowerState.Balanced,
         CoreFloorPercent: 25, EnergyPerformancePreferencePercent: 35, BoostMode: 3,
         ReadinessFloorPercent: 25, PromotionQualificationSeconds: 0.75,
-        Description: "Adaptive equilibrium: modest core floor, moderate energy preference, efficient boost.");
+        Description: "Balanced Efficient: modest readiness floor, efficiency-biased preference, efficient boost.");
+
+    public static PowerFlowOperatingProfile BalancedPerformance { get; } = new(
+        PowerFlowOperatingMode.BalancedPerformance, PowerState.Balanced,
+        CoreFloorPercent: 50, EnergyPerformancePreferencePercent: 20, BoostMode: 3,
+        ReadinessFloorPercent: 50, PromotionQualificationSeconds: 0.35,
+        Description: "Balanced Performance: half the machine kept ready, performance-biased preference, efficient boost.");
 
     public static PowerFlowOperatingProfile Performance { get; } = new(
         PowerFlowOperatingMode.Performance, PowerState.Balanced,
@@ -50,6 +57,7 @@ public static class PowerFlowOperatingProfiles
     {
         PowerFlowOperatingMode.Saver => Saver,
         PowerFlowOperatingMode.Balanced => Balanced,
+        PowerFlowOperatingMode.BalancedPerformance => BalancedPerformance,
         PowerFlowOperatingMode.Performance => Performance,
         PowerFlowOperatingMode.Ultra => Ultra,
         _ => Balanced

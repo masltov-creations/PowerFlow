@@ -59,6 +59,28 @@ public sealed class WindowsSystemMetricsProviderTests
         Assert.Equal(logical, telemetry.LogicalProcessors);
     }
 
+    [Fact]
+    public void DashboardTelemetrySource_PrefersAggregateTotalProcessorPerformance()
+    {
+        var logical = new[]
+        {
+            new LogicalProcessorTelemetry(0, 0, false, 20, ProcessorPerformancePercent: 95),
+            new LogicalProcessorTelemetry(1, 0, false, 20, ProcessorPerformancePercent: 100)
+        };
+        using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(
+            new SystemMetricsSnapshot(42, "reference-host", 1, 1, logical, AggregateProcessorPerformancePercent: 130)));
+
+        var telemetry = source.Read(DateTimeOffset.UtcNow);
+
+        Assert.Equal(130, telemetry.ProcessorPerformancePercent);
+    }
+
+    [Fact]
+    public void AggregateSpeed_UsesNominalBaseTimesTotalProcessorPerformance()
+    {
+        Assert.Equal(4421.3, DashboardTelemetrySource.EstimateAggregateSpeedMhz(3401, 130)!.Value, 1);
+        Assert.Equal(3401, DashboardTelemetrySource.EstimateAggregateSpeedMhz(3401, null));
+    }
     private sealed class FakeSystemMetricsProvider(SystemMetricsSnapshot snapshot) : ISystemMetricsProvider
     {
         public SystemMetricsSnapshot Read() => snapshot;

@@ -20,9 +20,13 @@ public sealed record PowerFlowConfig(
     ThemePreference Theme = ThemePreference.System,
     bool AdaptiveActuationEnabled = false,
     bool GraduatedCoreActuationEnabled = false,
-    AdaptiveGovernorSettings? AdaptiveGovernor = null)
+    AdaptiveGovernorSettings? AdaptiveGovernor = null,
+    int TelemetryVisibleIntervalMs = 1000,
+    int TelemetryBackgroundIntervalMs = 5000)
 {
     public AdaptiveGovernorSettings EffectiveAdaptiveGovernorSettings => AdaptiveGovernor ?? AdaptiveGovernorSettings.Default;
+    public TimeSpan EffectiveTelemetryVisibleInterval => TimeSpan.FromMilliseconds(Math.Clamp(TelemetryVisibleIntervalMs, 250, 5000));
+    public TimeSpan EffectiveTelemetryBackgroundInterval => TimeSpan.FromMilliseconds(Math.Clamp(TelemetryBackgroundIntervalMs, 500, 10000));
 
     public static PowerFlowConfig Default { get; } = new(
         SchemaVersion: 1,

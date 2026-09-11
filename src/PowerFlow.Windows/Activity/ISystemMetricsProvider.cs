@@ -15,7 +15,8 @@ public sealed record SystemMetricsSnapshot(
     int? ActiveCores = null,
     int? TotalCores = null,
     IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
-    double? ProcessorQueueLength = null);
+    double? ProcessorQueueLength = null,
+    double? AggregateProcessorPerformancePercent = null);
 
 public interface ISystemMetricsProvider
 {

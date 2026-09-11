@@ -40,6 +40,8 @@ public sealed partial class SettingsPage : Page
         CooldownBox.Value = config.PostGameCooldown.TotalSeconds;
         SelectTag(ReducedMotionBox, config.ReducedMotionOverride switch { true => "On", false => "Off", null => "Auto" });
         SelectTag(ThemeBox, config.Theme.ToString());
+        VisibleTelemetryIntervalBox.Value = config.EffectiveTelemetryVisibleInterval.TotalMilliseconds;
+        BackgroundTelemetryIntervalBox.Value = config.EffectiveTelemetryBackgroundInterval.TotalMilliseconds;
         StartupToggle.IsOn = config.StartWithWindows;
         SafeRestToggle.IsOn = config.RestingState == PowerState.Balanced;
         ApplyPlanSelections(config);
@@ -100,7 +102,9 @@ public sealed partial class SettingsPage : Page
             HighPerformancePlanId = SelectedPlanId(PerformancePlanBox),
             StartWithWindows = StartupToggle.IsOn,
             ReducedMotionOverride = reduced,
-            Theme = ThemeOf()
+            Theme = ThemeOf(),
+            TelemetryVisibleIntervalMs = (int)Math.Round(VisibleTelemetryIntervalBox.Value),
+            TelemetryBackgroundIntervalMs = (int)Math.Round(BackgroundTelemetryIntervalBox.Value)
         };
         await _apply(updated);
         _config = updated;

@@ -161,6 +161,8 @@ public static class PerformanceTimelineProjection
             high = center + minimumSpan / 2d;
         }
 
+        low = Math.Max(hardFloor, low - quantum);
+        high += quantum;
         low = Math.Max(hardFloor, Math.Floor(low / quantum) * quantum);
         high = Math.Ceiling(high / quantum) * quantum;
         if (high - low < minimumSpan)

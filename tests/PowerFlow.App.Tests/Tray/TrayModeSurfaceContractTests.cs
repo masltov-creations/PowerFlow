@@ -10,9 +10,9 @@ public sealed class TrayModeSurfaceContractTests
         var root = FindRoot();
         var host = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Tray", "TrayIconHost.cs"));
         var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml.cs"));
-        foreach (var label in new[] { "Auto", "Saver", "Balanced", "Performance", "Ultra" })
+        foreach (var label in new[] { "Auto", "Saver", "Balanced Efficient", "Balanced Performance", "Performance", "Ultra" })
             Assert.Contains($"\"{label}\"", host, StringComparison.Ordinal);
-        foreach (var selection in new[] { "Auto", "Eco", "Efficient", "Boost", "Ultra" })
+        foreach (var selection in new[] { "Auto", "Eco", "Efficient", "Responsive", "Boost", "Ultra" })
             Assert.Contains($"ApplyOperatingModeAsync(PowerModeSelection.{selection})", app, StringComparison.Ordinal);
         Assert.DoesNotContain("case TrayMenuCommands.PowerSaver: await _controller.SetManualStateAsync", app, StringComparison.Ordinal);
         Assert.Contains("_powerModeProfileRuntime.CurrentProfile?.Mode", app, StringComparison.Ordinal);

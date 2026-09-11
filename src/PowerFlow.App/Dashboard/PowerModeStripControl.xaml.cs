@@ -38,7 +38,8 @@ public sealed partial class PowerModeStripControl : UserControl
         IsManual = manual;
         AutoModeButton.IsChecked = selection == PowerModeSelection.Auto;
         SaverModeButton.IsChecked = selection == PowerModeSelection.Eco;
-        BalancedModeButton.IsChecked = selection is PowerModeSelection.Efficient or PowerModeSelection.Responsive;
+        BalancedEfficientModeButton.IsChecked = selection == PowerModeSelection.Efficient;
+        BalancedPerformanceModeButton.IsChecked = selection == PowerModeSelection.Responsive;
         PerformanceModeButton.IsChecked = selection == PowerModeSelection.Boost;
         UltraModeButton.IsChecked = selection == PowerModeSelection.Ultra;
         var failed = !string.IsNullOrWhiteSpace(activationError);
@@ -57,7 +58,8 @@ public sealed partial class PowerModeStripControl : UserControl
 
     private void OnAutoClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Auto);
     private void OnSaverClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Eco);
-    private void OnBalancedClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Efficient);
+    private void OnBalancedEfficientClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Efficient);
+    private void OnBalancedPerformanceClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Responsive);
     private void OnPerformanceClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Boost);
     private void OnUltraClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Ultra);
 }

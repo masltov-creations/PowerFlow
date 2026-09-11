@@ -10,9 +10,9 @@ public sealed class PowerModeStripContractTests
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml.cs");
 
-        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedModeButton", "PerformanceModeButton", "UltraModeButton", "ModeAuthorityText" })
+        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedEfficientModeButton", "BalancedPerformanceModeButton", "PerformanceModeButton", "UltraModeButton", "ModeAuthorityText" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
-        foreach (var label in new[] { "AUTO", "SAVER", "BAL", "PERF", "ULTRA" })
+        foreach (var label in new[] { "AUTO", "SAVER", "BAL-E", "BAL-P", "PERF", "ULTRA" })
             Assert.Contains($"Content=\"{label}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTipService.ToolTip", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name", xaml, StringComparison.Ordinal);
@@ -22,7 +22,7 @@ public sealed class PowerModeStripContractTests
         Assert.Contains("MANUAL", code, StringComparison.Ordinal);
         Assert.Contains("APPLYING", code, StringComparison.Ordinal);
         Assert.Contains("FAILED", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("ResponsiveModeButton", xaml, StringComparison.Ordinal);
+        Assert.Contains("PowerModeSelection.Responsive", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class PowerModeStripContractTests
         Assert.Contains("PowerState.HighPerformance", code, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Ultra", code, StringComparison.Ordinal);
         var appCode = Read("src", "PowerFlow.App", "App.xaml.cs");
-        Assert.Contains("new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync)", appCode, StringComparison.Ordinal);
+        Assert.Contains("new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime)", appCode, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Boost => \"PERFORMANCE\"", code, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Ultra => \"ULTRA\"", code, StringComparison.Ordinal);
     }

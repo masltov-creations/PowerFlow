@@ -8,7 +8,7 @@
             <Grid Margin="0,4,0,0" ColumnSpacing="14" RowSpacing="8">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="1*" MinWidth="190"/><ColumnDefinition Width="1.15*" MinWidth="210"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <TextBlock Text="Resting state" VerticalAlignment="Center"/><ComboBox x:Name="RestingStateBox" Grid.Column="1" MinWidth="210"><ComboBoxItem Content="Power Saver" Tag="PowerSaver"/><ComboBoxItem Content="Balanced" Tag="Balanced"/></ComboBox>
                 <TextBlock Grid.Row="1" Text="Promote above CPU %" VerticalAlignment="Center"/><NumberBox x:Name="PromotionThresholdBox" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="100" SpinButtonPlacementMode="Compact"/>
@@ -18,6 +18,8 @@
                 <TextBlock Grid.Row="5" Text="Post-game cooldown (seconds)" VerticalAlignment="Center"/><NumberBox x:Name="CooldownBox" Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="120" SpinButtonPlacementMode="Compact"/>
                 <TextBlock Grid.Row="6" Text="Reduced motion" VerticalAlignment="Center"/><ComboBox x:Name="ReducedMotionBox" Grid.Row="6" Grid.Column="1" Width="240"><ComboBoxItem Content="Follow Windows" Tag="Auto"/><ComboBoxItem Content="On" Tag="On"/><ComboBoxItem Content="Off" Tag="Off"/></ComboBox>
                 <TextBlock Grid.Row="7" Text="Theme" VerticalAlignment="Center"/><ComboBox x:Name="ThemeBox" Grid.Row="7" Grid.Column="1" Width="240" SelectionChanged="OnThemeSelectionChanged"><ComboBoxItem Content="Follow Windows" Tag="System"/><ComboBoxItem Content="Light" Tag="Light"/><ComboBoxItem Content="Dark" Tag="Dark"/></ComboBox>
+                <TextBlock Grid.Row="8" Text="Visible telemetry sample (ms)" VerticalAlignment="Center"/><NumberBox x:Name="VisibleTelemetryIntervalBox" Grid.Row="8" Grid.Column="1" Minimum="250" Maximum="5000" SmallChange="250" SpinButtonPlacementMode="Compact"/>
+                <TextBlock Grid.Row="9" Text="Background telemetry sample (ms)" VerticalAlignment="Center"/><NumberBox x:Name="BackgroundTelemetryIntervalBox" Grid.Row="9" Grid.Column="1" Minimum="500" Maximum="10000" SmallChange="500" SpinButtonPlacementMode="Compact"/>
             </Grid>
 
             <Grid ColumnSpacing="14" RowSpacing="8" Margin="0,4,0,0">
