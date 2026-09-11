@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Apps;
+using PowerFlow.Windows.Services;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 
@@ -27,12 +28,26 @@ public sealed partial class RulesPage : Page
         public string TimingLabel => $"QUALIFY {EffectiveEntitlement.QualificationDuration.TotalSeconds:0.#}s · LEASE {EffectiveEntitlement.LeaseDuration.TotalSeconds:0.#}s · RELEASE {EffectiveEntitlement.ReleaseHysteresis.TotalSeconds:0.#}s";
     }
 
+    private sealed record ServiceCardItem(RunningServiceInfo Service, ServicePolicyRule Policy, bool ExplicitPolicy)
+    {
+        public string DisplayName => Service.DisplayName;
+        public string IdentityLabel => $"{Service.Name} - PID {Service.ProcessId}";
+        public string ImportanceLabel => Policy.Importance.ToString().ToUpperInvariant();
+        public string BoostLabel => $"BOOST {Policy.BoostEntitlement.ToString().ToUpperInvariant()}";
+        public string SafetyLabel => Service.IsSharedHost
+            ? $"SHARED HOST ({Service.ServicesInHost}) - ADVISORY"
+            : ExplicitPolicy ? "EXPLICIT POLICY - ADVISORY" : "DEFAULT POLICY - ADVISORY";
+    }
+
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private Func<PowerFlowConfig, Task>? _apply;
     private Func<Task<string?>>? _browseExecutable;
     private readonly RunningAppCatalog _catalog = new();
+    private readonly WindowsServiceCatalog _serviceCatalog = new();
+    private IReadOnlyList<RunningServiceInfo> _services = Array.Empty<RunningServiceInfo>();
     private IReadOnlyList<AppPickerItem> _pickerItems = Array.Empty<AppPickerItem>();
     private AppRule? _editingRule;
+    private ServiceCardItem? _editingService;
     private bool _refreshing;
 
     public RulesPage() => InitializeComponent();
@@ -42,6 +57,7 @@ public sealed partial class RulesPage : Page
         _apply = apply;
         _browseExecutable = browseExecutable;
         RefreshConfig(config);
+        _ = RefreshServicesAsync();
     }
 
     public void RefreshConfig(PowerFlowConfig config)
@@ -52,6 +68,7 @@ public sealed partial class RulesPage : Page
         {
             AdaptiveActuationToggle.IsOn = config.AdaptiveActuationEnabled;
             RulesRepeater.ItemsSource = config.AppRules.Select(rule => new RuleCardItem(rule)).ToArray();
+            ServiceRepeater.ItemsSource = BuildServiceCards(_services, config);
         }
         finally { _refreshing = false; }
     }
@@ -173,6 +190,80 @@ public sealed partial class RulesPage : Page
         rules.Add(new AppRule(path, mode, displayName, true));
         await ApplyAsync(_config with { AppRules = rules });
         StatusText.Text = $"Saved {displayName} with legacy {mode} starting entitlement. Use Edit entitlement for semantic tuning.";
+    }
+
+    private async void OnRefreshServices(object sender, RoutedEventArgs e) => await RefreshServicesAsync();
+
+    private async Task RefreshServicesAsync()
+    {
+        StatusText.Text = "Reading running Windows services...";
+        try
+        {
+            _services = await Task.Run(() => _serviceCatalog.ListRunning());
+            ServiceRepeater.ItemsSource = BuildServiceCards(_services, _config);
+            StatusText.Text = $"Observed {_services.Count} running services. Service boost rules are advisory until identity-safe actuation is qualified.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Service inventory unavailable: {ex.Message}";
+        }
+    }
+
+    private static IReadOnlyList<ServiceCardItem> BuildServiceCards(IReadOnlyList<RunningServiceInfo> services, PowerFlowConfig config)
+    {
+        return services.Select(service =>
+        {
+            var explicitRule = config.EffectiveServiceRules.FirstOrDefault(rule => string.Equals(rule.ServiceName, service.Name, StringComparison.OrdinalIgnoreCase));
+            var defaults = WorkloadPolicyDefaults.ForService(service.Name, service.StartType, service.IsSharedHost);
+            var policy = explicitRule ?? new ServicePolicyRule(service.Name, defaults.Importance, defaults.Boost, service.DisplayName);
+            return new ServiceCardItem(service, policy, explicitRule is not null);
+        }).OrderBy(item => item.Policy.Importance).ThenBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private async void OnEditServicePolicy(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not ServiceCardItem selected) return;
+        _editingService = selected;
+        ServicePolicyNameText.Text = selected.DisplayName;
+        ServicePolicySafetyText.Text = selected.Service.IsSharedHost
+            ? $"{selected.Service.Name} shares PID {selected.Service.ProcessId} with {selected.Service.ServicesInHost} services. PowerFlow will not translate this into a process-wide svchost boost."
+            : $"{selected.Service.Name} currently runs in PID {selected.Service.ProcessId}. Policy is stored now; service-specific actuation remains advisory until qualified.";
+        ServiceImportanceBox.SelectedIndex = selected.Policy.Importance switch
+        {
+            WorkloadImportance.Critical => 0, WorkloadImportance.Interactive => 1, WorkloadImportance.Important => 2, _ => 3
+        };
+        ServiceBoostBox.SelectedIndex = selected.Policy.BoostEntitlement switch
+        {
+            CpuBoostEntitlement.Allow => 0, CpuBoostEntitlement.Conditional => 1, _ => 2
+        };
+        ServicePolicyDialog.XamlRoot = XamlRoot;
+        await ServicePolicyDialog.ShowAsync();
+    }
+
+    private async void OnServicePolicyPrimary(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        if (_editingService is not ServiceCardItem selected) { args.Cancel = true; return; }
+        var deferral = args.GetDeferral();
+        try
+        {
+            var importance = ServiceImportanceBox.SelectedIndex switch
+            {
+                0 => WorkloadImportance.Critical, 1 => WorkloadImportance.Interactive, 2 => WorkloadImportance.Important, _ => WorkloadImportance.Background
+            };
+            var boost = ServiceBoostBox.SelectedIndex switch
+            {
+                0 => CpuBoostEntitlement.Allow, 1 => CpuBoostEntitlement.Conditional, _ => CpuBoostEntitlement.Deny
+            };
+            var rules = _config.EffectiveServiceRules.Where(rule => !string.Equals(rule.ServiceName, selected.Service.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            rules.Add(new ServicePolicyRule(selected.Service.Name, importance, boost, selected.Service.DisplayName));
+            await ApplyAsync(_config with { ServiceRules = rules });
+            StatusText.Text = $"Saved {selected.Service.DisplayName}: {importance}, boost {boost}. Service actuation remains advisory.";
+        }
+        finally
+        {
+            _editingService = null;
+            deferral.Complete();
+        }
     }
 
     private static async Task<IReadOnlyList<AppPickerItem>> BuildPickerItemsAsync(IReadOnlyList<RunningAppOption> apps)

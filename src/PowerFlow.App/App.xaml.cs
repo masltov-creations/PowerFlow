@@ -33,6 +33,7 @@ public partial class App : Application
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
     private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime = new();
+    private MachineBaselineSessionRuntime? _machineBaselineSession;
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
@@ -79,6 +80,17 @@ public partial class App : Application
             await _controller.StartAsync();
             await _telemetryRecorder.StartAsync();
             _telemetryRecorder.ContinuityChanged += OnTelemetryContinuityChanged;
+            if (!_previewMode)
+            {
+                var baselineHost = new PowerFlowMachineBaselineHost(
+                    _controller,
+                    _powerModeProfileRuntime,
+                    liveWritesEnabled: true,
+                    sampleInterval: () => _config.EffectiveTelemetryVisibleInterval);
+                _machineBaselineSession = new MachineBaselineSessionRuntime(
+                    new MachineBaselineRunner(baselineHost, new CpuCapabilityProfiler()),
+                    SaveMachineBaselineRunAsync);
+            }
 
             if (LaunchIntent.ShouldCreateTray(launchArgs))
             {
@@ -295,7 +307,7 @@ public partial class App : Application
         if (_controller is null || _telemetryRecorder is null) return;
         if (_shellWindow is null)
         {
-            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime);
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime, _machineBaselineSession);
             _shellWindow.Closed += async (_, _) =>
             {
                 _shellWindow = null;
@@ -303,6 +315,13 @@ public partial class App : Application
             };
         }
         await _shellWindow.ShowShellAsync(state, activation, trayAnchor, workArea, section, animate);
+    }
+
+    private async Task SaveMachineBaselineRunAsync(PowerFlow.Core.Profiling.MachineBaselineComparisonRun run)
+    {
+        var runs = PowerFlow.Core.Profiling.MachineBaselineHistory.Upsert(_config.EffectiveMachineBaselineRuns, run);
+        _config = _config with { MachineBaselineRuns = runs };
+        if (_configStore is not null && !_previewMode) await _configStore.SaveAsync(_config);
     }
 
     private async Task ApplyOperatingModeAsync(PowerModeSelection selection)
@@ -334,6 +353,7 @@ public partial class App : Application
     }
     private async Task ApplyConfigAsync(PowerFlowConfig updated)
     {
+        updated = updated with { MachineBaselineRuns = _config.EffectiveMachineBaselineRuns };
         if (_configStore is null) return;
         if (!_previewMode) await _configStore.SaveAsync(updated);
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
@@ -354,6 +374,7 @@ public partial class App : Application
         {
             _shellWindow?.CloseForShutdown();
             _shellWindow = null;
+            if (_machineBaselineSession is not null) await _machineBaselineSession.CancelAndWaitAsync();
             if (_controller is not null)
             {
                 _controller.SnapshotChanged -= OnSnapshotChanged;
@@ -377,6 +398,7 @@ public partial class App : Application
             Volatile.Write(ref _runtimeReady, 0);
             _dashboardOpenSignal?.Dispose(); _dashboardOpenSignal = null;
             _instanceGuard?.Dispose(); _instanceGuard = null;
+            _machineBaselineSession = null;
             _controller = null;
             if (exitApplication) Exit();
         }

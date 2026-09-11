@@ -11,6 +11,7 @@ using PowerFlow.App.Telemetry;
 using PowerFlow.App.Tray;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
+using PowerFlow.Core.Profiling;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
 using PowerFlow.Windows.Power;
@@ -60,13 +61,14 @@ public sealed partial class MainWindow : Window
     private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
     private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
     private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime;
+    private readonly MachineBaselineSessionRuntime? _machineBaselineSession;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, EfficiencyExperimentRuntime? efficiencyExperimentRuntime = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, EfficiencyExperimentRuntime? efficiencyExperimentRuntime = null, MachineBaselineSessionRuntime? machineBaselineSession = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -77,6 +79,7 @@ public sealed partial class MainWindow : Window
         _coreActuatorStatusProvider = coreActuatorStatusProvider;
         _applyOperatingMode = applyOperatingMode;
         _efficiencyExperimentRuntime = efficiencyExperimentRuntime ?? new EfficiencyExperimentRuntime();
+        _machineBaselineSession = machineBaselineSession;
         _config = config;
         _applyConfig = applyConfig;
         var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
@@ -101,6 +104,7 @@ public sealed partial class MainWindow : Window
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
         EfficiencyComparePanel.Initialize(_efficiencyExperimentRuntime);
+        CpuProfilePanel.Initialize(config.EffectiveCpuCapabilityProfiles, SaveCpuCapabilityProfileAsync, config.EffectiveMachineBaselineRuns, _machineBaselineSession);
         SystemHeaderHost.ModeRequested += OnModeRequested;
         PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
         PerformanceTimeline.CursorChanged += OnTimelineCursorChanged;
@@ -275,6 +279,7 @@ public sealed partial class MainWindow : Window
         PerformanceTimeline.SetPresentation(profile.Timeline);
         ApplyAnalyticalInstrumentLayout(state);
         ApplyNavigationPresentation(profile.Navigation, profile.Geometry.NavigationWidth);
+        SystemHeaderHost.ShowBrand = profile.Navigation != NavigationPresentation.Rail;
         ApplyCockpitGeometry(profile, state, width, height);
         ApplyTuningPresentation();
 
@@ -833,13 +838,25 @@ public sealed partial class MainWindow : Window
     }    private Task OpenSectionAsync(string section)
     {
         SelectSection(section);
-        return TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
+        var logical = CurrentLogicalAppWindowSize();
+        ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        return Task.CompletedTask;
     }
 
     private async void OnOpenRulesClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("rules");
     private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("settings");
     private async void OnHeaderRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
     private async void OnHeaderSettingsRequested(object? sender, EventArgs e) => await OpenSectionAsync("settings");
+    private async Task SaveCpuCapabilityProfileAsync(CpuCapabilityProfile profile)
+    {
+        var profiles = _config.EffectiveCpuCapabilityProfiles
+            .Where(existing => !string.Equals(existing.PolicySignature, profile.PolicySignature, StringComparison.OrdinalIgnoreCase))
+            .Append(profile)
+            .OrderByDescending(existing => existing.CapturedAt)
+            .ToArray();
+        await ApplyConfigFromPageAsync(_config with { CpuCapabilityProfiles = profiles });
+    }
+
     private async Task ApplyConfigFromPageAsync(PowerFlowConfig config)
     {
         await _applyConfig(config);
@@ -879,6 +896,7 @@ public sealed partial class MainWindow : Window
         var cockpitSection = tag is "flow" or "model" or "tune";
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
         EfficiencyComparePanel.Visibility = tag == "compare" ? Visibility.Visible : Visibility.Collapsed;
+        CpuProfilePanel.Visibility = tag == "profile" ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
         if (cockpitSection)
@@ -901,6 +919,7 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        CpuProfilePanel.Detach();
         if (_closed) return;
         _closed = true;
         _presentationTimer?.Stop();
@@ -915,6 +934,7 @@ public sealed partial class MainWindow : Window
         PerformanceAtlas.SelectionChanged -= OnAtlasSelectionChanged;
         PerformanceAtlas.HoverChanged -= OnAtlasHoverChanged;
         SystemHeaderHost.ModeRequested -= OnModeRequested;
+        CpuProfilePanel.CancelActive();
         ReleaseDashboardVisibility();
     }
     [StructLayout(LayoutKind.Sequential)]

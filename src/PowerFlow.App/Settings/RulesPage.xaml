@@ -14,9 +14,9 @@
             <Grid Grid.Row="0" ColumnSpacing="12">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Spacing="1">
-                    <TextBlock Text="RULES" FontSize="11" CharacterSpacing="180" Opacity="0.45"/>
-                    <TextBlock Text="App entitlements" FontSize="20" FontWeight="SemiBold"/>
-                    <TextBlock Text="Choose a starting entitlement, then tune its semantic ceiling and temporary boost behavior." FontSize="12" Opacity="0.52"/>
+                    <TextBlock Text="WORKLOADS" FontSize="11" CharacterSpacing="180" Opacity="0.45"/>
+                    <TextBlock Text="Workload policy" FontSize="20" FontWeight="SemiBold"/>
+                    <TextBlock Text="Decide which apps and services matter, and which workloads are allowed to earn temporary CPU boost." FontSize="12" Opacity="0.52"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <ToggleSwitch x:Name="AdaptiveActuationToggle"
@@ -36,6 +36,7 @@
             </StackPanel>
 
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="14">
                 <ItemsRepeater x:Name="RulesRepeater">
                     <ItemsRepeater.Layout>
                         <UniformGridLayout MinItemWidth="270" MinItemHeight="128" MinRowSpacing="7" MinColumnSpacing="7" ItemsStretch="Fill"/>
@@ -61,6 +62,30 @@
                         </DataTemplate>
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
+
+                    <Grid Margin="0,4,0,0" ColumnSpacing="10">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel Spacing="1"><TextBlock Text="RUNNING WINDOWS SERVICES" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.62"/><TextBlock Text="Importance and boost permission. Shared service hosts remain advisory-only until service-aware actuation is qualified." FontSize="11" Opacity="0.52" TextWrapping="Wrap"/></StackPanel>
+                        <Button Grid.Column="1" Content="Refresh services" Padding="10,4" Click="OnRefreshServices" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ItemsRepeater x:Name="ServiceRepeater">
+                        <ItemsRepeater.Layout><StackLayout Spacing="6"/></ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="10" Background="{ThemeResource PowerFlowCardBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="10,8">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding IdentityLabel}" FontSize="11" Opacity="0.45" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="6"><Border Padding="7,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding ImportanceLabel}" FontSize="11" FontWeight="SemiBold"/></Border><Border Padding="7,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock Text="{Binding BoostLabel}" FontSize="11" FontWeight="SemiBold"/></Border><TextBlock Text="{Binding SafetyLabel}" FontSize="11" Opacity="0.52" VerticalAlignment="Center"/></StackPanel>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Policy" Tag="{Binding}" Padding="9,4" Click="OnEditServicePolicy" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>                </StackPanel>
             </ScrollViewer>
             <TextBlock x:Name="StatusText" Grid.Row="3" FontSize="11" Opacity="0.50"/>
         </Grid>
@@ -126,5 +151,18 @@
                 </StackPanel>
             </ScrollViewer>
         </ContentDialog>
-    </Grid>
+            <ContentDialog x:Name="ServicePolicyDialog" Title="Service CPU policy" PrimaryButtonText="Save policy" CloseButtonText="Cancel" DefaultButton="Primary" PrimaryButtonClick="OnServicePolicyPrimary">
+            <StackPanel MinWidth="340" MaxWidth="520" Spacing="10">
+                <TextBlock x:Name="ServicePolicyNameText" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="ServicePolicySafetyText" FontSize="11" Opacity="0.62" TextWrapping="Wrap"/>
+                <Grid ColumnSpacing="10" RowSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="IMPORTANCE" FontSize="11" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ServiceImportanceBox" Grid.Column="1" HorizontalAlignment="Stretch"><ComboBoxItem Content="CRITICAL"/><ComboBoxItem Content="INTERACTIVE"/><ComboBoxItem Content="IMPORTANT"/><ComboBoxItem Content="BACKGROUND"/></ComboBox>
+                    <TextBlock Grid.Row="1" Text="CPU BOOST" FontSize="11" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ServiceBoostBox" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"><ComboBoxItem Content="ALLOW"/><ComboBoxItem Content="CONDITIONAL"/><ComboBoxItem Content="DENY"/></ComboBox>
+                </Grid>
+                <TextBlock Text="This stores service intent now. Shared-host services are never converted into executable-wide boost rules; service-specific actuation stays advisory until identity-safe control is qualified." FontSize="11" Opacity="0.52" TextWrapping="Wrap"/>
+            </StackPanel>
+        </ContentDialog>
+</Grid>
 </Page>

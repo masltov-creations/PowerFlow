@@ -28,6 +28,19 @@ public sealed partial class ShellHeaderControl : UserControl
         DependencyProperty.Register(nameof(Presentation), typeof(HeaderPresentation), typeof(ShellHeaderControl),
             new PropertyMetadata(HeaderPresentation.Compact, OnPresentationChanged));
 
+
+    public bool ShowBrand
+    {
+        get => (bool)GetValue(ShowBrandProperty);
+        set => SetValue(ShowBrandProperty, value);
+    }
+
+    public static readonly DependencyProperty ShowBrandProperty =
+        DependencyProperty.Register(nameof(ShowBrand), typeof(bool), typeof(ShellHeaderControl),
+            new PropertyMetadata(true, OnShowBrandChanged));
+
+    private static void OnShowBrandChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((ShellHeaderControl)d).ApplyBrandVisibility();
     public bool IsPreviewMode
     {
         get => (bool)GetValue(IsPreviewModeProperty);
@@ -111,6 +124,16 @@ public sealed partial class ShellHeaderControl : UserControl
     private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
     private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
+    private void ApplyBrandVisibility()
+    {
+        var visibility = ShowBrand ? Visibility.Visible : Visibility.Collapsed;
+        MinimalBrandIcon.Visibility = visibility;
+        MinimalBrandText.Visibility = visibility;
+        CompactBrandIcon.Visibility = visibility;
+        CompactBrandText.Visibility = visibility;
+        SystemBrandIcon.Visibility = visibility;
+        SystemBrandText.Visibility = visibility;
+    }
     private void ApplyPreviewMode()
     {
         if (PreviewBadge is null) return;

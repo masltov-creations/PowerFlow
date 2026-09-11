@@ -31,8 +31,9 @@
                 </NavigationView.PaneHeader>
                 <NavigationView.MenuItems>
                     <NavigationViewItem Content="Live" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Play"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Workloads" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Model" Tag="model"><NavigationViewItem.Icon><SymbolIcon Symbol="View"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Profile" Tag="profile"><NavigationViewItem.Icon><SymbolIcon Symbol="Repair"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Tune Auto" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Compare" Tag="compare"><NavigationViewItem.Icon><SymbolIcon Symbol="Document"/></NavigationViewItem.Icon></NavigationViewItem>
                 </NavigationView.MenuItems>
@@ -163,6 +164,7 @@
                     </Grid>
 
                     <dash:EfficiencyCompareControl x:Name="EfficiencyComparePanel" Visibility="Collapsed"/>
+                    <dash:CpuCapabilityProfileControl x:Name="CpuProfilePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
                 </Grid>

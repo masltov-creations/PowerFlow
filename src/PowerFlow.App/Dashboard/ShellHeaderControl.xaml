@@ -6,8 +6,8 @@
     <Grid>
         <Grid x:Name="MinimalHeader" ColumnSpacing="6" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Image Source="Assets/PowerFlow.png" Width="20" Height="20" Stretch="Uniform"/>
-            <TextBlock x:Name="GlanceBrandText" Grid.Column="1" Text="PowerFlow" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <Image x:Name="MinimalBrandIcon" Source="ms-appx:///Assets/PowerFlow.png" Width="20" Height="20" Stretch="Uniform"/>
+            <TextBlock x:Name="MinimalBrandText" Grid.Column="1" Text="PowerFlow" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                 <Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/>
                 <TextBlock Text="ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
@@ -16,8 +16,8 @@
 
         <Grid x:Name="CompactHeader" Visibility="Collapsed" ColumnSpacing="9" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Image Source="Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+            <Image x:Name="CompactBrandIcon" Source="ms-appx:///Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform"/>
+            <StackPanel x:Name="CompactBrandText" Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
                 <TextBlock Text="Power" FontSize="17" FontWeight="SemiBold"/>
                 <TextBlock Text="Flow" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
             </StackPanel>
@@ -29,7 +29,7 @@
                 <FontIcon Glyph="&#xE712;" FontSize="14"/>
                 <Button.Flyout>
                     <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <MenuFlyoutItem Text="RULES / APPS" Click="OnRulesClicked"/>
+                        <MenuFlyoutItem Text="WORKLOADS" Click="OnRulesClicked"/>
                         <MenuFlyoutItem Text="SETTINGS" Click="OnSettingsClicked"/>
                     </MenuFlyout>
                 </Button.Flyout>
@@ -38,11 +38,11 @@
 
         <Grid x:Name="SystemHeader" Visibility="Collapsed" ColumnSpacing="10" VerticalAlignment="Center">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Grid Width="34" Height="34">
+            <Grid x:Name="SystemBrandIcon" Width="34" Height="34">
                 <Ellipse Fill="{ThemeResource PowerFlowGlowBrush}" Opacity="0.65"/>
-                <Image Source="Assets/PowerFlow.png" Width="30" Height="30" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Image Source="ms-appx:///Assets/PowerFlow.png" Width="30" Height="30" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+            <StackPanel x:Name="SystemBrandText" Grid.Column="1" VerticalAlignment="Center" Spacing="0">
                 <StackPanel Orientation="Horizontal" Spacing="0">
                     <TextBlock Text="Power" FontSize="18" FontWeight="SemiBold"/>
                     <TextBlock Text="Flow" FontSize="18" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
