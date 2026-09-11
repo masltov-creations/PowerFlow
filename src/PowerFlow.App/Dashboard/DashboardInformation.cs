@@ -14,7 +14,8 @@ public sealed record DashboardSample(
     string? Actor = null,
     int? ActiveCores = null,
     int? TotalCores = null,
-    double? PressurePercent = null);
+    double? PressurePercent = null,
+    double? ProcessorPerformancePercent = null);
 
 public static class OperatingObservationProjection
 {
@@ -33,7 +34,8 @@ public static class OperatingObservationProjection
             _ => EnvelopeZone.Efficient
         },
         sample.Actor,
-        EnvelopeDecisionKind.None);
+        EnvelopeDecisionKind.None,
+        sample.ProcessorPerformancePercent);
 }
 public sealed record DashboardRuleCard(string Title, string Condition, string Target, string Status, double Activity);
 

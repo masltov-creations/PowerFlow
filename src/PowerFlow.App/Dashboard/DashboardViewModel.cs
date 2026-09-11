@@ -141,7 +141,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         _telemetry = telemetry;
         _samples.Clear();
         foreach (var sample in continuity.OrderBy(x => x.At))
-            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State, sample.TriggerApplication, sample.ActiveCores, sample.TotalCores, sample.DemandPressure?.PressurePercent));
+            _samples.Add(new DashboardSample(sample.At, sample.CpuPercent, sample.PackageWatts, sample.AverageMhz, sample.State, sample.TriggerApplication, sample.ActiveCores, sample.TotalCores, sample.DemandPressure?.PressurePercent, sample.ProcessorPerformancePercent));
         _lastSampleAt = _samples.Count > 0 ? _samples[^1].At : null;
         RebuildOperatingHistory();
         RaiseAll(historyChanged);
@@ -158,7 +158,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             _telemetry = telemetry;
             if (_lastSampleAt != telemetry.At)
             {
-                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State, snapshot.TriggerApplication, telemetry.ActiveCores, telemetry.TotalCores, DemandPressureModel.Project(telemetry)?.PressurePercent));
+                _samples.Add(new DashboardSample(telemetry.At, snapshot.CpuPercent, telemetry.PackageWatts, telemetry.AverageMhz, snapshot.State, snapshot.TriggerApplication, telemetry.ActiveCores, telemetry.TotalCores, DemandPressureModel.Project(telemetry)?.PressurePercent, telemetry.ProcessorPerformancePercent));
                 _lastSampleAt = telemetry.At;
                 while (_samples.Count > 120) _samples.RemoveAt(0);
                 RebuildOperatingHistory();
