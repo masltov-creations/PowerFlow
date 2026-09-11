@@ -70,8 +70,9 @@ public sealed class CpuCapabilityProfiler : ICpuCapabilityProfiler
             cancellationToken.ThrowIfCancellationRequested();
             var workers = counts[i];
             progress?.Report(new CpuCapabilityProgress(i + 1, counts.Length, workers, $"Profiling {workers} worker{(workers == 1 ? string.Empty : "s")}"));
-            points.Add(await MeasureAsync(telemetry, workers, TimeSpan.FromSeconds(2), cancellationToken));
-            await Task.Delay(250, cancellationToken);
+            points.Add(await MeasureAsync(telemetry, workers, options.PointDuration, cancellationToken));
+            if (i < counts.Length - 1 && options.InterPointDelay > TimeSpan.Zero)
+                await Task.Delay(options.InterPointDelay, cancellationToken);
         }
         return CpuCapabilityAnalysis.Build(DateTimeOffset.UtcNow, label, signature, points);
     }
