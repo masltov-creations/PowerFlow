@@ -47,9 +47,11 @@ public static class DemandPressureModel
         var availableCapacityUnits = valid
             .Where(thread => !thread.IsParked)
             .Sum(thread =>
-                thread.PercentOfMaximumFrequency is double percent && double.IsFinite(percent) && percent > 0
-                    ? Math.Clamp(percent, 1d, 200d)
-                    : 100d);
+                thread.ProcessorPerformancePercent is double performance && double.IsFinite(performance) && performance > 0
+                    ? Math.Clamp(performance, 1d, 250d)
+                    : thread.PercentOfMaximumFrequency is double percent && double.IsFinite(percent) && percent > 0
+                        ? Math.Clamp(percent, 1d, 200d)
+                        : 100d);
         var availableCapacity = Math.Clamp(availableCapacityUnits / valid.Length, 0d, 200d);
         var capacitySaturation = availableCapacityUnits <= 0
             ? (usedCapacityUnits > 0 ? 100d : 0d)

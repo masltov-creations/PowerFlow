@@ -455,7 +455,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
 
     private static string AxisText(PerformanceAtlasDimension dimension, PerformanceAtlasAxis? axis)
     {
-        var label = dimension switch { PerformanceAtlasDimension.PackagePower => "PACKAGE POWER", PerformanceAtlasDimension.EffectiveClock => "EFFECTIVE CLOCK", PerformanceAtlasDimension.ActiveCores => "CORES AWAKE", _ => "CPU PRESSURE" };
+        var label = dimension switch { PerformanceAtlasDimension.PackagePower => "PACKAGE POWER", PerformanceAtlasDimension.EffectiveClock => "CPU PERFORMANCE", PerformanceAtlasDimension.ActiveCores => "CORES AWAKE", _ => "CPU PRESSURE" };
         return axis is null || string.IsNullOrWhiteSpace(axis.Unit) ? label : $"{label} ({axis.Unit})";
     }
 

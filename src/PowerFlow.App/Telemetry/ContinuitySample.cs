@@ -19,4 +19,5 @@ public sealed record ContinuitySample(
     int? TotalCores = null,
     IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
     double? ProcessorQueueLength = null,
-    DemandPressureTelemetry? DemandPressure = null);
+    DemandPressureTelemetry? DemandPressure = null,
+    double? ProcessorPerformancePercent = null);

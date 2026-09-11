@@ -10,7 +10,8 @@ public enum PowerModeSelection
     Eco,
     Efficient,
     Responsive,
-    Boost
+    Boost,
+    Ultra
 }
 
 public sealed class PowerModeRequestedEventArgs(PowerModeSelection mode) : EventArgs
@@ -39,17 +40,18 @@ public sealed partial class PowerModeStripControl : UserControl
         SaverModeButton.IsChecked = selection == PowerModeSelection.Eco;
         BalancedModeButton.IsChecked = selection is PowerModeSelection.Efficient or PowerModeSelection.Responsive;
         PerformanceModeButton.IsChecked = selection == PowerModeSelection.Boost;
+        UltraModeButton.IsChecked = selection == PowerModeSelection.Ultra;
         var failed = !string.IsNullOrWhiteSpace(activationError);
         ModeAuthorityText.Text = failed ? "FAILED" : manual ? "MANUAL" : "AUTO";
-        AutomationProperties.SetName(ModeAuthorityText, failed ? "Power mode activation failed" : manual ? "Manual power mode authority" : "Automatic power mode authority");
-        ToolTipService.SetToolTip(ModeAuthorityText, failed ? activationError : manual ? "Windows power plan is being held manually." : "PowerFlow is controlling Windows power mode automatically.");
+        AutomationProperties.SetName(ModeAuthorityText, failed ? "Power mode activation failed" : manual ? "Manual PowerFlow mode authority" : "Automatic PowerFlow mode authority");
+        ToolTipService.SetToolTip(ModeAuthorityText, failed ? activationError : manual ? "PowerFlow is holding the selected operating envelope." : "PowerFlow chooses the operating envelope automatically.");
     }
 
     private void Request(PowerModeSelection mode)
     {
         SetSelection(Selection, IsManual);
         ModeAuthorityText.Text = "APPLYING";
-        ToolTipService.SetToolTip(ModeAuthorityText, "Waiting for Windows to confirm the requested power plan.");
+        ToolTipService.SetToolTip(ModeAuthorityText, "Waiting for PowerFlow to confirm the requested operating envelope.");
         ModeRequested?.Invoke(this, new PowerModeRequestedEventArgs(mode));
     }
 
@@ -57,4 +59,5 @@ public sealed partial class PowerModeStripControl : UserControl
     private void OnSaverClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Eco);
     private void OnBalancedClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Efficient);
     private void OnPerformanceClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Boost);
+    private void OnUltraClicked(object sender, RoutedEventArgs e) => Request(PowerModeSelection.Ultra);
 }

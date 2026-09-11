@@ -6,9 +6,10 @@
         <Border Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
             <TextBlock x:Name="ModeAuthorityText" Text="AUTO" FontSize="11" FontWeight="SemiBold"/>
         </Border>
-        <ToggleButton x:Name="AutoModeButton" Content="AUTO" Padding="8,4" MinWidth="48" Click="OnAutoClicked" AutomationProperties.Name="Automatic power mode" ToolTipService.ToolTip="PowerFlow controls the Windows power plan automatically."/>
-        <ToggleButton x:Name="SaverModeButton" Content="SAVER" Padding="8,4" MinWidth="52" Click="OnSaverClicked" AutomationProperties.Name="Windows Power Saver mode" ToolTipService.ToolTip="Switch Windows to the configured Power Saver plan and hold it manually."/>
-        <ToggleButton x:Name="BalancedModeButton" Content="BALANCED" Padding="8,4" MinWidth="70" Click="OnBalancedClicked" AutomationProperties.Name="Windows Balanced mode" ToolTipService.ToolTip="Switch Windows to the configured Balanced plan and hold it manually."/>
-        <ToggleButton x:Name="PerformanceModeButton" Content="PERFORMANCE" Padding="8,4" MinWidth="88" Click="OnPerformanceClicked" AutomationProperties.Name="Windows High Performance mode" ToolTipService.ToolTip="Switch Windows to the configured High Performance plan and hold it manually."/>
+        <ToggleButton x:Name="AutoModeButton" Content="AUTO" Padding="8,4" MinWidth="48" Click="OnAutoClicked" AutomationProperties.Name="Automatic PowerFlow mode" ToolTipService.ToolTip="PowerFlow chooses the operating envelope automatically."/>
+        <ToggleButton x:Name="SaverModeButton" Content="SAVER" Padding="8,4" MinWidth="52" Click="OnSaverClicked" AutomationProperties.Name="PowerFlow Saver mode" ToolTipService.ToolTip="Low readiness floor. Boost is disabled and sustained demand must prove itself before more capacity is allowed."/>
+        <ToggleButton x:Name="BalancedModeButton" Content="BAL" Padding="8,4" MinWidth="48" Click="OnBalancedClicked" AutomationProperties.Name="PowerFlow Balanced mode" ToolTipService.ToolTip="Adaptive equilibrium: a modest readiness floor with efficient boost and room to scale."/>
+        <ToggleButton x:Name="PerformanceModeButton" Content="PERF" Padding="8,4" MinWidth="52" Click="OnPerformanceClicked" AutomationProperties.Name="PowerFlow Performance mode" ToolTipService.ToolTip="High readiness: most cores are kept available and aggressive boost is ready."/>
+        <ToggleButton x:Name="UltraModeButton" Content="ULTRA" Padding="8,4" MinWidth="54" Click="OnUltraClicked" AutomationProperties.Name="PowerFlow Ultra mode" ToolTipService.ToolTip="Fully pre-armed: all cores available using the High Performance plan."/>
     </StackPanel>
 </UserControl>

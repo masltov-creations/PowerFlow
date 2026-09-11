@@ -11,12 +11,14 @@ public sealed record OperatingObservation
         int? totalCores,
         EnvelopeZone zone,
         string? actor,
-        EnvelopeDecisionKind decision)
+        EnvelopeDecisionKind decision,
+        double? processorPerformancePercent = null)
     {
         At = at;
         CpuPressurePercent = double.IsFinite(cpuPressurePercent) ? Math.Clamp(cpuPressurePercent, 0, 100) : 0;
         PackageWatts = packageWatts is > 0 and double watts && double.IsFinite(watts) ? watts : null;
         EffectiveClockMhz = effectiveClockMhz is > 0 and double mhz && double.IsFinite(mhz) ? mhz : null;
+        ProcessorPerformancePercent = processorPerformancePercent is > 0 and double performance && double.IsFinite(performance) ? Math.Clamp(performance, 0, 250) : null;
         TotalCores = totalCores is > 0 ? totalCores : null;
         ActiveCores = activeCores is > 0
             ? TotalCores is int total ? Math.Min(activeCores.Value, total) : activeCores
@@ -30,6 +32,7 @@ public sealed record OperatingObservation
     public double CpuPressurePercent { get; }
     public double? PackageWatts { get; }
     public double? EffectiveClockMhz { get; }
+    public double? ProcessorPerformancePercent { get; }
     public int? ActiveCores { get; }
     public int? TotalCores { get; }
     public EnvelopeZone Zone { get; }

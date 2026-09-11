@@ -132,7 +132,7 @@ public sealed class PerformanceAtlasProjectionTests
 
         var powerVsClock = PerformanceAtlasProjection.Build(observations, PerformanceAtlasDimension.PackagePower, PerformanceAtlasDimension.EffectiveClock, bins: 5);
         Assert.Equal(100, powerVsClock.XAxis.DomainMax);
-        Assert.Equal(5000, powerVsClock.YAxis.DomainMax);
+        Assert.Equal(125, powerVsClock.YAxis.DomainMax);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public sealed class PerformanceAtlasProjectionTests
     }
 
     private static OperatingObservation Obs(int second, double pressure, double? watts, double? mhz, int? active, int? total) =>
-        new(T0.AddSeconds(second), pressure, watts, mhz, active, total, EnvelopeZone.Efficient, null, EnvelopeDecisionKind.None);
+        new(T0.AddSeconds(second), pressure, watts, mhz, active, total, EnvelopeZone.Efficient, null, EnvelopeDecisionKind.None, mhz is double value ? value / 40d : null);
 
     [Fact]
     public void AvailableDimensions_RequiresActualUsableSamples()

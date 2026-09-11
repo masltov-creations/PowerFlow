@@ -31,6 +31,7 @@ public partial class App : Application
     private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
     private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
+    private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
     private JsonConfigStore? _configStore;
@@ -301,6 +302,30 @@ public partial class App : Application
         await _shellWindow.ShowShellAsync(state, activation, trayAnchor, workArea, section, animate);
     }
 
+    private async Task ApplyOperatingModeAsync(PowerModeSelection selection)
+    {
+        if (_controller is null || _shuttingDown) return;
+        _powerModeProfileRuntime.Restore("Previous manual PowerFlow mode profile restored.");
+        if (selection == PowerModeSelection.Auto)
+        {
+            await _controller.ReleaseManualLatchAsync();
+            return;
+        }
+
+        var mode = selection switch
+        {
+            PowerModeSelection.Eco => PowerFlowOperatingMode.Saver,
+            PowerModeSelection.Efficient or PowerModeSelection.Responsive => PowerFlowOperatingMode.Balanced,
+            PowerModeSelection.Boost => PowerFlowOperatingMode.Performance,
+            PowerModeSelection.Ultra => PowerFlowOperatingMode.Ultra,
+            _ => PowerFlowOperatingMode.Balanced
+        };
+        var profile = PowerFlowOperatingProfiles.For(mode);
+        await _controller.SetManualStateAsync(profile.WindowsState);
+        var status = _powerModeProfileRuntime.Apply(profile, liveWritesEnabled: !_previewMode);
+        if (!status.Applied && status.LiveWritesEnabled)
+            throw new InvalidOperationException(status.Message);
+    }
     private async Task ApplyConfigAsync(PowerFlowConfig updated)
     {
         if (_configStore is null) return;
@@ -328,6 +353,7 @@ public partial class App : Application
                 await _controller.StopAsync();
             }
             _graduatedCoreActuatorRuntime.StopAndRestore("Application shutdown restored the graduated core-floor baseline.");
+            _powerModeProfileRuntime.Restore("Application shutdown restored the manual PowerFlow mode profile baseline.");
             if (_telemetryRecorder is not null)
             {
                 _telemetryRecorder.ContinuityChanged -= OnTelemetryContinuityChanged;

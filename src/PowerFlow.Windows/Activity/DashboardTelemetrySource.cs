@@ -15,16 +15,26 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
     public DashboardTelemetry Read(DateTimeOffset at)
     {
         var system = _system.Read();
+        var awakePerformance = system.LogicalProcessors?
+            .Where(thread => !thread.IsParked && thread.ProcessorPerformancePercent is double value && double.IsFinite(value) && value > 0)
+            .Select(thread => thread.ProcessorPerformancePercent!.Value)
+            .ToArray();
+        double? processorPerformance = awakePerformance is { Length: > 0 } ? awakePerformance.Average() : null;
+        var nominalMhz = TryReadNominalMhz();
+        var equivalentMhz = nominalMhz is double nominal && processorPerformance is double performance
+            ? nominal * performance / 100d
+            : nominalMhz;
         return new DashboardTelemetry(
             _energy.TryReadWatts(),
-            TryReadAverageMhz(),
+            equivalentMhz,
             at,
             system.MemoryUsedPercent,
             system.MachineName,
             system.ActiveCores,
             system.TotalCores,
             system.LogicalProcessors,
-            system.ProcessorQueueLength);
+            system.ProcessorQueueLength,
+            processorPerformance);
     }
 
     public void Dispose()
@@ -33,7 +43,7 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
         if (_system is IDisposable disposable) disposable.Dispose();
     }
 
-    private static double? TryReadAverageMhz(int? knownTotalCores = null)
+    private static double? TryReadNominalMhz(int? knownTotalCores = null)
     {
         try
         {
@@ -43,7 +53,7 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             var length = checked((uint)(Marshal.SizeOf<ProcessorPowerInformation>() * info.Length));
             var status = CallNtPowerInformation(11, IntPtr.Zero, 0, info, length);
             if (status != 0) return null;
-            return info.Average(x => (double)x.CurrentMhz);
+            return info.Average(x => (double)x.MaxMhz);
         }
         catch { return null; }
     }

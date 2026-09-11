@@ -31,7 +31,7 @@
                     <TextBlock Text="X" FontSize="11" Opacity="0.52" VerticalAlignment="Center"/>
                     <ComboBox x:Name="XDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="0" SelectionChanged="OnDimensionChanged" AutomationProperties.Name="Atlas horizontal metric">
                         <ComboBoxItem Content="Package Power" Tag="PackagePower"/>
-                        <ComboBoxItem Content="Effective Clock" Tag="EffectiveClock"/>
+                        <ComboBoxItem Content="CPU Performance" Tag="EffectiveClock"/>
                         <ComboBoxItem Content="Cores Awake" Tag="ActiveCores"/>
                         <ComboBoxItem Content="CPU Pressure" Tag="CpuPressure"/>
                     </ComboBox>
@@ -40,7 +40,7 @@
                     <TextBlock Text="Y" FontSize="11" Opacity="0.52" VerticalAlignment="Center"/>
                     <ComboBox x:Name="YDimensionSelector" MinWidth="132" FontSize="11" SelectedIndex="1" SelectionChanged="OnDimensionChanged" AutomationProperties.Name="Atlas vertical metric">
                         <ComboBoxItem Content="Package Power" Tag="PackagePower"/>
-                        <ComboBoxItem Content="Effective Clock" Tag="EffectiveClock"/>
+                        <ComboBoxItem Content="CPU Performance" Tag="EffectiveClock"/>
                         <ComboBoxItem Content="Cores Awake" Tag="ActiveCores"/>
                         <ComboBoxItem Content="CPU Pressure" Tag="CpuPressure"/>
                     </ComboBox>
@@ -66,7 +66,7 @@
             <Grid Grid.Row="2" MinHeight="142" ColumnSpacing="5" RowSpacing="4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="24"/></Grid.RowDefinitions>
-                <TextBlock x:Name="YAxisLabel" Grid.Row="0" Text="EFFECTIVE CLOCK (MHz)" FontSize="11" Opacity="0.58" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock x:Name="YAxisLabel" Grid.Row="0" Text="CPU PERFORMANCE (%)" FontSize="11" Opacity="0.58" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock.RenderTransform><RotateTransform Angle="-90"/></TextBlock.RenderTransform>
                 </TextBlock>
                 <Grid Grid.Column="1" x:Name="AtlasPlotHost" MinWidth="140" MinHeight="130">

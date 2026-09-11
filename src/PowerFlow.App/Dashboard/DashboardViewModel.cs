@@ -204,7 +204,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
                 observation.TotalCores,
                 decision.AllowedZone,
                 observation.Actor,
-                decision.Kind));
+                decision.Kind,
+                observation.ProcessorPerformancePercent));
         }
 
         _governorDryRunLabel = latest!.Kind switch

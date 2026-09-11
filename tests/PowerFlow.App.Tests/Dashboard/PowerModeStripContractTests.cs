@@ -5,14 +5,14 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class PowerModeStripContractTests
 {
     [Fact]
-    public void ModeStrip_ExposesRealWindowsHostModesWithSelectionAuthorityAndTooltips()
+    public void ModeStrip_ExposesPowerFlowOperatingModesWithSelectionAuthorityAndTooltips()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml.cs");
 
-        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedModeButton", "PerformanceModeButton", "ModeAuthorityText" })
+        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedModeButton", "PerformanceModeButton", "UltraModeButton", "ModeAuthorityText" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
-        foreach (var label in new[] { "AUTO", "SAVER", "BALANCED", "PERFORMANCE" })
+        foreach (var label in new[] { "AUTO", "SAVER", "BAL", "PERF", "ULTRA" })
             Assert.Contains($"Content=\"{label}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTipService.ToolTip", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name", xaml, StringComparison.Ordinal);
@@ -40,16 +40,20 @@ public sealed class PowerModeStripContractTests
     }
 
     [Fact]
-    public void MainWindow_MapsModeRequestsToExistingManualControllerPath()
+    public void MainWindow_RoutesModeRequestsThroughProductProfilePathWithSafeFallback()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("SystemHeaderHost.ModeRequested += OnModeRequested", code, StringComparison.Ordinal);
         Assert.Contains("SystemHeaderHost.SetModeSelection", code, StringComparison.Ordinal);
+        Assert.Contains("_applyOperatingMode", code, StringComparison.Ordinal);
         Assert.Contains("ReleaseManualLatchAsync", code, StringComparison.Ordinal);
         Assert.Contains("SetManualStateAsync", code, StringComparison.Ordinal);
         Assert.Contains("PowerState.PowerSaver", code, StringComparison.Ordinal);
         Assert.Contains("PowerState.Balanced", code, StringComparison.Ordinal);
         Assert.Contains("PowerState.HighPerformance", code, StringComparison.Ordinal);
+        Assert.Contains("PowerModeSelection.Ultra", code, StringComparison.Ordinal);
+        Assert.Contains("PowerModeSelection.Boost => \"PERFORMANCE\"", code, StringComparison.Ordinal);
+        Assert.Contains("PowerModeSelection.Ultra => \"ULTRA\"", code, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] parts)

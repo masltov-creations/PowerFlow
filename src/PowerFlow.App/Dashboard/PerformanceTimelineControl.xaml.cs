@@ -865,7 +865,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, available-capacity saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, available capacity {observedPressure.AvailableCapacityPercent:0.0}%, saturation {observedPressure.CapacitySaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). Display-only for now; controller actuation still uses legacy CPU busy percent.");
         UpdatePressureContextLabel();
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
-        ClockValueText.Text = current.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "-";
+        ClockValueText.Text = current.ProcessorPerformancePercent is double performance ? $"{performance:0}%" : "-";
         CoresValueText.Text = current.ActiveCores is int active
             ? current.TotalCores is int total ? $"{active}/{total} awake" : $"{active} awake"
             : current.TotalCores is int knownTotal ? $"-/{knownTotal} awake" : "-";
@@ -941,7 +941,9 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private static string FormatObservation(OperatingObservation value)
     {
         var watts = value.PackageWatts is double w ? $"{w:0.0} W" : "— W";
-        var ghz = value.EffectiveClockMhz is double mhz ? $"{mhz / 1000d:0.00} GHz" : "— GHz";
+        var ghz = value.ProcessorPerformancePercent is double performance
+            ? value.EffectiveClockMhz is double mhz ? $"{performance:0}% (~{mhz / 1000d:0.00} GHz eq)" : $"{performance:0}%"
+            : "—%";
         var cores = value.ActiveCores is int active ? value.TotalCores is int total ? $"{active}/{total} cores" : $"{active} cores" : "— cores";
         var actor = string.IsNullOrWhiteSpace(value.Actor) ? string.Empty : $" · {ShortActor(value.Actor)}";
         var decision = value.Decision == EnvelopeDecisionKind.None ? string.Empty : $" · {value.Decision}";
@@ -959,7 +961,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     {
         PerformanceTimelineMetric.CpuPressure => "100%",
         PerformanceTimelineMetric.PackagePower => $"{lane.DomainMax:0} W",
-        PerformanceTimelineMetric.EffectiveClock => $"{lane.DomainMax / 1000d:0.0} GHz",
+        PerformanceTimelineMetric.EffectiveClock => $"{lane.DomainMax:0}%",
         PerformanceTimelineMetric.ActiveCores => $"{lane.DomainMax:0}",
         _ => string.Empty
     };

@@ -8,6 +8,7 @@ public static class ProcessorPolicySettingIds
     public static readonly Guid ProcessorSubgroup = Guid.Parse("54533251-82be-4824-96c1-47b60b740d00");
     public static readonly Guid CoreParkingMinCores = Guid.Parse("0cc5b647-c1df-4637-891a-dec35c318583");
     public static readonly Guid EnergyPerformancePreference = Guid.Parse("36687f9e-e3a5-4dbf-b1dc-15eb381c6863");
+    public static readonly Guid ProcessorPerformanceBoostMode = Guid.Parse("be337238-0d82-4146-a960-4f3749d470c7");
 }
 
 public sealed class WindowsProcessorPolicyController : IProcessorPolicyController
@@ -28,6 +29,7 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
         ArgumentNullException.ThrowIfNull(patch);
         ValidatePercent(patch.CoreParkingMinCoresPercent, nameof(patch.CoreParkingMinCoresPercent));
         ValidatePercent(patch.EnergyPerformancePreferencePercent, nameof(patch.EnergyPerformancePreferencePercent));
+        ValidateBoostMode(patch.ProcessorPerformanceBoostMode);
 
         var scheme = _native.GetActiveScheme();
         var before = Capture(scheme);
@@ -37,6 +39,8 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
                 WriteVerified(scheme, ProcessorPolicySettingIds.CoreParkingMinCores, cores, "core parking minimum");
             if (patch.EnergyPerformancePreferencePercent is uint epp)
                 WriteVerified(scheme, ProcessorPolicySettingIds.EnergyPerformancePreference, epp, "energy performance preference");
+            if (patch.ProcessorPerformanceBoostMode is uint boostMode)
+                WriteVerified(scheme, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, boostMode, "processor performance boost mode");
 
             ReactivateIfCurrent(scheme);
             var after = Capture(scheme);
@@ -56,10 +60,12 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
         {
             WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.CoreParkingMinCores, snapshot.CoreParkingMinCoresPercent, "core parking minimum");
             WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.EnergyPerformancePreference, snapshot.EnergyPerformancePreferencePercent, "energy performance preference");
+            WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, snapshot.ProcessorPerformanceBoostMode, "processor performance boost mode");
             ReactivateIfCurrent(snapshot.SchemeId);
             var after = Capture(snapshot.SchemeId);
             var success = after.CoreParkingMinCoresPercent == snapshot.CoreParkingMinCoresPercent
-                && after.EnergyPerformancePreferencePercent == snapshot.EnergyPerformancePreferencePercent;
+                && after.EnergyPerformancePreferencePercent == snapshot.EnergyPerformancePreferencePercent
+                && after.ProcessorPerformanceBoostMode == snapshot.ProcessorPerformanceBoostMode;
             return new ProcessorPolicyApplyResult(success, snapshot, after, success ? null : "Processor policy restore readback did not match the snapshot.");
         }
         catch (Exception ex)
@@ -71,7 +77,8 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
     private ProcessorPolicySnapshot Capture(Guid scheme) => new(
         scheme,
         _native.ReadAcValue(scheme, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.CoreParkingMinCores),
-        _native.ReadAcValue(scheme, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.EnergyPerformancePreference));
+        _native.ReadAcValue(scheme, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.EnergyPerformancePreference),
+        _native.ReadAcValue(scheme, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode));
 
     private ProcessorPolicySnapshot CaptureBestEffort(ProcessorPolicySnapshot fallback)
     {
@@ -100,6 +107,7 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
         {
             _native.WriteAcValue(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.CoreParkingMinCores, snapshot.CoreParkingMinCoresPercent);
             _native.WriteAcValue(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.EnergyPerformancePreference, snapshot.EnergyPerformancePreferencePercent);
+            _native.WriteAcValue(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorSubgroup, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, snapshot.ProcessorPerformanceBoostMode);
             ReactivateIfCurrent(snapshot.SchemeId);
         }
         catch { }
@@ -108,6 +116,11 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
     private static void ValidatePercent(uint? value, string name)
     {
         if (value is > 100) throw new ArgumentOutOfRangeException(name, "Processor policy percentages must be between 0 and 100.");
+    }
+
+    private static void ValidateBoostMode(uint? value)
+    {
+        if (value is > 6) throw new ArgumentOutOfRangeException(nameof(value), "Processor performance boost mode must be between 0 and 6.");
     }
 
     private sealed class ProcessorPolicyNative : IProcessorPolicyNative

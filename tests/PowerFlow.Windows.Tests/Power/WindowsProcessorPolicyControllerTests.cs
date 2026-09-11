@@ -13,6 +13,7 @@ public sealed class WindowsProcessorPolicyControllerTests
         Assert.Equal(PowerPlanIds.PowerSaver, snapshot.SchemeId);
         Assert.Equal((uint)10, snapshot.CoreParkingMinCoresPercent);
         Assert.Equal((uint)60, snapshot.EnergyPerformancePreferencePercent);
+        Assert.Equal((uint)2, snapshot.ProcessorPerformanceBoostMode);
     }
 
     [Fact]
@@ -52,6 +53,19 @@ public sealed class WindowsProcessorPolicyControllerTests
     }
 
     [Fact]
+    public void Apply_CanWriteBoostModeAndRestoreIt()
+    {
+        var native = new FakeNative { Active = PowerPlanIds.PowerSaver, CoreMin = 10, Epp = 60, BoostMode = 2 };
+        var sut = new WindowsProcessorPolicyController(native);
+        var baseline = sut.CaptureActive();
+        var apply = sut.Apply(new ProcessorPolicyPatch(ProcessorPerformanceBoostMode: 0));
+        Assert.True(apply.Success, apply.Error);
+        Assert.Equal((uint)0, native.BoostMode);
+        var restore = sut.Restore(baseline);
+        Assert.True(restore.Success, restore.Error);
+        Assert.Equal((uint)2, native.BoostMode);
+    }
+    [Fact]
     public void Apply_RejectsOutOfRangePercent()
     {
         var native = new FakeNative { Active = PowerPlanIds.PowerSaver };
@@ -66,6 +80,7 @@ public sealed class WindowsProcessorPolicyControllerTests
         var snapshot = new WindowsProcessorPolicyController().CaptureActive();
         Assert.InRange(snapshot.CoreParkingMinCoresPercent, 0u, 100u);
         Assert.InRange(snapshot.EnergyPerformancePreferencePercent, 0u, 100u);
+        Assert.InRange(snapshot.ProcessorPerformanceBoostMode, 0u, 6u);
     }
 
     private sealed class FakeNative : IProcessorPolicyNative
@@ -73,16 +88,21 @@ public sealed class WindowsProcessorPolicyControllerTests
         public Guid Active { get; set; }
         public uint CoreMin { get; set; }
         public uint Epp { get; set; }
+        public uint BoostMode { get; set; } = 2;
         public bool FailEppWrite { get; set; }
         public int ReapplyCount { get; private set; }
 
         public Guid GetActiveScheme() => Active;
         public uint ReadAcValue(Guid schemeId, Guid subgroupId, Guid settingId)
-            => settingId == ProcessorPolicySettingIds.CoreParkingMinCores ? CoreMin : Epp;
+            => settingId == ProcessorPolicySettingIds.CoreParkingMinCores ? CoreMin
+                : settingId == ProcessorPolicySettingIds.ProcessorPerformanceBoostMode ? BoostMode
+                : Epp;
         public int WriteAcValue(Guid schemeId, Guid subgroupId, Guid settingId, uint value)
         {
             if (settingId == ProcessorPolicySettingIds.EnergyPerformancePreference && FailEppWrite) return 5;
-            if (settingId == ProcessorPolicySettingIds.CoreParkingMinCores) CoreMin = value; else Epp = value;
+            if (settingId == ProcessorPolicySettingIds.CoreParkingMinCores) CoreMin = value;
+            else if (settingId == ProcessorPolicySettingIds.ProcessorPerformanceBoostMode) BoostMode = value;
+            else Epp = value;
             return 0;
         }
         public int SetActiveScheme(Guid schemeId)

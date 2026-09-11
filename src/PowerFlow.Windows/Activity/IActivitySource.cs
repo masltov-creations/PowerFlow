@@ -16,4 +16,5 @@ public sealed record DashboardTelemetry(
     int? ActiveCores = null,
     int? TotalCores = null,
     IReadOnlyList<LogicalProcessorTelemetry>? LogicalProcessors = null,
-    double? ProcessorQueueLength = null);
+    double? ProcessorQueueLength = null,
+    double? ProcessorPerformancePercent = null);

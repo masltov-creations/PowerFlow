@@ -6,6 +6,7 @@ public sealed record CurrentTelemetrySnapshot(
     OperatingObservation Latest,
     double? PackageWatts,
     double? EffectiveClockMhz,
+    double? ProcessorPerformancePercent,
     int? ActiveCores,
     int? TotalCores);
 
@@ -26,9 +27,10 @@ public static class CurrentTelemetryProjection
 
         var power = recent.FirstOrDefault(observation => observation.PackageWatts is not null)?.PackageWatts;
         var clock = recent.FirstOrDefault(observation => observation.EffectiveClockMhz is not null)?.EffectiveClockMhz;
+        var performance = recent.FirstOrDefault(observation => observation.ProcessorPerformancePercent is not null)?.ProcessorPerformancePercent;
         var cores = recent.FirstOrDefault(observation => observation.ActiveCores is not null);
         var total = cores?.TotalCores ?? recent.FirstOrDefault(observation => observation.TotalCores is not null)?.TotalCores;
 
-        return new CurrentTelemetrySnapshot(latest, power, clock, cores?.ActiveCores, total);
+        return new CurrentTelemetrySnapshot(latest, power, clock, performance, cores?.ActiveCores, total);
     }
 }

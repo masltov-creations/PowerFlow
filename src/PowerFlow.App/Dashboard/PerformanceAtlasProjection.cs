@@ -203,8 +203,8 @@ public static class PerformanceAtlasProjection
             PerformanceAtlasDimension.CpuPressure => new(dimension, "CPU PRESSURE", "%", 0, 100, bins),
             PerformanceAtlasDimension.PackagePower => new(dimension, "PACKAGE POWER", "W", 0,
                 NiceCeiling(observations.Select(o => o.PackageWatts), 25, 25), bins),
-            PerformanceAtlasDimension.EffectiveClock => new(dimension, "EFFECTIVE CLOCK", "MHz", 0,
-                NiceCeiling(observations.Select(o => o.EffectiveClockMhz), 500, 1000), bins),
+            PerformanceAtlasDimension.EffectiveClock => new(dimension, "CPU PERFORMANCE", "%", 0,
+                NiceCeiling(observations.Select(o => o.ProcessorPerformancePercent), 25, 125), bins),
             PerformanceAtlasDimension.ActiveCores => new(dimension, "CORES AWAKE", "cores", 0,
                 Math.Max(1, observations.Select(o => (double?)(o.TotalCores ?? o.ActiveCores)).Where(IsValid).Select(v => v!.Value).DefaultIfEmpty(1).Max()), bins),
             _ => throw new ArgumentOutOfRangeException(nameof(dimension))
@@ -215,7 +215,7 @@ public static class PerformanceAtlasProjection
     {
         PerformanceAtlasDimension.CpuPressure => observation.CpuPressurePercent,
         PerformanceAtlasDimension.PackagePower => observation.PackageWatts,
-        PerformanceAtlasDimension.EffectiveClock => observation.EffectiveClockMhz,
+        PerformanceAtlasDimension.EffectiveClock => observation.ProcessorPerformancePercent,
         PerformanceAtlasDimension.ActiveCores => observation.ActiveCores,
         _ => null
     };
@@ -245,7 +245,7 @@ public static class PerformanceAtlasProjection
     public static string FriendlyDimension(PerformanceAtlasDimension dimension) => dimension switch
     {
         PerformanceAtlasDimension.PackagePower => "Package Power",
-        PerformanceAtlasDimension.EffectiveClock => "Effective Clock",
+        PerformanceAtlasDimension.EffectiveClock => "CPU Performance",
         PerformanceAtlasDimension.ActiveCores => "Cores Awake",
         PerformanceAtlasDimension.CpuPressure => "CPU Pressure",
         _ => dimension.ToString()

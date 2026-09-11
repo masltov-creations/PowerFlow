@@ -55,7 +55,7 @@
                         <TextBlock x:Name="PowerValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                     <StackPanel Grid.Row="2" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="EFFECTIVE CLOCK" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock Text="CPU PERFORMANCE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
                         <TextBlock x:Name="ClockValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                     <StackPanel Grid.Row="3" VerticalAlignment="Center" Spacing="1">

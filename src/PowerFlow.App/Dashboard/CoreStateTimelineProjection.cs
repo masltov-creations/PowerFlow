@@ -12,7 +12,8 @@ public sealed record CoreStateTimelineSample(
     IReadOnlyList<double>? ActiveCoreLoadsPercent = null,
     double AverageAwakeLoadPercent = 0,
     double? AverageAwakeFrequencyMhz = null,
-    double? AverageAwakePercentOfMaximumFrequency = null);
+    double? AverageAwakePercentOfMaximumFrequency = null,
+    double? AverageAwakeProcessorPerformancePercent = null);
 
 public sealed record CoreStateTimelineData(
     IReadOnlyList<CoreStateTimelineSample> Samples,
@@ -55,6 +56,7 @@ public static class CoreStateTimelineProjection
         var awakeLoads = new List<double>();
         var awakeFrequency = new List<double>();
         var awakePercentMax = new List<double>();
+        var awakePerformance = new List<double>();
         var awakeIdle = 0;
         var parked = 0;
 
@@ -80,6 +82,10 @@ public static class CoreStateTimelineProjection
                 .Select(thread => thread.PercentOfMaximumFrequency!.Value).ToArray();
             if (percentMax.Length > 0) awakePercentMax.Add(percentMax.Average());
 
+            var processorPerformance = threads.Where(thread => !thread.IsParked && thread.ProcessorPerformancePercent is double value && double.IsFinite(value) && value > 0)
+                .Select(thread => thread.ProcessorPerformancePercent!.Value).ToArray();
+            if (processorPerformance.Length > 0) awakePerformance.Add(processorPerformance.Average());
+
             if (load >= CoreThreadMapProjection.ActiveThresholdPercent) activeLoads.Add(load);
             else awakeIdle++;
         }
@@ -94,6 +100,7 @@ public static class CoreStateTimelineProjection
             activeLoads,
             awakeLoads.Count == 0 ? 0 : awakeLoads.Average(),
             awakeFrequency.Count == 0 ? null : awakeFrequency.Average(),
-            awakePercentMax.Count == 0 ? null : awakePercentMax.Average());
+            awakePercentMax.Count == 0 ? null : awakePercentMax.Average(),
+            awakePerformance.Count == 0 ? null : awakePerformance.Average());
     }
 }

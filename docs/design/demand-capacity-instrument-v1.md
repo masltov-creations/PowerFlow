@@ -120,3 +120,31 @@ The loop runs from background rich telemetry, not dashboard visibility. The dash
 On reference-host / Power Saver, the guarded runtime was exercised against the real processor-policy API and live delivered-capacity telemetry. Baseline was `CPMINCORES=10`, `EPP=60`. With a fixed 35% requested-capacity target, delivered capacity naturally moved between roughly 31% and 37.5%. The actuator correctly held while delivered capacity was sufficient. When delivered capacity fell to ~31.2%, it applied one bounded `10 -> 25` core-floor step while holding EPP at 60. Three seconds later it planned a further step but the five-second write cooldown blocked it. `StopAndRestore()` then returned the policy to `CPMINCORES=10`, `EPP=60` with readback verification.
 
 This qualifies the core-floor feedback loop and its first safety envelope. It does not qualify EPP, boost, >75% core-floor writes, or removal of the separate enable gate.
+## Processor performance telemetry correction
+
+reference-host's `PROCESSOR_POWER_INFORMATION.CurrentMhz`, PDH `Processor Frequency`, and `% of Maximum Frequency` do not provide a useful dynamic performance trace on this CPU: they can remain near 3401 MHz / 100% while core count, package power, and actual boost behavior change materially. The primary dashboard performance signal is therefore Windows PDH `% Processor Performance`.
+
+- `CPU PERFORMANCE` is plotted as percent of nominal/guaranteed processor performance and may exceed 100% under boost.
+- A GHz-equivalent value may be shown as secondary context (`nominal MHz × Processor Performance / 100`); it is not presented as a literal hardware clock measurement.
+- Available/delivered capacity uses each unparked logical processor's `% Processor Performance` first, falling back to `% of Maximum Frequency` only if the real performance counter is unavailable.
+- `% Processor Utility` remains the work/demand signal. Performance and utility are deliberately separate dimensions.
+
+## Measured PowerFlow operating modes
+
+The product modes are operating envelopes, not aliases for three Windows plan names. Each mode combines a Windows plan with a measured readiness floor, energy/performance preference, and boost behavior. All modified processor-policy values are snapshotted and restored on mode change, Auto, failure, or shutdown.
+
+| PowerFlow mode | Windows base plan | Core floor | EPP | Boost mode | Intent |
+| --- | --- | ---: | ---: | --- | --- |
+| Saver | Power Saver | 10% | 60 | Disabled (0) | Low floor; make demand prove itself before capacity/boost is granted. |
+| Balanced | Balanced | 25% | 35 | Efficient Enabled (3) | Adaptive equilibrium; modest readiness while retaining strong burst performance. |
+| Performance | Balanced | 75% | 10 | Aggressive (2) | High readiness without forcing High Performance's 100% minimum processor state. |
+| Ultra | High Performance | 100% | 10 | Aggressive (2) | Fully pre-armed; all cores ready and High Performance floor semantics accepted. |
+
+Qualification measurements on reference-host under the contemporaneous background workload:
+
+- Saver/Aggressive baseline: about 127.6% Processor Performance and 82.3 W. With boost disabled: about 99.2% and 46.8 W. This is why Saver explicitly disables boost.
+- Windows Balanced default: about 128.2%, 101.9 W, 16 awake physical cores. PowerFlow Balanced candidate: about 127.6%, 80.7 W, roughly 4 awake cores during the calibration sample.
+- PowerFlow Performance candidate: about 128.2%, 99.8 W, roughly 12 awake cores.
+- Compiled profile live qualification: Saver ~99.3% / 50.1 W / 6 cores; Balanced ~126.1% / 87.4 W / 5.3 cores; Performance ~121.9% / 97.8 W / 12 cores; Ultra ~122.7% / 109.6 W / 16 cores. These are observations, not fixed targets; workload changes the absolute values.
+
+The readiness ladder is intentional: Saver < Balanced < Performance < Ultra. Saver and Balanced remain dynamic; Performance and Ultra increasingly pay idle/readiness cost to reduce capacity wake-up latency.

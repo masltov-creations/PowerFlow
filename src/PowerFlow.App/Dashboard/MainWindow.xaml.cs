@@ -58,13 +58,14 @@ public sealed partial class MainWindow : Window
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
     private DateTimeOffset _nextProcessorPolicyReadAt;
     private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
+    private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -73,6 +74,7 @@ public sealed partial class MainWindow : Window
         _recorder = recorder;
         _previewMode = previewMode;
         _coreActuatorStatusProvider = coreActuatorStatusProvider;
+        _applyOperatingMode = applyOperatingMode;
         _config = config;
         _applyConfig = applyConfig;
         var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
@@ -598,17 +600,26 @@ public sealed partial class MainWindow : Window
 
         var actor = ShortActor(snapshot.TriggerApplication);
         SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;
-        DecisionStateText.Text = snapshot.IsLatched
-            ? $"{(snapshot.LatchType ?? "LOCK").ToUpperInvariant()}"
-            : snapshot.State switch
-            {
-                PowerState.PowerSaver => "ECO",
-                PowerState.Balanced => "EFFICIENT",
-                PowerState.HighPerformance => "BOOST",
-                _ => "OBSERVING"
-            };
-        DecisionExplanationText.Text = string.IsNullOrWhiteSpace(snapshot.Reason) ? "Observing demand and machine response" : snapshot.Reason;
         var manualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+        DecisionStateText.Text = manualAuthority
+            ? _manualModeSelection switch
+            {
+                PowerModeSelection.Eco => "SAVER",
+                PowerModeSelection.Efficient or PowerModeSelection.Responsive => "BALANCED",
+                PowerModeSelection.Boost => "PERFORMANCE",
+                PowerModeSelection.Ultra => "ULTRA",
+                _ => "MANUAL"
+            }
+            : snapshot.IsLatched
+                ? $"{(snapshot.LatchType ?? "LOCK").ToUpperInvariant()}"
+                : snapshot.State switch
+                {
+                    PowerState.PowerSaver => "ECO",
+                    PowerState.Balanced => "EFFICIENT",
+                    PowerState.HighPerformance => "BOOST",
+                    _ => "OBSERVING"
+                };
+        DecisionExplanationText.Text = string.IsNullOrWhiteSpace(snapshot.Reason) ? "Observing demand and machine response" : snapshot.Reason;
         var selectedMode = manualAuthority
             ? _manualModeSelection != PowerModeSelection.Auto
                 ? _manualModeSelection
@@ -625,26 +636,38 @@ public sealed partial class MainWindow : Window
 
     private async void OnModeRequested(object? sender, PowerModeRequestedEventArgs e)
     {
-        if (e.Mode == PowerModeSelection.Auto)
+        try
         {
-            _manualModeSelection = PowerModeSelection.Auto;
-            await _controller.ReleaseManualLatchAsync();
-        }
-        else
-        {
-            _manualModeSelection = e.Mode;
-            var state = e.Mode switch
+            if (_applyOperatingMode is not null)
             {
-                PowerModeSelection.Eco => PowerState.PowerSaver,
-                PowerModeSelection.Efficient => PowerState.Balanced,
-                PowerModeSelection.Boost => PowerState.HighPerformance,
-                _ => PowerState.Balanced
-            };
-            await _controller.SetManualStateAsync(state);
+                await _applyOperatingMode(e.Mode);
+                _manualModeSelection = e.Mode;
+            }
+            else if (e.Mode == PowerModeSelection.Auto)
+            {
+                _manualModeSelection = PowerModeSelection.Auto;
+                await _controller.ReleaseManualLatchAsync();
+            }
+            else
+            {
+                _manualModeSelection = e.Mode;
+                var state = e.Mode switch
+                {
+                    PowerModeSelection.Eco => PowerState.PowerSaver,
+                    PowerModeSelection.Efficient or PowerModeSelection.Responsive => PowerState.Balanced,
+                    PowerModeSelection.Boost => PowerState.Balanced,
+                    PowerModeSelection.Ultra => PowerState.HighPerformance,
+                    _ => PowerState.Balanced
+                };
+                await _controller.SetManualStateAsync(state);
+            }
+            ApplyVisualState(_controller.Snapshot);
         }
-        ApplyVisualState(_controller.Snapshot);
-    }
-    private void OnTimelineCursorChanged(object? sender, TimelineCursorChangedEventArgs e)
+        catch (Exception ex)
+        {
+            SystemHeaderHost.SetModeSelection(_manualModeSelection, _manualModeSelection != PowerModeSelection.Auto, ex.Message);
+        }
+    }    private void OnTimelineCursorChanged(object? sender, TimelineCursorChangedEventArgs e)
         => PerformanceAtlas.SetHoveredObservationIndices(e.ObservationIndex is int index ? new[] { index } : null);
 
     private void OnAtlasHoverChanged(object? sender, AtlasHoverChangedEventArgs e)

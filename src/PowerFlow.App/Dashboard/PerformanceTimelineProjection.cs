@@ -64,7 +64,8 @@ public static class PerformanceTimelineProjection
             .ToArray();
 
         var powerMax = NiceCeiling(visible.Where(x => x.observation.PackageWatts.HasValue).Select(x => x.observation.PackageWatts!.Value), 25, 25);
-        var clockMax = NiceCeiling(visible.Where(x => x.observation.EffectiveClockMhz.HasValue).Select(x => x.observation.EffectiveClockMhz!.Value), 500, 1000);
+        var performanceValues = visible.Where(x => x.observation.ProcessorPerformancePercent.HasValue).Select(x => x.observation.ProcessorPerformancePercent!.Value).ToArray();
+        var performanceMax = performanceValues.Length == 0 ? 150d : NiceCeiling(performanceValues, 125, 25);
         var coreMax = Math.Max(1, visible.Select(x => x.observation.TotalCores ?? x.observation.ActiveCores ?? 0).DefaultIfEmpty(1).Max());
 
         double X(DateTimeOffset at) => Math.Clamp((at - start).TotalSeconds / seconds, 0, 1);
@@ -73,7 +74,7 @@ public static class PerformanceTimelineProjection
         {
             Lane(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, visible, X, x => x.CpuPressurePercent),
             Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerMax, visible, X, x => x.PackageWatts),
-            Lane(PerformanceTimelineMetric.EffectiveClock, "EFFECTIVE CLOCK", "MHz", clockMax, visible, X, x => x.EffectiveClockMhz),
+            Lane(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", performanceMax, visible, X, x => x.ProcessorPerformancePercent),
             Lane(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", coreMax, visible, X, x => x.ActiveCores)
         };
 
@@ -136,7 +137,7 @@ public static class PerformanceTimelineProjection
         {
             new TimelineLaneProjection(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, Array.Empty<TimelineSamplePoint>()),
             new TimelineLaneProjection(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", 25, Array.Empty<TimelineSamplePoint>()),
-            new TimelineLaneProjection(PerformanceTimelineMetric.EffectiveClock, "EFFECTIVE CLOCK", "MHz", 1000, Array.Empty<TimelineSamplePoint>()),
+            new TimelineLaneProjection(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", 150, Array.Empty<TimelineSamplePoint>()),
             new TimelineLaneProjection(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 1, Array.Empty<TimelineSamplePoint>())
         };
         return new PerformanceTimelineData(start, latest, seconds, mode, lanes, Array.Empty<TimelineEventMarker>());

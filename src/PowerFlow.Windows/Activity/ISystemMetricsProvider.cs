@@ -6,7 +6,8 @@ public sealed record LogicalProcessorTelemetry(
     bool IsParked,
     double? UtilizationPercent = null,
     double? FrequencyMhz = null,
-    double? PercentOfMaximumFrequency = null);
+    double? PercentOfMaximumFrequency = null,
+    double? ProcessorPerformancePercent = null);
 
 public sealed record SystemMetricsSnapshot(
     double? MemoryUsedPercent,

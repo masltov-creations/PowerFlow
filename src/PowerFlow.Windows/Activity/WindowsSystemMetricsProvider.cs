@@ -100,13 +100,16 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
                     var utilityPath = $@"\Processor Information(0,{pair.Key})\% Processor Utility";
                     var frequencyPath = $@"\Processor Information(0,{pair.Key})\Processor Frequency";
                     var maximumFrequencyPath = $@"\Processor Information(0,{pair.Key})\% of Maximum Frequency";
+                    var performancePath = $@"\Processor Information(0,{pair.Key})\% Processor Performance";
                     var utilityCounter = IntPtr.Zero;
                     var frequencyCounter = IntPtr.Zero;
                     var maximumFrequencyCounter = IntPtr.Zero;
+                    var performanceCounter = IntPtr.Zero;
                     _ = PdhAddEnglishCounter(_query, utilityPath, IntPtr.Zero, out utilityCounter);
                     _ = PdhAddEnglishCounter(_query, frequencyPath, IntPtr.Zero, out frequencyCounter);
                     _ = PdhAddEnglishCounter(_query, maximumFrequencyPath, IntPtr.Zero, out maximumFrequencyCounter);
-                    _counters.Add(new LogicalProcessorCounters(pair.Key, pair.Value, parkingCounter, utilityCounter, frequencyCounter, maximumFrequencyCounter));
+                    _ = PdhAddEnglishCounter(_query, performancePath, IntPtr.Zero, out performanceCounter);
+                    _counters.Add(new LogicalProcessorCounters(pair.Key, pair.Value, parkingCounter, utilityCounter, frequencyCounter, maximumFrequencyCounter, performanceCounter));
                 }
 
                 if (_counters.Count != topology.Count)
@@ -142,6 +145,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
                 var utilization = ReadOptionalCounter(entry.UtilityCounter, 0d, 250d);
                 var frequency = ReadOptionalCounter(entry.FrequencyCounter, 0d, 10000d);
                 var maximumFrequency = ReadOptionalCounter(entry.MaximumFrequencyCounter, 0d, 250d);
+                var processorPerformance = ReadOptionalCounter(entry.ProcessorPerformanceCounter, 0d, 250d);
 
                 logical.Add(new LogicalProcessorTelemetry(
                     entry.LogicalProcessor,
@@ -149,7 +153,8 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
                     IsParked: parkedValue.DoubleValue >= 0.5d,
                     UtilizationPercent: utilization,
                     FrequencyMhz: frequency,
-                    PercentOfMaximumFrequency: maximumFrequency));
+                    PercentOfMaximumFrequency: maximumFrequency,
+                    ProcessorPerformancePercent: processorPerformance));
             }
 
             var awake = CountAwakePhysicalCores(logical.Select(state => new CoreParkingState(state.PhysicalCoreIndex, state.IsParked)));
@@ -226,7 +231,8 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             IntPtr ParkingCounter,
             IntPtr UtilityCounter,
             IntPtr FrequencyCounter,
-            IntPtr MaximumFrequencyCounter);
+            IntPtr MaximumFrequencyCounter,
+            IntPtr ProcessorPerformanceCounter);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct PdhFmtCounterValue

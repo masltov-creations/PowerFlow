@@ -31,7 +31,7 @@ public sealed class PerformanceAtlasContractTests
     public void Atlas_DimensionSelectorsExposeOnlyTruthfulInitialMetrics()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml");
-        foreach (var label in new[] { "Package Power", "Effective Clock", "Cores Awake", "CPU Pressure" })
+        foreach (var label in new[] { "Package Power", "CPU Performance", "Cores Awake", "CPU Pressure" })
             Assert.Contains(label, xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("GPU", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Temperature", xaml, StringComparison.OrdinalIgnoreCase);
