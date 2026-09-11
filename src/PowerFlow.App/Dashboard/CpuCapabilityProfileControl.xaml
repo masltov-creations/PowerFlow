@@ -11,10 +11,10 @@
             <StackPanel Spacing="2">
                 <TextBlock Text="MACHINE BASELINE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="150" Opacity="0.66"/>
                 <TextBlock Text="Find this CPU's efficient operating point" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="One run compares native Windows Saver + Balanced against BAL-E, BAL-P, Performance and Auto. Each mode gets 5 minutes: settle, idle measurement, then the same 1 / 2 / 4 / 8 / 16-thread synthetic CPU curve." FontSize="11" Opacity="0.56" TextWrapping="Wrap" MaxWidth="900"/>
+                <TextBlock Text="One run compares native Windows Saver + Balanced against PowerFlow SAVER, BAL-E, BAL-P, Performance, ULTRA and Auto. Each mode gets 5 minutes: settle, idle measurement, then the same 1 / 2 / 4 / 8 / 16-thread synthetic CPU curve." FontSize="11" Opacity="0.56" TextWrapping="Wrap" MaxWidth="900"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                <Button x:Name="RunBaselineButton" Content="BASELINE MACHINE  ·  30 MIN" Padding="14,7" FontWeight="SemiBold" Click="OnRunBaseline" AutomationProperties.Name="Baseline machine for 30 minutes"/>
+                <Button x:Name="RunBaselineButton" Content="BASELINE MACHINE  ·  35 MIN" Padding="14,7" FontWeight="SemiBold" Click="OnRunBaseline" AutomationProperties.Name="Baseline machine for 40 minutes"/>
                 <Button x:Name="CancelButton" Content="CANCEL" Padding="10,7" IsEnabled="False" Click="OnCancel"/>
             </StackPanel>
         </Grid>
@@ -24,12 +24,12 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Spacing="4">
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock x:Name="BaselineProgressText" Text="Ready — 6 modes × 5 minutes" FontSize="11" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="BaselineProgressText" Text="Ready - 7 modes x 5 minutes" FontSize="11" FontWeight="SemiBold"/>
                         <TextBlock x:Name="BaselineRemainingText" Grid.Column="1" Text="30:00" FontSize="11" Opacity="0.62"/>
                     </Grid>
                     <ProgressBar x:Name="BaselineProgressBar" Minimum="0" Maximum="100" Value="0" Height="6"/>
                 </StackPanel>
-                <TextBlock x:Name="BaselineStatusText" Grid.Column="1" Margin="10,0,0,0" Text="WINDOWS SAVER → WINDOWS BALANCED → BAL-E → BAL-P → PERF → AUTO" FontSize="11" Opacity="0.48" VerticalAlignment="Center"/>
+                <TextBlock x:Name="BaselineStatusText" Grid.Column="1" Margin="10,0,0,0" Text="WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA / AUTO" FontSize="11" Opacity="0.48" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 

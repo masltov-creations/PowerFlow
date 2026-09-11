@@ -1,74 +1,96 @@
 # PowerFlow
 
-**Windows power plans, without the whiplash.**
+**Adaptive CPU power policy for Windows, built around measured profiles instead of plan-name folklore.**
 
-PowerFlow is a tiny, tray-first Windows power-plan traffic cop. **Saver sips. Balanced cruises. Performance gets the green light.** Games can hold Performance until they actually leave, while ordinary desktop use settles back down without turning your power plan into a metronome.
+PowerFlow watches the machine, explains what it is doing, and chooses the least-expensive qualified CPU profile for the work that is actually happening. The product is intentionally small: **Live**, **Workloads**, and **Baseline**, with **Settings** as a secondary surface.
 
-![PowerFlow tray hover](docs/assets/powerflow-popup.png)
+PowerFlow does not expose experimental model editors, advisory-only service policy, raw Windows power-plan mapping, or a second competing Auto controller.
 
-*Tiny when it should be tiny. The tray hover is the glanceable instrument, not a dashboard wearing a fake moustache.*
+## Product model
 
-> [!WARNING]
-> **Vibe Coding Alert:** AI was absolutely in the loop. The power-plan decisions are not powered by vibes. The current build has deterministic policy tests, a red-to-green regression proof for the last WinUI crash, a clean Release build, native plan-switch verification, and a live tray/dashboard acceptance run. Vibes proposed. Tests disposed.
+PowerFlow has two kinds of authority:
 
-## What it does
+- **AUTO** is the normal operating mode. It interprets telemetry through the adaptive envelope and selects one of the same qualified PowerFlow profiles available manually.
+- **Manual profiles** are explicit overrides. They latch until AUTO is selected again.
 
-PowerFlow controls the three Windows power states you already understand:
+AUTO maps semantic demand to measured PowerFlow profiles:
 
-- **Power Saver** — the resting state when the machine is quiet.
-- **Balanced** — sustained CPU demand earns more headroom without jumping straight to maximum power.
-- **High Performance** — games and explicit manual overrides can latch here until their real release condition occurs.
+| AUTO zone | PowerFlow profile | Windows plan | Core floor | EPP | Boost |
+| --- | --- | --- | ---: | ---: | ---: |
+| Eco | SAVER | Power Saver | 10% | 60 | 0 |
+| Efficient | BAL-E | Balanced | 25% | 35 | 3 |
+| Responsive | BAL-P | Balanced | 50% | 20 | 3 |
+| Boost | PERF | Balanced | 75% | 10 | 2 |
 
-The important part is not the three buttons. It is the behavior between them: hysteresis, hold windows, cooldown, game lifecycle tracking, manual latches, and a verified Windows power-plan switch at the end of every decision.
+**ULTRA** is a manual-only profile: High Performance, 100% core floor, EPP 10, boost mode 2. AUTO does not enter ULTRA.
 
-## The cockpit, not the control room
+The important architectural rule is that AUTO and manual operation use the **same profile definitions and processor-policy actuator**. There is no legacy threshold controller competing for ownership.
 
-PowerFlow lives in the tray. The full dashboard only appears when invited.
+## The four user-facing surfaces
 
-The dashboard is trajectory-first: recent behavior, **NOW**, policy pressure, thresholds, and actual state transitions share one compact field. Hover gives local detail. Click expands context in place. Rules and settings stay out of the way until you ask for them.
+### Live
 
-### Four levels, one instrument
+Live is the operating cockpit. It shows current state, recent trajectory, CPU/core behavior, package power, clock/performance evidence, the adaptive envelope, the currently important actor, and why PowerFlow is or is not escalating.
 
-PowerFlow no longer treats responsive design as “pick one of two rectangles and hope.” The same trajectory/state/policy instrument continuously reflows as real window space changes:
+The tray glance, compact dashboard, expanded view, and full-screen view are presentations of the same live state rather than separate products.
 
-- **Hover glance — 320 × 176.** Non-activating and deliberately tiny: state, one telemetry line, mini trajectory, next action.
-- **Compressed — 760 × 440.** The default working instrument. Compact telemetry replaces the larger metric card; secondary context stays out of the way.
-- **Expanded — fluid, with 1120 × 720 as the canonical working size.** Padding, graph height, reason width, typography, hover-lens width, and context spacing grow continuously with the actual window. Dragging from 980 × 620 through 1320 × 820 is not a binary layout swap.
-- **Full screen — a real WinUI full-screen presenter.** The same instrument grows to full-density context rather than stretching empty chrome. On the acceptance machine it occupies 1920 × 1080.
+### Workloads
 
-![PowerFlow compressed dashboard](docs/assets/powerflow-compressed.png)
+Workloads gives applications one understandable policy: **Low**, **Normal**, or **High** importance.
 
-![PowerFlow full-screen cockpit](docs/assets/powerflow-fullscreen.png)
+- **Low**: may use the machine, but cannot promote AUTO into Boost by itself.
+- **Normal**: may earn Boost after qualified sustained demand.
+- **High**: may earn Boost faster for latency-sensitive work.
 
-_Screenshots are captured with `PrintWindow` from PID-owned PowerFlow HWNDs. No desktop-coordinate crop cosplay._
+New importance rules never enter the old game/performance hard-latch path. Service-specific policy and custom entitlement timing are not exposed because they are not qualified product behavior.
 
-The **EXPAND → FULL SCREEN → RESTORE** path uses the same responsive layout engine throughout. Manual resizing also feeds the same engine on every size change. Reduced Motion removes the flourish, not the information hierarchy.
-Telemetry also survives a closed dashboard without becoming its own space heater:
+### Baseline
 
-- visible dashboard or tray instrument: **1 second** rich telemetry cadence;
-- hidden normal desktop: **5 seconds** rich continuity cadence;
-- hidden game/manual latch: rich visualization telemetry **off**;
-- one bounded in-memory history; no continuous telemetry log writes.
+**BASELINE MACHINE** runs seven fixed five-minute profiles, in this order:
 
-## Safety model
+1. Windows Power Saver
+2. Windows Balanced
+3. PowerFlow SAVER
+4. PowerFlow BAL-E
+5. PowerFlow BAL-P
+6. PowerFlow PERF
+7. PowerFlow ULTRA
 
-PowerFlow selects existing Windows power plans. It does **not** rewrite voltages, BIOS settings, fan curves, or the internals of your power plans.
+The 35-minute run records the policy signature actually applied, idle package power, throughput at 1/2/4/8/16 workers, throughput per watt, and the measured efficiency/throughput knee. It restores the exact pre-run processor policy on completion, cancellation, or failure.
 
-- one user process; no Windows service;
-- normal per-user startup, not a privileged scheduled task;
-- plan changes use `PowerSetActiveScheme` and are read back for verification;
-- `--preview` is intentionally read-only and cannot change the real Windows power plan;
-- abnormal recovery prefers a safe neutral state rather than blindly forcing Performance.
+AUTO is deliberately **not** a baseline leg. AUTO is dynamic and is validated through transition/scenario tests instead of pretending it is a fixed profile.
 
-## Build it
+### Settings
 
-The current source targets x64 Windows with:
+Settings contains only durable product preferences:
 
-- .NET 8;
-- `net8.0-windows10.0.19041.0`;
-- minimum Windows platform version `10.0.17763.0`;
-- Microsoft Windows App SDK `2.4.0`;
-- unpackaged WinUI 3 (`WindowsPackageType=None`).
+- theme;
+- reduced motion;
+- start with Windows.
+
+CPU behavior belongs to AUTO, Workloads, and the fixed profiles—not to a page of implementation knobs.
+
+## Safety and ownership
+
+PowerFlow changes Windows power plans and processor policy only through its qualified actuation path. It does **not** alter BIOS settings, voltages, fan curves, or firmware.
+
+- one normal user process; no privileged service;
+- manual authority takes precedence over AUTO;
+- AUTO is confidence-gated and entitlement-gated;
+- profile application is read back and failures are surfaced;
+- machine baseline snapshots and restores the original policy in `finally`;
+- preview paths remain read-only;
+- legacy Tune/service-policy configuration is normalized out when a current build loads it, so obsolete hidden state cannot silently steer AUTO.
+
+## Repository truth
+
+The current product contract is [`docs/product.md`](docs/product.md). The current implementation architecture is [`docs/architecture.md`](docs/architecture.md). Current qualification evidence is under [`docs/acceptance`](docs/acceptance).
+
+Dated design/spec/plan material from earlier iterations is retained under [`docs/history`](docs/history) as historical evidence only. It is **not** a description of current product behavior.
+
+## Build
+
+PowerFlow targets x64 Windows, .NET 8, and unpackaged WinUI 3.
 
 ```powershell
 dotnet restore PowerFlow.sln
@@ -76,7 +98,7 @@ dotnet test PowerFlow.sln -c Release
 dotnet build PowerFlow.sln -c Release
 ```
 
-Run tray-first:
+Run in the background:
 
 ```powershell
 .\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --background
@@ -88,48 +110,10 @@ Open the dashboard through the running instance:
 .\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --dashboard
 ```
 
-Read-only visual preview:
+Per-user configuration lives at `%LOCALAPPDATA%\PowerFlow\config.json`.
 
-```powershell
-.\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --preview
-```
+## Current release bar
 
-## Configuration
+A PowerFlow build is not considered current merely because it compiles. The release gate requires the Core, Windows, and App test suites, a clean Release build, XAML parsing, `git diff --check`, a clean runtime launch when live UI validation is authorized, and exact policy-restoration evidence for any live baseline run.
 
-Per-user configuration lives at:
-
-```text
-%LOCALAPPDATA%\PowerFlow\config.json
-```
-
-The UI exposes resting state, CPU promotion/quiet thresholds and hold times, game/app rules, startup behavior, theme, reduced motion, and power-plan mappings.
-
-`AVG CLOCK` is Windows-reported average processor frequency across active processors. It is a power-state diagnostic, not the peak boost clock of the fastest core.
-
-## Current qualification
-
-The September 9, 2026 candidate passed:
-
-- **179/179 automated tests** across Core, Windows, and App;
-- Release build with **0 warnings / 0 errors**;
-- WinUI dynamic-theme crash regression proven **red -> green** against the pre-fix commit;
-- real production `WindowsPowerPlanController` switch **Power Saver -> Balanced -> Power Saver**, with Windows confirming each active GUID;
-- hidden startup with **no dashboard window**;
-- live responsive matrix verified at **760 × 440, 980 × 620, 1120 × 720, 1320 × 820, and 1600 × 900**;
-- real full-screen presenter verified at **1920 × 1080**;
-- real tray-hover popup verified at **320 × 176**;
-- popup, compressed, and full-screen release images captured directly from PowerFlow-owned HWNDs;
-- **0 new PowerFlow crash events** during the live acceptance run;
-- exactly **one** background PowerFlow process afterward.
-
-The evidence is recorded in [`docs/acceptance/reference-host-acceptance.md`](docs/acceptance/reference-host-acceptance.md).
-
-## Status
-
-**Working beta.** The core policy, background continuity, real plan switching, tray lifecycle, and dashboard are qualified. Long-duration power-overhead and real-game frame-time soak remain release-hardening work rather than claims hidden behind a shiny README.
-
-## Why PowerFlow?
-
-Because "High Performance forever" is wasteful, "Power Saver forever" is annoying, and a utility whose monitoring costs more power than it saves has misunderstood the assignment.
-
-PowerFlow was inspired by the useful three-state idea in [eliosteva/PowerPlanManager](https://github.com/eliosteva/PowerPlanManager), then rebuilt around hysteresis, game latching, explainable transitions, strict background-overhead rules, and a modern native Windows UI.
+The product bar is equally strict: **a first-time user should be able to explain every visible control, and every visible control must have a verified runtime effect.**

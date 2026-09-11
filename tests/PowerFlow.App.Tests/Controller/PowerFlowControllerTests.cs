@@ -236,7 +236,7 @@ public sealed class PowerFlowControllerTests
     [Fact]
     public async Task LivePolicyUpdate_ChangesThresholdUsedByRunningController()
     {
-        var f = new Fixture(PowerPlanIds.PowerSaver);
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: PowerFlowConfig.Default with { AdaptiveActuationEnabled = false });
         await f.Controller.StartAsync();
         await f.Controller.UpdatePolicyConfigAsync(f.Config with
         {
@@ -277,9 +277,9 @@ public sealed class PowerFlowControllerTests
         await f.Controller.StopAsync();
     }
     [Fact]
-    public async Task AdaptiveGovernorDecision_DefaultDisabledDoesNotChangeLegacyBehavior()
+    public async Task AdaptiveGovernorDecision_CompatibilityDisabledDoesNotChangeLegacyBehavior()
     {
-        var f = new Fixture(PowerPlanIds.PowerSaver);
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: PowerFlowConfig.Default with { AdaptiveActuationEnabled = false });
         await f.Controller.StartAsync();
         f.Plans.Activations.Clear();
 
@@ -302,8 +302,8 @@ public sealed class PowerFlowControllerTests
         await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
         await f.Controller.DrainAsync();
 
-        Assert.Equal(new[] { PowerPlanIds.HighPerformance }, f.Plans.Activations);
-        Assert.Equal(PowerState.HighPerformance, f.Controller.Snapshot.State);
+        Assert.Equal(new[] { PowerPlanIds.Balanced }, f.Plans.Activations);
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
         Assert.False(f.Controller.Snapshot.IsLatched);
         Assert.Contains("adaptive", f.Controller.Snapshot.Reason, StringComparison.OrdinalIgnoreCase);
         await f.Controller.StopAsync();

@@ -5,6 +5,7 @@ using PowerFlow.App.Dashboard;
 using PowerFlow.App.Startup;
 using PowerFlow.App.Telemetry;
 using PowerFlow.App.Tray;
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
@@ -32,7 +33,6 @@ public partial class App : Application
     private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
-    private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime = new();
     private MachineBaselineSessionRuntime? _machineBaselineSession;
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
@@ -63,7 +63,18 @@ public partial class App : Application
         {
             var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PowerFlow");
             _configStore = new JsonConfigStore(dataDirectory);
-            _config = await _configStore.LoadAsync();
+            var loadedConfig = await _configStore.LoadAsync();
+            var canonicalAdaptive = AdaptiveGovernorSettings.Default;
+            _config = loadedConfig with
+            {
+                AdaptiveActuationEnabled = true,
+                AdaptiveGovernor = canonicalAdaptive,
+                ServiceRules = null
+            };
+            var configMigrated = !loadedConfig.AdaptiveActuationEnabled
+                || loadedConfig.EffectiveAdaptiveGovernorSettings != canonicalAdaptive
+                || loadedConfig.ServiceRules is { Count: > 0 };
+            if (!_previewMode && configMigrated) await _configStore.SaveAsync(_config);
             if (!_previewMode && !string.IsNullOrWhiteSpace(Environment.ProcessPath))
             {
                 _startupRegistration = new StartupRegistration(Environment.ProcessPath!);
@@ -144,7 +155,6 @@ public partial class App : Application
     private void OnTelemetryContinuityChanged(object? sender, EventArgs e)
     {
         if (_telemetryRecorder is null || _shuttingDown) return;
-        _efficiencyExperimentRuntime.Observe(_telemetryRecorder.History);
         var input = GraduatedCoreFloorActuatorRuntime.BuildInput(_telemetryRecorder.History);
         _graduatedCoreActuatorRuntime.Evaluate(
             input,
@@ -158,7 +168,28 @@ public partial class App : Application
         if (_controller is null || _shuttingDown) return;
         try
         {
+            var snapshot = _controller.Snapshot;
+            var manualLatched = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
+            var gameLatched = _games?.IsLatched == true || (snapshot.IsLatched && string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase));
+            var autoEnabled = !snapshot.IsLatched && _games?.IsLatched != true;
+            var actuation = EnvelopeActuationPolicy.Evaluate(
+                adaptiveActuationEnabled: true,
+                autoEnabled,
+                evaluation.Confidence,
+                manualLatched,
+                gameLatched,
+                evaluation.Decision,
+                evaluation.Entitlement);
+            if (!actuation.Eligible) return;
+
             await _controller.ApplyAdaptiveGovernorDecisionAsync(evaluation.Decision, evaluation.Entitlement, evaluation.Actor);
+            var profile = PowerFlowOperatingProfiles.ForAutoZone(actuation.EffectiveZone);
+            if (_powerModeProfileRuntime.CurrentProfile?.Mode != profile.Mode)
+            {
+                var status = _powerModeProfileRuntime.Apply(profile, liveWritesEnabled: !_previewMode);
+                if (!status.Applied && status.LiveWritesEnabled) throw new InvalidOperationException(status.Message);
+            }
+            _tray?.Update(_controller.Snapshot, null);
         }
         catch (Exception ex)
         {
@@ -307,7 +338,7 @@ public partial class App : Application
         if (_controller is null || _telemetryRecorder is null) return;
         if (_shellWindow is null)
         {
-            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime, _machineBaselineSession);
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _machineBaselineSession);
             _shellWindow.Closed += async (_, _) =>
             {
                 _shellWindow = null;
@@ -353,7 +384,7 @@ public partial class App : Application
     }
     private async Task ApplyConfigAsync(PowerFlowConfig updated)
     {
-        updated = updated with { MachineBaselineRuns = _config.EffectiveMachineBaselineRuns };
+        updated = updated with { MachineBaselineRuns = _config.EffectiveMachineBaselineRuns, AdaptiveActuationEnabled = true };
         if (_configStore is null) return;
         if (!_previewMode) await _configStore.SaveAsync(updated);
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);

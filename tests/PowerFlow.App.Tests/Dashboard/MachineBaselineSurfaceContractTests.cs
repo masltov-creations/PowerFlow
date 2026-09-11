@@ -12,7 +12,9 @@ public sealed class MachineBaselineSurfaceContractTests
         var code = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "CpuCapabilityProfileControl.xaml.cs"));
 
         Assert.Contains("BASELINE MACHINE", xaml);
-        Assert.Contains("30 MIN", xaml);
+        Assert.Contains("35 MIN", xaml);
+        Assert.Contains("PF SAVER", xaml);
+        Assert.Contains("ULTRA", xaml);
         Assert.Contains("BaselineProgressBar", xaml);
         Assert.Contains("ComparisonMetricBox", xaml);
         Assert.Contains("BaselineComparisonChart", xaml);

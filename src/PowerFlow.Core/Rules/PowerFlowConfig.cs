@@ -19,7 +19,7 @@ public sealed record PowerFlowConfig(
     bool StartWithWindows,
     bool? ReducedMotionOverride,
     ThemePreference Theme = ThemePreference.System,
-    bool AdaptiveActuationEnabled = false,
+    bool AdaptiveActuationEnabled = true,
     bool GraduatedCoreActuationEnabled = false,
     AdaptiveGovernorSettings? AdaptiveGovernor = null,
     int TelemetryVisibleIntervalMs = 1000,

@@ -7,7 +7,7 @@ namespace PowerFlow.App.Tests.Controller;
 public sealed class MachineBaselineRunnerTests
 {
     [Fact]
-    public async Task Standard_run_enters_all_six_modes_in_order_and_restores_once()
+    public async Task Standard_run_enters_all_seven_fixed_modes_in_order_and_restores_once()
     {
         var host = new FakeHost();
         var profiler = new FakeProfiler();
@@ -19,9 +19,9 @@ public sealed class MachineBaselineRunnerTests
         Assert.Equal(MachineBaselineSchedule.Standard.Modes, host.EnteredModes);
         Assert.Equal(1, host.CaptureCount);
         Assert.Equal(1, host.RestoreCount);
-        Assert.Equal(6, run.Results.Count);
+        Assert.Equal(7, run.Results.Count);
         Assert.All(profiler.Options, options => Assert.Equal(TimeSpan.FromSeconds(39), options.PointDuration));
-        Assert.Equal(6, delays.Count(duration => duration == TimeSpan.FromSeconds(15)));
+        Assert.Equal(7, delays.Count(duration => duration == TimeSpan.FromSeconds(15)));
         Assert.Equal(MachineBaselineAnalysis.Recommend(run.Results), run.Recommendation);
     }
 

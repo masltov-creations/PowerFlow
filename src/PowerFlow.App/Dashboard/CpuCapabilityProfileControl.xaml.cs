@@ -110,7 +110,7 @@ public sealed partial class CpuCapabilityProfileControl : UserControl
         RunProfileButton.IsEnabled = !snapshot.IsRunning && _quickCts is null;
         CancelButton.IsEnabled = snapshot.IsRunning || _quickCts is not null;
         BaselineProgressText.Text = snapshot.Progress?.Message ?? snapshot.Status;
-        BaselineStatusText.Text = snapshot.Error ?? (snapshot.Progress is { } p ? $"MODE {p.ModeIndex}/{p.ModeCount} · {p.Mode} · {p.Stage}" : "WINDOWS SAVER → WINDOWS BALANCED → BAL-E → BAL-P → PERF → AUTO");
+        BaselineStatusText.Text = snapshot.Error ?? (snapshot.Progress is { } p ? $"MODE {p.ModeIndex}/{p.ModeCount} / {p.Mode} / {p.Stage}" : "WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA / AUTO");
         if (snapshot.LastCompletedRun is { } run)
         {
             UpsertBaseline(run);
@@ -163,7 +163,7 @@ public sealed partial class CpuCapabilityProfileControl : UserControl
 
     private void OnComparisonMetricChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (SavedBaselineBox.SelectedItem is BaselineChoice choice) RenderBaseline(choice.Run);
+        if (SavedBaselineBox is not null && SavedBaselineBox.SelectedItem is BaselineChoice choice) RenderBaseline(choice.Run);
     }
 
     private void UpsertBaseline(MachineBaselineComparisonRun run)
@@ -192,7 +192,7 @@ public sealed partial class CpuCapabilityProfileControl : UserControl
             _ => MachineBaselineComparisonMetric.Throughput
         };
         BaselineComparisonChart.SetRun(run, metric);
-        ComparisonSummaryText.Text = $"{run.CapturedAt:g} · 6 matched five-minute legs · {MetricDescription(metric)}";
+        ComparisonSummaryText.Text = $"{run.CapturedAt:g} / {run.Results.Count} matched five-minute legs / {MetricDescription(metric)}";
 
         var recommendation = run.Recommendation;
         var recommendedLabel = LabelFor(run, recommendation.RecommendedMode);

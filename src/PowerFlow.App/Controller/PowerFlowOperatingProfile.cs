@@ -1,3 +1,4 @@
+using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 
 namespace PowerFlow.App.Controller;
@@ -52,6 +53,15 @@ public static class PowerFlowOperatingProfiles
         CoreFloorPercent: 100, EnergyPerformancePreferencePercent: 10, BoostMode: 2,
         ReadinessFloorPercent: 100, PromotionQualificationSeconds: 0,
         Description: "Fully pre-armed: High Performance plan, all cores available, no capacity qualification delay.");
+
+    public static PowerFlowOperatingProfile ForAutoZone(EnvelopeZone zone) => zone switch
+    {
+        EnvelopeZone.Eco => Saver,
+        EnvelopeZone.Efficient => Balanced,
+        EnvelopeZone.Responsive => BalancedPerformance,
+        EnvelopeZone.Boost => Performance,
+        _ => Balanced
+    };
 
     public static PowerFlowOperatingProfile For(PowerFlowOperatingMode mode) => mode switch
     {

@@ -6,164 +6,37 @@
     xmlns:settings="using:PowerFlow.App.Settings">
     <Grid x:Name="ShellRoot" Background="{ThemeResource PowerFlowCanvasBrush}">
         <Grid x:Name="CockpitRoot">
-            <NavigationView
-                x:Name="NavigationRail"
-                IsBackButtonVisible="Collapsed"
-                IsSettingsVisible="False"
-                IsPaneToggleButtonVisible="False"
-                IsPaneOpen="True"
-                PaneDisplayMode="Left"
-                OpenPaneLength="144"
-                CompactPaneLength="46"
-                SelectionChanged="OnNavigationChanged"
-                Background="Transparent">
+            <NavigationView x:Name="NavigationRail" IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="False" IsPaneOpen="True" PaneDisplayMode="Left" OpenPaneLength="144" CompactPaneLength="46" SelectionChanged="OnNavigationChanged" Background="Transparent">
                 <NavigationView.PaneHeader>
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,8,0,12">
-                        <Grid Width="28" Height="28">
-                            <Ellipse Fill="{ThemeResource PowerFlowGlowBrush}"/>
-                            <Image Source="ms-appx:///Assets/PowerFlow.png" Width="25" Height="25" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Grid>
-                        <StackPanel VerticalAlignment="Center" Spacing="0">
-                            <TextBlock Text="POWERFLOW" FontSize="12" FontWeight="SemiBold" CharacterSpacing="70"/>
-                            <TextBlock Text="ADAPTIVE GOVERNOR" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
-                        </StackPanel>
+                        <Grid Width="28" Height="28"><Ellipse Fill="{ThemeResource PowerFlowGlowBrush}"/><Image Source="ms-appx:///Assets/PowerFlow.png" Width="25" Height="25" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
+                        <StackPanel VerticalAlignment="Center" Spacing="0"><TextBlock Text="POWERFLOW" FontSize="12" FontWeight="SemiBold" CharacterSpacing="70"/><TextBlock Text="ADAPTIVE GOVERNOR" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel>
                     </StackPanel>
                 </NavigationView.PaneHeader>
                 <NavigationView.MenuItems>
                     <NavigationViewItem Content="Live" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Play"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Workloads" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Model" Tag="model"><NavigationViewItem.Icon><SymbolIcon Symbol="View"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Profile" Tag="profile"><NavigationViewItem.Icon><SymbolIcon Symbol="Repair"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Tune Auto" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Compare" Tag="compare"><NavigationViewItem.Icon><SymbolIcon Symbol="Document"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Baseline" Tag="profile"><NavigationViewItem.Icon><SymbolIcon Symbol="Repair"/></NavigationViewItem.Icon></NavigationViewItem>
                 </NavigationView.MenuItems>
-                <NavigationView.FooterMenuItems>
-                    <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
-                </NavigationView.FooterMenuItems>
-
+                <NavigationView.FooterMenuItems><NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem></NavigationView.FooterMenuItems>
                 <Grid x:Name="SectionHost">
                     <Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
-                        <Grid.RowDefinitions>
-                            <RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/>
-                            <RowDefinition x:Name="TimelineRowDefinition" Height="*"/>
-                            <RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/>
-                            <RowDefinition x:Name="FooterRowDefinition" Height="Auto"/>
-                        </Grid.RowDefinitions>
-
+                        <Grid.RowDefinitions><RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/><RowDefinition x:Name="TimelineRowDefinition" Height="*"/><RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/><RowDefinition x:Name="FooterRowDefinition" Height="Auto"/></Grid.RowDefinitions>
                         <Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <dash:ShellHeaderControl x:Name="SystemHeaderHost" RulesRequested="OnHeaderRulesRequested" SettingsRequested="OnHeaderSettingsRequested"/>
-                            <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Button x:Name="CompactButton" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/>
-                                <Button x:Name="PresentationToggleButton" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/>
-                            </StackPanel>
+                            <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
                         </Grid>
-
-                        <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="1" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition x:Name="TimelineInstrumentColumn" Width="*"/>
-                                <ColumnDefinition x:Name="AtlasInstrumentColumn" Width="0"/>
-                            </Grid.ColumnDefinitions>
-                            <dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/>
-                            <dash:PerformanceAtlasControl x:Name="PerformanceAtlas" Grid.Column="1" Visibility="Collapsed"/>
-                        </Grid>
-
-                        <Border x:Name="TuneControlRegion" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,10">
-                            <Grid RowSpacing="9">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Spacing="2">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="TUNE AUTO BEHAVIOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="140" Opacity="0.72"/>
-                                            <Border x:Name="TuningLayerBadge" Padding="8,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock x:Name="TuningLayerBadgeText" Text="LEARNED" FontSize="11" FontWeight="SemiBold"/></Border>
-                                        </StackPanel>
-                                        <TextBlock Text="Changes how the new Auto model reacts to demand: when it adds capacity, how long it holds it, and when it backs off. Manual Saver, Balanced, Performance, and Ultra profiles are not changed. Auto actuation remains disabled until explicitly enabled." FontSize="11" Opacity="0.62" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
-                                        <ToggleSwitch x:Name="PauseLearningToggle" Header="LEARNING" OffContent="LIVE" OnContent="PAUSED" FontSize="11" AutomationProperties.Name="Pause learning" Toggled="OnPauseLearningToggled"/>
-                                        <Button x:Name="SaveTuningButton" Content="SAVE TUNING" FontSize="11" FontWeight="SemiBold" Padding="11,5" Click="OnSaveTuningClicked"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <Grid Grid.Row="1" ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
-                                    <Grid RowSpacing="5">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="WHEN AUTO SPEEDS UP" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
-                                        <Grid Grid.Row="1" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="ECO" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="EcoBoundaryNumber" Grid.Column="1" Minimum="0" Maximum="98" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Eco boundary" ValueChanged="OnEcoBoundaryNumberChanged"/></Grid>
-                                        <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="EFFICIENT" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="EfficientBoundaryNumber" Grid.Column="1" Minimum="1" Maximum="99" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Efficient boundary" ValueChanged="OnEfficientBoundaryNumberChanged"/></Grid>
-                                        <Grid Grid.Row="3" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="RESPONSIVE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="ResponsiveBoundaryNumber" Grid.Column="1" Minimum="2" Maximum="100" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Responsive boundary" ValueChanged="OnResponsiveBoundaryNumberChanged"/></Grid>
-                                    </Grid>
-
-                                    <Grid Grid.Column="1" RowSpacing="5">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="HOLD / RELEASE TIMING" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
-                                        <Grid Grid.Row="1" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="QUALIFY" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="QualificationDurationNumber" Grid.Column="1" Minimum="0" Maximum="60" SmallChange="0.5" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Boost qualification duration" ValueChanged="OnQualificationDurationNumberChanged"/></Grid>
-                                        <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="LEASE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="LeaseDurationNumber" Grid.Column="1" Minimum="1" Maximum="60" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Boost lease duration" ValueChanged="OnLeaseDurationNumberChanged"/></Grid>
-                                        <Grid Grid.Row="3" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="RELEASE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="ReleaseHysteresisNumber" Grid.Column="1" Minimum="0" Maximum="60" SmallChange="0.5" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Release quiet duration" ValueChanged="OnReleaseHysteresisNumberChanged"/></Grid>
-                                    </Grid>
-
-                                    <Grid Grid.Column="2" RowSpacing="6">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="MODEL / WORKLOAD TARGET" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
-                                        <TextBlock x:Name="TuneContextText" Grid.Row="1" Text="SYSTEM / DEFAULT ENTITLEMENT" FontSize="11" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="The app or workload whose entitlement is being inspected"/>
-                                        <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="CEILING" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/><ComboBox x:Name="MaximumZoneSelector" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Maximum semantic zone" SelectionChanged="OnMaximumZoneChanged"><ComboBoxItem Content="ECO"/><ComboBoxItem Content="EFFICIENT"/><ComboBoxItem Content="RESPONSIVE"/><ComboBoxItem Content="BOOST"/></ComboBox></Grid>
-                                        <StackPanel Grid.Row="3" Spacing="2"><TextBlock Text="COUNTERFACTUAL" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.54"/><TextBlock x:Name="ReplaySummaryText" Text="No retained observations to replay" FontSize="11" TextWrapping="Wrap"/><TextBlock x:Name="TuneBoundarySummaryText" FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis"/></StackPanel>
-                                        <Button x:Name="ResetLearnedButton" Grid.Row="4" Content="RESET TO LEARNED" FontSize="11" HorizontalAlignment="Right" Padding="11,5" Click="OnResetLearnedClicked"/>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Border>
+                        <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="1"><dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/></Grid>
                         <Grid x:Name="AdaptiveControlRegion" Grid.Row="2" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.05*"/>
-                                <ColumnDefinition Width="0.95*"/>
-                            </Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.05*"/><ColumnDefinition Width="0.95*"/></Grid.ColumnDefinitions>
                             <Border x:Name="MachineEnvelopePanel" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
-                                <Grid RowSpacing="4">
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="MACHINE ENVELOPE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
-                                        <TextBlock x:Name="ModelConfidenceText" Grid.Column="1" Text="LEARNING" FontSize="11" FontWeight="SemiBold" Opacity="0.72"/>
-                                    </Grid>
-                                    <TextBlock x:Name="EnvelopeSummaryText" Grid.Row="1" Text="Learning this machine's efficient operating regions" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <Grid x:Name="EfficiencyBiasRail" Grid.Row="2" Height="24">
-                                        <Line X1="8" X2="310" Y1="12" Y2="12" Stroke="{ThemeResource PowerFlowCardBorderBrush}" StrokeThickness="2" Stretch="Fill"/>
-                                        <Ellipse Width="9" Height="9" Fill="{ThemeResource PowerFlowAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <TextBlock Text="EFFICIENCY" FontSize="11" Opacity="0.46" HorizontalAlignment="Left" VerticalAlignment="Bottom"/>
-                                        <TextBlock Text="RESPONSE" FontSize="11" Opacity="0.46" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                                    </Grid>
-                                </Grid>
+                                <Grid RowSpacing="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="MACHINE ENVELOPE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/><TextBlock x:Name="ModelConfidenceText" Grid.Column="1" Text="LEARNING" FontSize="11" FontWeight="SemiBold" Opacity="0.72"/></Grid><TextBlock x:Name="EnvelopeSummaryText" Grid.Row="1" Text="Learning this machine's efficient operating regions" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><Grid x:Name="EfficiencyBiasRail" Grid.Row="2" Height="24"><Line X1="8" X2="310" Y1="12" Y2="12" Stroke="{ThemeResource PowerFlowCardBorderBrush}" StrokeThickness="2" Stretch="Fill"/><Ellipse Width="9" Height="9" Fill="{ThemeResource PowerFlowAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><TextBlock Text="EFFICIENCY" FontSize="11" Opacity="0.46" HorizontalAlignment="Left" VerticalAlignment="Bottom"/><TextBlock Text="RESPONSE" FontSize="11" Opacity="0.46" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Grid>
                             </Border>
-                            <Border x:Name="SelectedActorPanel" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
-                                <Grid RowSpacing="4">
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="SELECTED ACTOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
-                                        <TextBlock x:Name="DecisionStateText" Grid.Column="1" Text="OBSERVING" FontSize="11" FontWeight="SemiBold"/>
-                                    </Grid>
-                                    <TextBlock x:Name="SelectedActorNameText" Grid.Row="1" Text="SYSTEM" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock x:Name="DecisionExplanationText" Grid.Row="2" Text="No dominant app pressure identified" FontSize="11" Opacity="0.64" TextTrimming="CharacterEllipsis"/>
-                                </Grid>
-                            </Border>
+                            <Border x:Name="SelectedActorPanel" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9"><Grid RowSpacing="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="CURRENT ACTOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/><TextBlock x:Name="DecisionStateText" Grid.Column="1" Text="OBSERVING" FontSize="11" FontWeight="SemiBold"/></Grid><TextBlock x:Name="SelectedActorNameText" Grid.Row="1" Text="SYSTEM" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="DecisionExplanationText" Grid.Row="2" Text="No dominant app pressure identified" FontSize="11" Opacity="0.64" TextTrimming="CharacterEllipsis"/></Grid></Border>
                         </Grid>
-
-                        <Grid x:Name="StatusFooter" Grid.Row="3" ColumnSpacing="10" Opacity="0.78">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/>
-                                <TextBlock Text="POWERFLOW ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                <TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
-                                <TextBlock Text="{Binding NextActionLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/>
-                            </StackPanel>
-                        </Grid>
+                        <Grid x:Name="StatusFooter" Grid.Row="3" ColumnSpacing="10" Opacity="0.78"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/><TextBlock Text="POWERFLOW ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding NextActionLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/></StackPanel></Grid>
                     </Grid>
-
-                    <dash:EfficiencyCompareControl x:Name="EfficiencyComparePanel" Visibility="Collapsed"/>
                     <dash:CpuCapabilityProfileControl x:Name="CpuProfilePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>

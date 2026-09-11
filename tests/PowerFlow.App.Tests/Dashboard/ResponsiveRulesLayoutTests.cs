@@ -5,7 +5,7 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class ResponsiveRulesLayoutTests
 {
     [Fact]
-    public void RulesPage_ReflowsCardsAndDoesNotDependOnSelectedRows()
+    public void RulesPage_ReflowsImportanceCardsAndDoesNotDependOnSelectedRows()
     {
         var xaml = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");
         var code = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml.cs");
@@ -13,17 +13,15 @@ public sealed class ResponsiveRulesLayoutTests
         Assert.Contains("UniformGridLayout", xaml);
         Assert.Contains("MinItemWidth", xaml);
         Assert.Contains("ItemsStretch=\"Fill\"", xaml);
-        Assert.Contains("Add app rule", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Content=\"Add app\"", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AppPickerDialog", xaml);
         Assert.DoesNotContain("Capture foreground", xaml, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("MaxWidth=\"1080\"", xaml);
-        Assert.DoesNotContain("Orientation=\"Horizontal\" Spacing=\"9\"", xaml);
         Assert.DoesNotContain("RulesList.SelectedItem", code);
-        Assert.Contains("OnEditEntitlementFromCard", code);
-        Assert.Contains("PerformanceEntitlement", code);
-        Assert.Contains("CeilingLabel", xaml);
-        Assert.Contains("TimingLabel", xaml);
+        Assert.Contains("OnEditImportanceFromCard", code);
+        Assert.Contains("AppImportance", code);
+        Assert.Contains("PolicyLabel", code);
         Assert.Contains("OnRemoveFromCard", code);
+        Assert.DoesNotContain("PerformanceEntitlement", code);
     }
 
     [Fact]
@@ -37,12 +35,10 @@ public sealed class ResponsiveRulesLayoutTests
     }
 
     private static string Read(params string[] parts) => File.ReadAllText(RepoFile(parts));
-
     private static string RepoFile(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;
-        while (!File.Exists(Path.Combine(dir, "PowerFlow.sln")))
-            dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException("PowerFlow repo root not found");
+        while (!File.Exists(Path.Combine(dir, "PowerFlow.sln"))) dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException("PowerFlow repo root not found");
         return Path.Combine(new[] { dir }.Concat(parts).ToArray());
     }
 }

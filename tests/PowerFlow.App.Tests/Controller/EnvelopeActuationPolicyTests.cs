@@ -9,9 +9,9 @@ namespace PowerFlow.App.Tests.Controller;
 public sealed class EnvelopeActuationPolicyTests
 {
     [Fact]
-    public void ConfigDefault_IsAdvisory()
+    public void ProductConfigDefault_IsAdaptiveWhileDisabledCompatibilityGateStillRejectsActuation()
     {
-        Assert.False(PowerFlowConfig.Default.AdaptiveActuationEnabled);
+        Assert.True(PowerFlowConfig.Default.AdaptiveActuationEnabled);
         var result = Evaluate(enabled: false, auto: true, EnvelopeConfidence.High, manual: false, game: false, EnvelopeZone.Boost, EnvelopeZone.Boost);
         Assert.False(result.Eligible);
         Assert.Null(result.TargetState);
@@ -60,12 +60,24 @@ public sealed class EnvelopeActuationPolicyTests
     [InlineData(EnvelopeZone.Eco, PowerState.PowerSaver)]
     [InlineData(EnvelopeZone.Efficient, PowerState.Balanced)]
     [InlineData(EnvelopeZone.Responsive, PowerState.Balanced)]
-    [InlineData(EnvelopeZone.Boost, PowerState.HighPerformance)]
+    [InlineData(EnvelopeZone.Boost, PowerState.Balanced)]
     public void SemanticZonesMapConservativelyToQualifiedWindowsStates(EnvelopeZone zone, PowerState expected)
     {
         var result = Evaluate(enabled: true, auto: true, EnvelopeConfidence.High, manual: false, game: false, zone, EnvelopeZone.Boost);
         Assert.True(result.Eligible);
         Assert.Equal(expected, result.TargetState);
+    }
+
+    [Theory]
+    [InlineData(EnvelopeZone.Eco, PowerFlowOperatingMode.Saver, PowerState.PowerSaver)]
+    [InlineData(EnvelopeZone.Efficient, PowerFlowOperatingMode.Balanced, PowerState.Balanced)]
+    [InlineData(EnvelopeZone.Responsive, PowerFlowOperatingMode.BalancedPerformance, PowerState.Balanced)]
+    [InlineData(EnvelopeZone.Boost, PowerFlowOperatingMode.Performance, PowerState.Balanced)]
+    public void AutoZonesUseTheSameFixedPowerFlowProfilesAsManualModes(EnvelopeZone zone, PowerFlowOperatingMode mode, PowerState windowsState)
+    {
+        var profile = PowerFlowOperatingProfiles.ForAutoZone(zone);
+        Assert.Equal(mode, profile.Mode);
+        Assert.Equal(windowsState, profile.WindowsState);
     }
 
     private static EnvelopeActuationResult Evaluate(

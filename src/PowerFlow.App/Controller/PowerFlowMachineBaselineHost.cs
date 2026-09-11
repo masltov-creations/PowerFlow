@@ -19,9 +19,11 @@ public static class MachineBaselineModeRoutes
     {
         MachineBaselineMode.WindowsSaver => new(mode, "WINDOWS SAVER", PowerState.PowerSaver, null),
         MachineBaselineMode.WindowsBalanced => new(mode, "WINDOWS BALANCED", PowerState.Balanced, null),
+        MachineBaselineMode.PowerFlowSaver => new(mode, "PF SAVER", null, PowerFlowOperatingMode.Saver),
         MachineBaselineMode.BalancedEfficient => new(mode, "BAL-E", null, PowerFlowOperatingMode.Balanced),
         MachineBaselineMode.BalancedPerformance => new(mode, "BAL-P", null, PowerFlowOperatingMode.BalancedPerformance),
         MachineBaselineMode.Performance => new(mode, "PERFORMANCE", null, PowerFlowOperatingMode.Performance),
+        MachineBaselineMode.Ultra => new(mode, "ULTRA", null, PowerFlowOperatingMode.Ultra),
         MachineBaselineMode.Auto => new(mode, "AUTO", null, null, true),
         _ => throw new ArgumentOutOfRangeException(nameof(mode))
     };

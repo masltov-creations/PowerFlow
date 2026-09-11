@@ -53,7 +53,7 @@ public sealed class PowerModeStripContractTests
         Assert.Contains("PowerState.HighPerformance", code, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Ultra", code, StringComparison.Ordinal);
         var appCode = Read("src", "PowerFlow.App", "App.xaml.cs");
-        Assert.Contains("new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _efficiencyExperimentRuntime, _machineBaselineSession)", appCode, StringComparison.Ordinal);
+        Assert.Contains("new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _machineBaselineSession)", appCode, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Boost => \"PERFORMANCE\"", code, StringComparison.Ordinal);
         Assert.Contains("PowerModeSelection.Ultra => \"ULTRA\"", code, StringComparison.Ordinal);
     }

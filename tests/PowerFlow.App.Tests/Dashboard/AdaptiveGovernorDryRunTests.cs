@@ -29,9 +29,7 @@ public sealed class AdaptiveGovernorDryRunTests
 
     [Fact]
     public void AppCeilingDryRunProducesBrakeEvidenceWithoutChangingControllerSnapshot()
-    {
-        var rule = new AppRule("render.exe", AppRuleMode.Balanced, "Render", true,
-            new PerformanceEntitlement(EnvelopeZone.Efficient, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(6), true));
+    {        var rule = new AppRule("render.exe", AppRuleMode.Performance, "Render", true, Entitlement: null, Importance: AppImportance.Low);
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlowConfig.Default with { AppRules = new[] { rule } });
         var snapshot = Snapshot(PowerState.Balanced, 96, T0, "render.exe");

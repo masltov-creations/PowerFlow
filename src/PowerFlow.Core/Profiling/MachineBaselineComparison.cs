@@ -4,9 +4,11 @@ public enum MachineBaselineMode
 {
     WindowsSaver,
     WindowsBalanced,
+    PowerFlowSaver,
     BalancedEfficient,
     BalancedPerformance,
     Performance,
+    Ultra,
     Auto
 }
 
@@ -26,10 +28,11 @@ public sealed record MachineBaselineSchedule(
         {
             MachineBaselineMode.WindowsSaver,
             MachineBaselineMode.WindowsBalanced,
+            MachineBaselineMode.PowerFlowSaver,
             MachineBaselineMode.BalancedEfficient,
             MachineBaselineMode.BalancedPerformance,
             MachineBaselineMode.Performance,
-            MachineBaselineMode.Auto
+            MachineBaselineMode.Ultra
         });
 
     public TimeSpan TotalDuration => TimeSpan.FromTicks(ModeDuration.Ticks * Modes.Count);

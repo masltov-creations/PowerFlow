@@ -18,14 +18,12 @@ public sealed class LiveInstrumentEfficiencyContractTests
     }
 
     [Fact]
-    public void Settings_ExposeGranularVisibleAndBackgroundSampling()
+    public void Settings_DoNotExposeTelemetryImplementationCadence()
     {
         var xaml = Read("src", "PowerFlow.App", "Settings", "SettingsPage.xaml");
         var app = Read("src", "PowerFlow.App", "App.xaml.cs");
-        Assert.Contains("VisibleTelemetryIntervalBox", xaml);
-        Assert.Contains("BackgroundTelemetryIntervalBox", xaml);
-        Assert.Contains("Minimum=\"250\" Maximum=\"5000\"", xaml);
-        Assert.Contains("Minimum=\"500\" Maximum=\"10000\"", xaml);
+        Assert.DoesNotContain("VisibleTelemetryIntervalBox", xaml);
+        Assert.DoesNotContain("BackgroundTelemetryIntervalBox", xaml);
         Assert.Contains("_telemetryRecorder?.UpdateCadence", app);
     }
 

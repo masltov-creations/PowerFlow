@@ -1,5 +1,3 @@
-using PowerFlow.App.Dashboard;
-using PowerFlow.Core.Envelope;
 using Xunit;
 
 namespace PowerFlow.App.Tests.Dashboard;
@@ -7,55 +5,61 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class ProductSurfaceRegressionTests
 {
     [Fact]
-    public void SectionNavigation_DoesNotResizeShellAndBrandingUsesPackagedAssets()
+    public void ProductionNavigation_IsExactlyLiveWorkloadsBaselinePlusSettings()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
         Assert.Contains("ms-appx:///Assets/PowerFlow.png", xaml, StringComparison.Ordinal);
         Assert.Contains("AppWindow.SetIcon(iconPath)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("tag != \"flow\" && _shellState", code, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Tune Auto\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Changes how the new Auto model reacts to demand", xaml, StringComparison.Ordinal);
-        Assert.Contains("Manual Saver, Balanced, Performance, and Ultra profiles are not changed", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Live\" Tag=\"flow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Workloads\" Tag=\"rules\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Baseline\" Tag=\"profile\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Settings\" Tag=\"settings\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"Tune Auto\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"Model\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"Compare\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ModelSurface_IsFixedPowerPerformanceExplanationWithoutVisibleAxisPickers()
+    public void RemovedProductSurfaces_AreNotHiddenInProductionSource()
     {
-        var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml");
-        Assert.Contains("POWER / PERFORMANCE MODEL", xaml, StringComparison.Ordinal);
-        Assert.Contains("package power left to right, CPU performance bottom to top", xaml, StringComparison.Ordinal);
-        Assert.Contains("<StackPanel Visibility=\"Collapsed\">", xaml, StringComparison.Ordinal);
-        Assert.Contains("MODEL CONFIDENCE", xaml, StringComparison.Ordinal);
+        var root = RepoRoot();
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var rulesXaml = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");
+        var rulesCode = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml.cs");
+
+        Assert.False(File.Exists(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml")));
+        Assert.False(File.Exists(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "EfficiencyCompareControl.xaml")));
+        Assert.False(File.Exists(Path.Combine(root, "src", "PowerFlow.App", "Controller", "EfficiencyExperimentRuntime.cs")));
+        Assert.DoesNotContain("PerformanceAtlas", xaml + code, StringComparison.Ordinal);
+        Assert.DoesNotContain("EfficiencyCompare", xaml + code, StringComparison.Ordinal);
+        Assert.DoesNotContain("TuneControlRegion", xaml + code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ServicePolicy", rulesXaml + rulesCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdaptiveActuationToggle", rulesXaml + rulesCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaximumZoneBox", rulesXaml + rulesCode, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ModelCurrentPoint_UsesProcessorPerformancePercent()
+    public void WorkloadsAndSettings_ExposeOnlyCurrentProductChoices()
     {
-        var source = Read("src", "PowerFlow.App", "Dashboard", "PerformanceAtlasControl.xaml.cs");
-        var model = Read("src", "PowerFlow.App", "Dashboard", "ModelExplanationProjection.cs");
-        Assert.Contains("ProcessorPerformancePercent", model, StringComparison.Ordinal);
-        Assert.Contains("latest.ProcessorPerformancePercent", model, StringComparison.Ordinal);
-        Assert.Contains("PerformanceAtlasDimension.EffectiveClock => point.ProcessorPerformancePercent", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("PerformanceAtlasDimension.EffectiveClock => point.EffectiveClockMhz", source, StringComparison.Ordinal);
-    }
+        var rules = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");
+        var settings = Read("src", "PowerFlow.App", "Settings", "SettingsPage.xaml");
+        var settingsCode = Read("src", "PowerFlow.App", "Settings", "SettingsPage.xaml.cs");
 
-    [Fact]
-    public void DefaultPowerPerformanceAxes_DoNotJumpAtNormalDesktopValues()
-    {
-        var t = DateTimeOffset.UnixEpoch;
-        var observations = new[]
-        {
-            new OperatingObservation(t, 25, 82, 4200, 5, 16, EnvelopeZone.Efficient, null, EnvelopeDecisionKind.None, 124),
-            new OperatingObservation(t.AddSeconds(1), 31, 108, 4350, 6, 16, EnvelopeZone.Efficient, null, EnvelopeDecisionKind.None, 129)
-        };
-        var data = PerformanceAtlasProjection.Build(observations, PerformanceAtlasDimension.PackagePower, PerformanceAtlasDimension.EffectiveClock);
-        Assert.Equal(150, data.XAxis.DomainMax);
-        Assert.Equal(150, data.YAxis.DomainMax);
+        Assert.Contains("LOW · EFFICIENCY ONLY", rules, StringComparison.Ordinal);
+        Assert.Contains("NORMAL · QUALIFIED BOOST", rules, StringComparison.Ordinal);
+        Assert.Contains("HIGH · FAST BOOST", rules, StringComparison.Ordinal);
+        Assert.Contains("Theme", settings, StringComparison.Ordinal);
+        Assert.Contains("Reduced motion", settings, StringComparison.Ordinal);
+        Assert.Contains("Start with Windows", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("PowerPlanInfo", settingsCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdaptiveActuationEnabled = true", settingsCode, StringComparison.Ordinal);
     }
 
     private static string Read(params string[] path) => File.ReadAllText(Path.Combine(new[] { RepoRoot() }.Concat(path).ToArray()));
+
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

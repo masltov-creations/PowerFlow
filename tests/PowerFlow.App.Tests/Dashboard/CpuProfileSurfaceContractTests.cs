@@ -11,7 +11,7 @@ public sealed class CpuProfileSurfaceContractTests
         var xaml = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "CpuCapabilityProfileControl.xaml"));
         var profiler = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Controller", "CpuCapabilityProfiler.cs"));
         var main = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml"));
-        Assert.Contains("Content=\"Profile\" Tag=\"profile\"", main, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Baseline\" Tag=\"profile\"", main, StringComparison.Ordinal);
         Assert.Contains("BASELINE MACHINE", xaml, StringComparison.Ordinal);
         Assert.Contains("PROFILE CURRENT MODE", xaml, StringComparison.Ordinal);
         Assert.Contains("1 / 2 / 4 / 8 / 16-thread", xaml, StringComparison.Ordinal);

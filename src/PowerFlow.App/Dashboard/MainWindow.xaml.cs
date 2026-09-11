@@ -49,18 +49,11 @@ public sealed partial class MainWindow : Window
     private string _currentSection = "flow";
     private DispatcherQueueTimer? _presentationTimer;
     private bool _suppressResizeModeSync;
-    private bool _suppressTuningControlSync;
-    private AnalyticalSelection _analyticalSelection = AnalyticalSelection.Empty;
-    private readonly EnvelopeTuningViewModel _tuningViewModel = new();
-    private bool _candidateLearningPaused;
-    private OperatingEnvelope? _candidateFrozenLearnedEnvelope;
-    private EnvelopeConfidence? _candidateFrozenConfidence;
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
     private DateTimeOffset _nextProcessorPolicyReadAt;
     private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
     private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
-    private readonly EfficiencyExperimentRuntime _efficiencyExperimentRuntime;
     private readonly MachineBaselineSessionRuntime? _machineBaselineSession;
 
     public PowerFlowShellState ShellState => _shellState;
@@ -68,7 +61,7 @@ public sealed partial class MainWindow : Window
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, EfficiencyExperimentRuntime? efficiencyExperimentRuntime = null, MachineBaselineSessionRuntime? machineBaselineSession = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -78,15 +71,9 @@ public sealed partial class MainWindow : Window
         _previewMode = previewMode;
         _coreActuatorStatusProvider = coreActuatorStatusProvider;
         _applyOperatingMode = applyOperatingMode;
-        _efficiencyExperimentRuntime = efficiencyExperimentRuntime ?? new EfficiencyExperimentRuntime();
         _machineBaselineSession = machineBaselineSession;
         _config = config;
         _applyConfig = applyConfig;
-        var adaptiveSettings = config.EffectiveAdaptiveGovernorSettings;
-        _candidateLearningPaused = adaptiveSettings.LearningPaused;
-        _candidateFrozenLearnedEnvelope = adaptiveSettings.FrozenLearnedEnvelope;
-        _candidateFrozenConfidence = adaptiveSettings.FrozenConfidence;
-        _tuningViewModel.RestorePersistedTuning(adaptiveSettings.EffectiveTuning);
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         try
@@ -102,15 +89,9 @@ public sealed partial class MainWindow : Window
         ViewModel.UpdateContinuity(controller.Snapshot, recorder.History, recorder.LatestRichTelemetry);
         ApplyVisualState(controller.Snapshot);
         RulesPanel.Initialize(config, ApplyConfigFromPageAsync, BrowseExecutableAsync);
-        SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, () => _controller.ListPowerPlansAsync(), ApplyTheme);
-        EfficiencyComparePanel.Initialize(_efficiencyExperimentRuntime);
+        SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, ApplyTheme);
         CpuProfilePanel.Initialize(config.EffectiveCpuCapabilityProfiles, SaveCpuCapabilityProfileAsync, config.EffectiveMachineBaselineRuns, _machineBaselineSession);
         SystemHeaderHost.ModeRequested += OnModeRequested;
-        PerformanceTimeline.SelectionChanged += OnTimelineSelectionChanged;
-        PerformanceTimeline.CursorChanged += OnTimelineCursorChanged;
-        PerformanceTimeline.PolicyHandleChanged += OnTimelinePolicyHandleChanged;
-        PerformanceAtlas.SelectionChanged += OnAtlasSelectionChanged;
-        PerformanceAtlas.HoverChanged += OnAtlasHoverChanged;
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
         AppWindow.Closing += OnAppWindowClosing;
@@ -277,12 +258,9 @@ public sealed partial class MainWindow : Window
 
         SystemHeaderHost.Presentation = profile.Header;
         PerformanceTimeline.SetPresentation(profile.Timeline);
-        ApplyAnalyticalInstrumentLayout(state);
         ApplyNavigationPresentation(profile.Navigation, profile.Geometry.NavigationWidth);
         SystemHeaderHost.ShowBrand = profile.Navigation != NavigationPresentation.Rail;
         ApplyCockpitGeometry(profile, state, width, height);
-        ApplyTuningPresentation();
-
         var glance = state == PowerFlowShellState.Glance;
         var expanded = state == PowerFlowShellState.FullScreen || profile.Navigation == NavigationPresentation.Rail;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
@@ -321,25 +299,6 @@ public sealed partial class MainWindow : Window
                 break;
         }
     }
-
-    private void ApplyAnalyticalInstrumentLayout(PowerFlowShellState state)
-    {
-        var paired = state == PowerFlowShellState.FullScreen;
-        var atlasOnly = !paired && string.Equals(_currentSection, "model", StringComparison.OrdinalIgnoreCase);
-        if (paired)
-        {
-            TimelineInstrumentColumn.Width = new GridLength(1, GridUnitType.Star);
-            AtlasInstrumentColumn.Width = new GridLength(1, GridUnitType.Star);
-            PerformanceTimeline.Visibility = Visibility.Visible;
-            PerformanceAtlas.Visibility = Visibility.Visible;
-            return;
-        }
-
-        TimelineInstrumentColumn.Width = atlasOnly ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-        AtlasInstrumentColumn.Width = atlasOnly ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        PerformanceTimeline.Visibility = atlasOnly ? Visibility.Collapsed : Visibility.Visible;
-        PerformanceAtlas.Visibility = atlasOnly ? Visibility.Visible : Visibility.Collapsed;
-    }
     private void ApplyCockpitGeometry(ShellPresentationProfile profile, PowerFlowShellState state, int width, int height)
     {
         CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
@@ -349,18 +308,14 @@ public sealed partial class MainWindow : Window
 
         SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
         TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
-        var tuning = string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase);
-        AdaptiveControlRowDefinition.Height = tuning
-            ? GridLength.Auto
-            : profile.GovernorControls switch
-            {
-                GovernorControlPresentation.Summary => new GridLength(0),
-                GovernorControlPresentation.Bias => new GridLength(82),
-                GovernorControlPresentation.Contextual => new GridLength(Math.Max(108, profile.Geometry.ControlBandHeight)),
-                _ => new GridLength(Math.Max(132, profile.Geometry.ControlBandHeight + 18))
-            };
-        AdaptiveControlRegion.Visibility = !tuning && profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
-        TuneControlRegion.Visibility = tuning ? Visibility.Visible : Visibility.Collapsed;
+        AdaptiveControlRowDefinition.Height = profile.GovernorControls switch
+        {
+            GovernorControlPresentation.Summary => new GridLength(0),
+            GovernorControlPresentation.Bias => new GridLength(82),
+            GovernorControlPresentation.Contextual => new GridLength(Math.Max(108, profile.Geometry.ControlBandHeight)),
+            _ => new GridLength(Math.Max(132, profile.Geometry.ControlBandHeight + 18))
+        };
+        AdaptiveControlRegion.Visibility = profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
         SelectedActorPanel.Visibility = profile.GovernorControls == GovernorControlPresentation.Bias && width < 680 ? Visibility.Collapsed : Visibility.Visible;
         FooterRowDefinition.Height = state == PowerFlowShellState.FullScreen || _layoutDensity == ShellDensity.Expanded ? GridLength.Auto : new GridLength(0);
     }
@@ -549,7 +504,6 @@ public sealed partial class MainWindow : Window
     private void ApplyInspectionMotionPreference()
     {
         PerformanceTimeline.SetReducedMotion(!ShouldAnimatePresentation());
-        PerformanceAtlas.SetReducedMotion(!ShouldAnimatePresentation());
     }
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
@@ -574,7 +528,6 @@ public sealed partial class MainWindow : Window
     {
         var snapshot = _controller.Snapshot;
         ViewModel.UpdateContinuity(snapshot, _recorder.History, _recorder.LatestRichTelemetry);
-        EfficiencyComparePanel.Refresh();
         ApplyVisualState(snapshot);
     });
 
@@ -582,30 +535,14 @@ public sealed partial class MainWindow : Window
     {
         var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
         var learningModel = _config.EffectiveAdaptiveGovernorSettings.ResolveLearningModel(calibration);
-        _analyticalSelection = AnalyticalSelection.FromObservationIndices(ViewModel.OperatingHistory, _analyticalSelection.ObservationIndices);
-        var tuningEntitlement = ResolveTuningEntitlement(snapshot);
-        _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, tuningEntitlement, ViewModel.OperatingHistory, _analyticalSelection);
+        var latestObservation = ViewModel.OperatingHistory.LastOrDefault();
+        var modelEntitlement = ResolveModelEntitlement(latestObservation, snapshot);
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
         PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
         PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
         PerformanceTimeline.SetCoreActuatorStatus(_coreActuatorStatusProvider?.Invoke());
-        PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
-        PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
-        PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
-        var latestObservation = ViewModel.OperatingHistory.LastOrDefault();
-        var modelEntitlement = ResolveModelEntitlement(latestObservation, snapshot);
-        var modelManualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
-        var modelExplanation = ModelExplanationProjection.Create(
-            learningModel.Envelope,
-            learningModel.Confidence,
-            latestObservation,
-            modelEntitlement,
-            ViewModel.LatestGovernorDecision,
-            modelManualAuthority);
-        PerformanceAtlas.SetModelExplanation(modelExplanation);
-        PerformanceTimeline.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        PerformanceAtlas.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        ApplyTuningPresentation();
+        PerformanceTimeline.SetPolicyContext(learningModel.Envelope, modelEntitlement, EnvelopeTuning.Learned);
+        PerformanceTimeline.SetTuneMode(false);
         ModelConfidenceText.Text = learningModel.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
             : $"{learningModel.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
@@ -683,11 +620,8 @@ public sealed partial class MainWindow : Window
         {
             SystemHeaderHost.SetModeSelection(_manualModeSelection, _manualModeSelection != PowerModeSelection.Auto, ex.Message);
         }
-    }    private void OnTimelineCursorChanged(object? sender, TimelineCursorChangedEventArgs e)
-        => PerformanceAtlas.SetHoveredObservationIndices(e.ObservationIndex is int index ? new[] { index } : null);
+    }
 
-    private void OnAtlasHoverChanged(object? sender, AtlasHoverChangedEventArgs e)
-        => PerformanceTimeline.SetHoveredObservationIndices(e.ObservationIndices);
     private ProcessorPolicySnapshot? ReadProcessorPolicySnapshot()
     {
         var now = DateTimeOffset.UtcNow;
@@ -703,17 +637,7 @@ public sealed partial class MainWindow : Window
         }
         return _processorPolicySnapshot;
     }
-    private void OnTimelineSelectionChanged(object? sender, TimelineSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
-    private void OnAtlasSelectionChanged(object? sender, AtlasSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
 
-    private void UpdateAnalyticalSelection(IEnumerable<int>? observationIndices)
-    {
-        _analyticalSelection = AnalyticalSelection.FromObservationIndices(ViewModel.OperatingHistory, observationIndices);
-        PerformanceTimeline.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        PerformanceAtlas.SetSelectedObservationIndices(_analyticalSelection.ObservationIndices);
-        _tuningViewModel.UpdateSelection(ViewModel.OperatingHistory, _analyticalSelection);
-        ApplyTuningPresentation();
-    }
 
     private PerformanceEntitlement ResolveModelEntitlement(OperatingObservation? latest, ControllerSnapshot snapshot)
     {
@@ -722,13 +646,7 @@ public sealed partial class MainWindow : Window
         var rule = _config.AppRules.FirstOrDefault(candidate => ActorMatches(candidate.ExecutablePath, actor));
         return rule?.EffectiveEntitlement ?? PerformanceEntitlement.LegacyPerformance;
     }
-    private PerformanceEntitlement ResolveTuningEntitlement(ControllerSnapshot snapshot)
-    {
-        var actor = _analyticalSelection.Actor ?? snapshot.TriggerApplication;
-        if (string.IsNullOrWhiteSpace(actor)) return PerformanceEntitlement.LegacyPerformance;
-        var rule = _config.AppRules.FirstOrDefault(candidate => ActorMatches(candidate.ExecutablePath, actor));
-        return rule?.EffectiveEntitlement ?? PerformanceEntitlement.LegacyPerformance;
-    }
+
 
     private static bool ActorMatches(string executablePath, string actor)
     {
@@ -737,99 +655,6 @@ public sealed partial class MainWindow : Window
         catch { return false; }
     }
 
-    private void ApplyTuningPresentation()
-    {
-        var tuning = string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase);
-        PerformanceTimeline.SetTuneMode(tuning);
-        if (!tuning) return;
-
-        var envelope = _tuningViewModel.CurrentEnvelope;
-        var entitlement = _tuningViewModel.CurrentEntitlement;
-        PerformanceTimeline.SetPolicyContext(_tuningViewModel.LearnedEnvelope, _tuningViewModel.LearnedEntitlement, _tuningViewModel.CandidateTuning);
-
-        _suppressTuningControlSync = true;
-        try
-        {
-            EcoBoundaryNumber.Maximum = Math.Max(0, envelope.EfficientCeilingPressure - 1);
-            EfficientBoundaryNumber.Minimum = Math.Min(99, envelope.EcoCeilingPressure + 1);
-            EfficientBoundaryNumber.Maximum = Math.Max(1, envelope.ResponsiveCeilingPressure - 1);
-            ResponsiveBoundaryNumber.Minimum = Math.Min(100, envelope.EfficientCeilingPressure + 1);
-            EcoBoundaryNumber.Value = envelope.EcoCeilingPressure;
-            EfficientBoundaryNumber.Value = envelope.EfficientCeilingPressure;
-            ResponsiveBoundaryNumber.Value = envelope.ResponsiveCeilingPressure;
-            QualificationDurationNumber.Value = Math.Clamp(entitlement.QualificationDuration.TotalSeconds, 0, 60);
-            LeaseDurationNumber.Value = Math.Clamp(entitlement.LeaseDuration.TotalSeconds, 1, 60);
-            ReleaseHysteresisNumber.Value = Math.Clamp(entitlement.ReleaseHysteresis.TotalSeconds, 0, 60);
-            MaximumZoneSelector.SelectedIndex = entitlement.MaximumZone switch
-            {
-                EnvelopeZone.Eco => 0,
-                EnvelopeZone.Efficient => 1,
-                EnvelopeZone.Responsive => 2,
-                _ => 3
-            };
-            PauseLearningToggle.IsOn = _candidateLearningPaused;
-            TuningLayerBadgeText.Text = _tuningViewModel.LayerLabel;
-            TuneContextText.Text = _tuningViewModel.ActorSummary;
-            ReplaySummaryText.Text = _tuningViewModel.ReplaySummary;
-            TuneBoundarySummaryText.Text = _tuningViewModel.BoundarySummary;
-        }
-        finally { _suppressTuningControlSync = false; }
-    }
-
-    private void OnTimelinePolicyHandleChanged(object? sender, PolicyHandleChangedEventArgs e)
-    {
-        _tuningViewModel.ApplyCandidateTuning(e.CandidateTuning);
-        ApplyTuningPresentation();
-    }
-
-    private void OnEcoBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetEcoCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
-    private void OnEfficientBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetEfficientCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
-    private void OnResponsiveBoundaryNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetResponsiveCeilingPressure(args.NewValue); ApplyTuningPresentation(); } }
-    private void OnQualificationDurationNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetQualificationDuration(TimeSpan.FromSeconds(Math.Max(0, args.NewValue))); ApplyTuningPresentation(); } }
-    private void OnLeaseDurationNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetLeaseDuration(TimeSpan.FromSeconds(Math.Max(1, args.NewValue))); ApplyTuningPresentation(); } }
-    private void OnReleaseHysteresisNumberChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) { if (!_suppressTuningControlSync && double.IsFinite(args.NewValue)) { _tuningViewModel.SetReleaseHysteresis(TimeSpan.FromSeconds(Math.Max(0, args.NewValue))); ApplyTuningPresentation(); } }
-    private void OnMaximumZoneChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressTuningControlSync || MaximumZoneSelector.SelectedIndex < 0) return;
-        var zone = MaximumZoneSelector.SelectedIndex switch { 0 => EnvelopeZone.Eco, 1 => EnvelopeZone.Efficient, 2 => EnvelopeZone.Responsive, _ => EnvelopeZone.Boost };
-        _tuningViewModel.SetMaximumZone(zone);
-        ApplyTuningPresentation();
-    }
-    private void OnPauseLearningToggled(object sender, RoutedEventArgs e)
-    {
-        if (_suppressTuningControlSync) return;
-        _candidateLearningPaused = PauseLearningToggle.IsOn;
-        if (_candidateLearningPaused)
-        {
-            var calibration = EnvelopeCalibration.Calibrate(ViewModel.OperatingHistory);
-            _candidateFrozenLearnedEnvelope = calibration.Envelope;
-            _candidateFrozenConfidence = calibration.Confidence;
-        }
-        else
-        {
-            _candidateFrozenLearnedEnvelope = null;
-            _candidateFrozenConfidence = null;
-        }
-        ApplyTuningPresentation();
-    }
-
-    private async void OnSaveTuningClicked(object sender, RoutedEventArgs e)
-    {
-        var settings = new AdaptiveGovernorSettings(
-            _tuningViewModel.CandidateTuning,
-            _candidateLearningPaused,
-            _candidateFrozenLearnedEnvelope,
-            _candidateFrozenConfidence);
-        var updated = _config with { AdaptiveGovernor = settings };
-        await _applyConfig(updated);
-        _config = updated;
-        ViewModel.Configure(updated);
-        RulesPanel.RefreshConfig(updated);
-        SettingsPanel.RefreshConfig(updated);
-        ApplyVisualState(_controller.Snapshot);
-        ApplyTuningPresentation();
-    }
-    private void OnResetLearnedClicked(object sender, RoutedEventArgs e) { _tuningViewModel.ResetToLearned(); ApplyTuningPresentation(); }
     private static string ShortActor(string? actor)
     {
         if (string.IsNullOrWhiteSpace(actor)) return string.Empty;
@@ -890,12 +715,12 @@ public sealed partial class MainWindow : Window
 
     private void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var tag = (args.SelectedItemContainer?.Tag as string) ?? "flow";
+        var requested = (args.SelectedItemContainer?.Tag as string) ?? "flow";
+        var tag = requested is "flow" or "rules" or "profile" or "settings" ? requested : "flow";
         _currentSection = tag;
-        PerformanceTimeline.SetTuneMode(tag == "tune");
-        var cockpitSection = tag is "flow" or "model" or "tune";
+        PerformanceTimeline.SetTuneMode(false);
+        var cockpitSection = tag == "flow";
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
-        EfficiencyComparePanel.Visibility = tag == "compare" ? Visibility.Visible : Visibility.Collapsed;
         CpuProfilePanel.Visibility = tag == "profile" ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = tag == "settings" ? Visibility.Visible : Visibility.Collapsed;
@@ -928,11 +753,6 @@ public sealed partial class MainWindow : Window
         AppWindow.Changed -= OnAppWindowChanged;
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
-        PerformanceTimeline.SelectionChanged -= OnTimelineSelectionChanged;
-        PerformanceTimeline.CursorChanged -= OnTimelineCursorChanged;
-        PerformanceTimeline.PolicyHandleChanged -= OnTimelinePolicyHandleChanged;
-        PerformanceAtlas.SelectionChanged -= OnAtlasSelectionChanged;
-        PerformanceAtlas.HoverChanged -= OnAtlasHoverChanged;
         SystemHeaderHost.ModeRequested -= OnModeRequested;
         CpuProfilePanel.CancelActive();
         ReleaseDashboardVisibility();

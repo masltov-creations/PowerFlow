@@ -51,7 +51,7 @@ public static class EnvelopeActuationPolicy
         EnvelopeZone.Eco => PowerState.PowerSaver,
         EnvelopeZone.Efficient => PowerState.Balanced,
         EnvelopeZone.Responsive => PowerState.Balanced,
-        EnvelopeZone.Boost => PowerState.HighPerformance,
+        EnvelopeZone.Boost => PowerState.Balanced,
         _ => PowerState.Balanced
     };
 

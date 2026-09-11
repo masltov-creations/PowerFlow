@@ -6,7 +6,7 @@ namespace PowerFlow.Core.Tests.Profiling;
 public sealed class MachineBaselineComparisonTests
 {
     [Fact]
-    public void Standard_schedule_is_six_modes_at_five_minutes_each()
+    public void Standard_schedule_is_seven_fixed_modes_at_five_minutes_each()
     {
         var schedule = MachineBaselineSchedule.Standard;
 
@@ -18,12 +18,13 @@ public sealed class MachineBaselineComparisonTests
         {
             MachineBaselineMode.WindowsSaver,
             MachineBaselineMode.WindowsBalanced,
+            MachineBaselineMode.PowerFlowSaver,
             MachineBaselineMode.BalancedEfficient,
             MachineBaselineMode.BalancedPerformance,
             MachineBaselineMode.Performance,
-            MachineBaselineMode.Auto
+            MachineBaselineMode.Ultra
         }, schedule.Modes);
-        Assert.Equal(TimeSpan.FromMinutes(30), schedule.TotalDuration);
+        Assert.Equal(TimeSpan.FromMinutes(35), schedule.TotalDuration);
     }
 
     [Fact]

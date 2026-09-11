@@ -101,7 +101,7 @@ public sealed class GameLifecycleMonitor : IGameLifecycleMonitor
         var fileName = Path.GetFileName(executablePath);
         foreach (var rule in _rules)
         {
-            if (rule.Mode != AppRuleMode.Performance || rule.Entitlement is not null) continue;
+            if (rule.Mode != AppRuleMode.Performance || rule.Entitlement is not null || rule.Importance is not null) continue;
             var rulePath = rule.ExecutablePath;
             if (rulePath.Contains('\\') || rulePath.Contains('/'))
             {

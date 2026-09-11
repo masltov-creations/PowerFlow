@@ -62,6 +62,23 @@ public sealed class GameLifecycleMonitorTests
         Assert.False(sut.IsLatched);
     }
 
+    [Theory]
+    [InlineData(AppImportance.Normal)]
+    [InlineData(AppImportance.High)]
+    public void ExplicitImportanceRule_DoesNotCreateLegacyGameLatch(AppImportance importance)
+    {
+        var source = new FakeSource();
+        var factory = new FakeHandleFactory();
+        var sut = new GameLifecycleMonitor(source, factory);
+        sut.UpdateRules([new AppRule(@"C:\Apps\Editor\editor.exe", AppRuleMode.Performance, "Editor", Importance: importance)]);
+        sut.Start();
+
+        source.Raise(new ProcessStartEvent(42, 1, @"C:\Apps\Editor\editor.exe", T0));
+
+        Assert.False(sut.IsLatched);
+        Assert.Equal(0, sut.TrackedCount);
+    }
+
     [Fact]
     public void MultipleTrackedGameProcesses_ReleaseOnlyWhenSetIsEmpty()
     {

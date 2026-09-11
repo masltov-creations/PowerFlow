@@ -139,9 +139,11 @@ public sealed partial class MachineBaselineComparisonChartControl : UserControl
     {
         MachineBaselineMode.WindowsSaver => ResourceBrush("PowerFlowSaverAccentBrush", Colors.Green),
         MachineBaselineMode.WindowsBalanced => ResourceBrush("PowerFlowBalancedAccentBrush", Colors.DeepSkyBlue),
+        MachineBaselineMode.PowerFlowSaver => ResourceBrush("PowerFlowSaverAccentBrush", Colors.LimeGreen),
         MachineBaselineMode.BalancedEfficient => ResourceBrush("PowerFlowHealthyBrush", Colors.LimeGreen),
         MachineBaselineMode.BalancedPerformance => ResourceBrush("PowerFlowAccentBrush", Colors.Cyan),
         MachineBaselineMode.Performance => ResourceBrush("PowerFlowPerformanceAccentBrush", Colors.Orange),
+        MachineBaselineMode.Ultra => ResourceBrush("PowerFlowPerformanceAccentBrush", Colors.OrangeRed),
         MachineBaselineMode.Auto => ResourceBrush("PowerFlowAutoAccentBrush", Colors.MediumPurple),
         _ => ResourceBrush("PowerFlowAccentBrush", Colors.Cyan)
     };

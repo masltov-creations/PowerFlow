@@ -15,7 +15,7 @@ public sealed class AdaptiveShellEvolutionContractTests
         Assert.Contains("x:Name=\"MachineEnvelopePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SelectedActorPanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("MACHINE ENVELOPE", xaml, StringComparison.Ordinal);
-        Assert.Contains("SELECTED ACTOR", xaml, StringComparison.Ordinal);
+        Assert.Contains("CURRENT ACTOR", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceTimeline.Apply", code, StringComparison.Ordinal);
         Assert.Contains("EnvelopeCalibration.Calibrate", code, StringComparison.Ordinal);
 
@@ -29,10 +29,10 @@ public sealed class AdaptiveShellEvolutionContractTests
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
 
-        foreach (var label in new[] { "Content=\"Live\"", "Content=\"Workloads\"", "Content=\"Model\"", "Content=\"Tune Auto\"", "Content=\"Compare\"", "Content=\"Profile\"" })
+        foreach (var label in new[] { "Content=\"Live\"", "Content=\"Workloads\"", "Content=\"Baseline\"" })
             Assert.Contains(label, xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Content=\"Dashboard\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Content=\"Rules / Apps\"", xaml, StringComparison.Ordinal);
+        foreach (var removed in new[] { "Content=\"Model\"", "Content=\"Tune Auto\"", "Content=\"Compare\"", "Content=\"Profile\"" })
+            Assert.DoesNotContain(removed, xaml, StringComparison.Ordinal);
     }
 
     [Fact]

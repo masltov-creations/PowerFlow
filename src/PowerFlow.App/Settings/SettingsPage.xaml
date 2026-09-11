@@ -3,36 +3,23 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer>
-        <StackPanel Padding="20,14" Spacing="10" MaxWidth="760" HorizontalAlignment="Left">
-            <StackPanel Spacing="0"><TextBlock Text="SETTINGS" FontSize="11" CharacterSpacing="180" Opacity="0.45"/><TextBlock Text="Policy &amp; appearance" FontSize="20" FontWeight="SemiBold"/></StackPanel>
-            <Grid Margin="0,4,0,0" ColumnSpacing="14" RowSpacing="8">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="1*" MinWidth="190"/><ColumnDefinition Width="1.15*" MinWidth="210"/></Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="Resting state" VerticalAlignment="Center"/><ComboBox x:Name="RestingStateBox" Grid.Column="1" MinWidth="210"><ComboBoxItem Content="Power Saver" Tag="PowerSaver"/><ComboBoxItem Content="Balanced" Tag="Balanced"/></ComboBox>
-                <TextBlock Grid.Row="1" Text="Promote above CPU %" VerticalAlignment="Center"/><NumberBox x:Name="PromotionThresholdBox" Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="100" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="2" Text="Promotion hold (seconds)" VerticalAlignment="Center"/><NumberBox x:Name="PromotionWindowBox" Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="60" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="3" Text="Quiet below CPU %" VerticalAlignment="Center"/><NumberBox x:Name="QuietThresholdBox" Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="100" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="4" Text="Quiet hold (seconds)" VerticalAlignment="Center"/><NumberBox x:Name="QuietWindowBox" Grid.Row="4" Grid.Column="1" Minimum="1" Maximum="300" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="5" Text="Post-game cooldown (seconds)" VerticalAlignment="Center"/><NumberBox x:Name="CooldownBox" Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="120" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="6" Text="Reduced motion" VerticalAlignment="Center"/><ComboBox x:Name="ReducedMotionBox" Grid.Row="6" Grid.Column="1" Width="240"><ComboBoxItem Content="Follow Windows" Tag="Auto"/><ComboBoxItem Content="On" Tag="On"/><ComboBoxItem Content="Off" Tag="Off"/></ComboBox>
-                <TextBlock Grid.Row="7" Text="Theme" VerticalAlignment="Center"/><ComboBox x:Name="ThemeBox" Grid.Row="7" Grid.Column="1" Width="240" SelectionChanged="OnThemeSelectionChanged"><ComboBoxItem Content="Follow Windows" Tag="System"/><ComboBoxItem Content="Light" Tag="Light"/><ComboBoxItem Content="Dark" Tag="Dark"/></ComboBox>
-                <TextBlock Grid.Row="8" Text="Visible telemetry sample (ms)" VerticalAlignment="Center"/><NumberBox x:Name="VisibleTelemetryIntervalBox" Grid.Row="8" Grid.Column="1" Minimum="250" Maximum="5000" SmallChange="250" SpinButtonPlacementMode="Compact"/>
-                <TextBlock Grid.Row="9" Text="Background telemetry sample (ms)" VerticalAlignment="Center"/><NumberBox x:Name="BackgroundTelemetryIntervalBox" Grid.Row="9" Grid.Column="1" Minimum="500" Maximum="10000" SmallChange="500" SpinButtonPlacementMode="Compact"/>
-            </Grid>
-
-            <Grid ColumnSpacing="14" RowSpacing="8" Margin="0,4,0,0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="360"/></Grid.ColumnDefinitions>
+        <StackPanel Padding="20,14" Spacing="14" MaxWidth="620" HorizontalAlignment="Left">
+            <StackPanel Spacing="1">
+                <TextBlock Text="SETTINGS" FontSize="11" CharacterSpacing="180" Opacity="0.45"/>
+                <TextBlock Text="PowerFlow preferences" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock Text="Appearance and startup behavior. CPU policy is owned by Auto, Workloads, and the fixed PowerFlow profiles." FontSize="12" Opacity="0.52" TextWrapping="Wrap"/>
+            </StackPanel>
+            <Grid ColumnSpacing="14" RowSpacing="10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <TextBlock Text="Power Saver profile" VerticalAlignment="Center"/><ComboBox x:Name="SaverPlanBox" Grid.Column="1" Width="360" DisplayMemberPath="Name"/>
-                <TextBlock Grid.Row="1" Text="Balanced profile" VerticalAlignment="Center"/><ComboBox x:Name="BalancedPlanBox" Grid.Row="1" Grid.Column="1" Width="360" DisplayMemberPath="Name"/>
-                <TextBlock Grid.Row="2" Text="Performance profile" VerticalAlignment="Center"/><ComboBox x:Name="PerformancePlanBox" Grid.Row="2" Grid.Column="1" Width="360" DisplayMemberPath="Name"/>
+                <TextBlock Text="Theme" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ThemeBox" Grid.Column="1" Width="220" SelectionChanged="OnThemeSelectionChanged"><ComboBoxItem Content="Follow Windows" Tag="System"/><ComboBoxItem Content="Light" Tag="Light"/><ComboBoxItem Content="Dark" Tag="Dark"/></ComboBox>
+                <TextBlock Grid.Row="1" Text="Reduced motion" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ReducedMotionBox" Grid.Row="1" Grid.Column="1" Width="220"><ComboBoxItem Content="Follow Windows" Tag="Auto"/><ComboBoxItem Content="On" Tag="On"/><ComboBoxItem Content="Off" Tag="Off"/></ComboBox>
+                <TextBlock Grid.Row="2" Text="Start with Windows" VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="StartupToggle" Grid.Row="2" Grid.Column="1" OnContent="On" OffContent="Off"/>
             </Grid>
-            <TextBlock Text="PowerFlow lists installed Windows power plans here. “Windows default” uses the built-in Saver/Balanced/High Performance IDs." FontSize="12" Opacity="0.45" TextWrapping="Wrap" MaxWidth="620"/>
-
-            <StackPanel Orientation="Horizontal" Spacing="18" Margin="0,2,0,0"><ToggleSwitch x:Name="StartupToggle" Header="Start with Windows" OnContent="On" OffContent="Off"/><ToggleSwitch x:Name="SafeRestToggle" Header="Rest in Balanced" OnContent="Balanced" OffContent="Saver"/></StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Save settings" Click="OnSave"/><TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="11" Opacity="0.5"/></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Save settings" Click="OnSave"/><TextBlock x:Name="StatusText" VerticalAlignment="Center" Opacity="0.55"/></StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>
