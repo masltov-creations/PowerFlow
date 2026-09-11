@@ -1,134 +1,99 @@
-# PowerFlow Current Product Contract
+# PowerFlow behavior
 
-Status: **canonical**
-Updated: **2026-09-11**
+This document describes how the current PowerFlow features behave.
 
-This document is the product truth for the current PowerFlow branch. Dated plans and specs under `docs/history` describe how the product evolved; they do not override this contract.
+## Operating modes
 
-## Purpose
+PowerFlow has one automatic mode and five manual profiles.
 
-PowerFlow minimizes unnecessary CPU energy, heat, and noise while preserving useful responsiveness. It does this by observing demand, classifying the justified response, and applying one of a small set of measured operating profiles.
+### Auto
 
-PowerFlow is not a generic Windows power-plan editor and is not an expert tuning console.
+Auto uses recent telemetry, the learned operating envelope, and app importance to decide how much CPU performance the current work needs. It can select:
 
-## User model
-
-The normal user chooses between:
-
-- **AUTO**: PowerFlow owns profile selection.
-- **SAVER**: explicit low-power manual profile.
-- **BAL-E**: explicit balanced-efficient manual profile.
-- **BAL-P**: explicit balanced-performance manual profile.
-- **PERF**: explicit high-readiness manual profile.
-- **ULTRA**: explicit maximum-readiness manual profile.
-
-A manual profile is an override. Selecting AUTO releases manual authority and returns profile selection to the adaptive governor.
-
-## Fixed profiles
-
-| Profile | Windows state | Core floor | EPP | Boost | Readiness floor |
-| --- | --- | ---: | ---: | ---: | ---: |
-| SAVER | Power Saver | 10% | 60 | 0 | 12% |
-| BAL-E | Balanced | 25% | 35 | 3 | 25% |
-| BAL-P | Balanced | 50% | 20 | 3 | 50% |
-| PERF | Balanced | 75% | 10 | 2 | 75% |
-| ULTRA | High Performance | 100% | 10 | 2 | 100% |
-
-AUTO may use SAVER, BAL-E, BAL-P, and PERF. ULTRA is manual-only.
-
-## AUTO
-
-AUTO has one authority path:
-
-`telemetry -> adaptive envelope -> entitlement/confidence gate -> semantic zone -> PowerFlow profile -> verified Windows/profile actuation`
-
-Live deliberately separates **MODEL ZONE** from the **applied PowerFlow profile**. MODEL ZONE is the envelope's interpretation of demand and may change while the governor qualifies, leases, or brakes. The applied profile is the real SAVER / BAL-E / BAL-P / PERF / ULTRA processor policy currently written to Windows.
-
-The semantic mapping is fixed:
-
-- Eco -> SAVER
-- Efficient -> BAL-E
-- Responsive -> BAL-P
-- Boost -> PERF
-
-AUTO does not have a second CPU-threshold state machine, and AUTO is not represented as a fixed benchmark profile.
-
-The adaptive envelope may learn from retained observations, but user-facing raw boundary/timer/counterfactual editing is not part of the product. Legacy persisted Tune/pause state is normalized back to the current learned/default behavior when loaded by the app.
-
-## Workloads
-
-Application policy is expressed only as **Low**, **Normal**, or **High** importance.
-
-| Importance | Product meaning |
+| Model zone | Applied profile |
 | --- | --- |
-| Low | Efficiency-biased. The app cannot promote the machine into Boost by itself. |
-| Normal | Default. The app can earn qualified Boost after sustained demand. |
-| High | Latency-sensitive. The app can earn Boost with shorter qualification. |
+| Eco | SAVER |
+| Efficient | BAL-E |
+| Responsive | BAL-P |
+| Boost | PERF |
 
-Unclassified applications behave as Normal.
+ULTRA is not selected by Auto.
 
-New importance rules are explicit importance rules, not legacy game/performance rules, and therefore do not trigger the old hard Performance game latch.
+A model-zone change is not the same thing as a profile change. The model zone is the current interpretation of demand; the applied profile is the processor policy PowerFlow has actually written to Windows.
 
-Custom entitlement timing, process-tree controls, and service-specific policies are not current user features.
+### Manual profiles
 
-## Baseline
+Selecting a manual profile holds that profile until Auto is selected again.
 
-Machine Baseline is a controlled characterization run, not AUTO tuning.
+| Profile | Windows plan | Core floor | EPP | Boost |
+| --- | --- | ---: | ---: | ---: |
+| SAVER | Power Saver | 10% | 60 | 0 |
+| BAL-E | Balanced | 25% | 35 | 3 |
+| BAL-P | Balanced | 50% | 20 | 3 |
+| PERF | Balanced | 75% | 10 | 2 |
+| ULTRA | High Performance | 100% | 10 | 2 |
 
-The standard schedule is seven fixed profiles x five minutes = 35 minutes:
+## Live view
+
+Live combines recent machine telemetry with PowerFlow's current decision state. It presents:
+
+- CPU activity over time
+- physical-core activity
+- package power when available
+- effective clock/performance data when available
+- current Model Zone
+- current applied PowerFlow profile
+- the workload or rule influencing the decision
+- recent movement through the operating range
+
+Live uses a rolling history window rather than a launch-only snapshot.
+
+## App importance
+
+Workloads lets an app be marked Low, Normal, or High.
+
+| Importance | Behavior |
+| --- | --- |
+| Low | Background/non-urgent. Cannot cause a move into PERF by itself. |
+| Normal | Default. May reach PERF after sustained demand qualifies. |
+| High | Latency-sensitive. May reach PERF with shorter qualification. |
+
+App importance influences Auto but does not create a permanent manual lock.
+
+## Baseline Machine
+
+The standard baseline runs seven five-minute legs:
 
 1. Windows Power Saver
 2. Windows Balanced
-3. PF SAVER
-4. BAL-E
-5. BAL-P
-6. PERF
-7. ULTRA
+3. PowerFlow SAVER
+4. PowerFlow BAL-E
+5. PowerFlow BAL-P
+6. PowerFlow PERF
+7. PowerFlow ULTRA
 
-Each leg records the observed policy signature and both idle and synthetic-load evidence. The synthetic curve uses 1, 2, 4, 8, and 16 workers. Recommendation logic favors the lowest idle-power profile among profiles reaching at least 95% of global maximum throughput, with efficiency fallback when idle evidence is unavailable.
+For each leg, PowerFlow records the applied policy, idle package power when available, and a synthetic CPU throughput curve using 1, 2, 4, 8, and 16 workers.
 
-The runner must snapshot and restore the exact pre-run processor policy even on cancellation or failure.
+The result view overlays the profiles so differences in idle power, throughput, efficiency, and the throughput knee are easy to compare. The recommendation favors profiles that reach near-maximum throughput without paying unnecessary idle-power cost.
 
-## UI contract
+Before the run, PowerFlow records the active Windows plan and processor policy. That state is restored after completion, cancellation, or failure.
 
-Top-level production navigation is exactly:
+## Settings
 
-- **Live**
-- **Workloads**
-- **Baseline**
+PowerFlow currently exposes three general settings:
 
-**Settings** is secondary navigation.
+- theme
+- reduced motion
+- start with Windows
 
-The following are explicitly not production surfaces:
+Per-app importance is managed in Workloads. CPU behavior is controlled by Auto or the manual profile selector.
 
-- Model / Performance Atlas
-- Tune Auto
-- Compare / manual A-B efficiency experiment
-- service policy editor
-- custom entitlement editor
-- raw CPU promotion/quiet/cooldown controls
-- telemetry cadence controls
-- Windows power-plan GUID mapping
+## Configuration compatibility
 
-Internal mechanisms may exist only when they support qualified visible behavior or backward-compatible configuration loading. They must not create a second behavioral owner.
+PowerFlow can read configuration files created by older builds. Old fields that no longer have a user-facing feature are ignored or normalized when the configuration is loaded so they do not affect current behavior unexpectedly.
 
-## Settings contract
+## Safety boundaries
 
-Settings exposes only:
+PowerFlow changes Windows power plans and processor policy. It does not modify BIOS settings, voltage, fan curves, or firmware.
 
-- theme;
-- reduced motion;
-- start with Windows.
-
-## Release contract
-
-A candidate is releasable only when:
-
-1. Core, Windows, and App tests pass.
-2. Release build succeeds with no errors.
-3. XAML parses.
-4. `git diff --check` is clean.
-5. Product-surface regression tests prove removed surfaces remain absent.
-6. Live UI/runtime validation is performed when explicitly authorized.
-7. Any baseline run proves exact policy restoration.
-8. Repository docs and Git remote reflect the same candidate.
+Manual selection takes precedence over Auto until Auto is selected again. A game latch from older configuration can also temporarily take precedence while that tracked game is active.

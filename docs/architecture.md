@@ -1,62 +1,103 @@
-# PowerFlow Current Architecture
+# PowerFlow architecture
 
-Status: **canonical**
-Updated: **2026-09-11**
+PowerFlow is a single Windows desktop process with three main layers: telemetry, policy, and actuation.
 
-## Runtime ownership
+## Runtime flow
 
-PowerFlow has one process and one policy owner. The controller collects low-cost activity state and manages manual/game latch precedence. The adaptive governor evaluates qualified AUTO transitions. A single profile runtime applies the processor-policy overlay that corresponds to the chosen PowerFlow profile.
+```text
+Windows telemetry
+      |
+      v
+recent observation history
+      |
+      v
+adaptive envelope + app importance
+      |
+      v
+model zone (Eco / Efficient / Responsive / Boost)
+      |
+      v
+PowerFlow profile (SAVER / BAL-E / BAL-P / PERF)
+      |
+      v
+Windows power plan + processor policy
+```
 
-The architecture intentionally separates **decision** from **actuation**:
+Manual profile selection bypasses the automatic zone-to-profile choice and applies the selected profile directly. ULTRA is manual-only.
 
-1. `TelemetryContinuityRecorder` retains bounded recent machine evidence.
-2. `AdaptiveGovernorRuntime` converts current demand plus learned envelope and app importance into a semantic zone decision.
-3. `EnvelopeActuationPolicy` enforces confidence, entitlement, AUTO/manual authority, and latch precedence.
-4. `PowerFlowOperatingProfiles.ForAutoZone` maps the qualified zone to SAVER/BAL-E/BAL-P/PERF.
-5. `PowerFlowController` applies the Windows state transition and records controller state.
-6. `PowerModeProfileRuntime` applies the profile-specific processor settings (core floor, EPP, boost policy) and verifies the write.
+## Telemetry
 
-AUTO never maps Boost to raw Windows High Performance. PERF remains on Windows Balanced with the qualified 75/10/2 overlay. ULTRA is the only current profile that uses Windows High Performance and it is manual-only.
+`TelemetryContinuityRecorder` owns a bounded recent history of machine observations. `WindowsSystemMetricsProvider` supplies Windows-side CPU and performance counters, while dashboard telemetry adds package power, clock, active-core, and related information when those sources are available.
 
-## Authority precedence
+The dashboard reads the retained history; telemetry collection is not recreated separately for each view.
 
-Highest to lowest:
+## Automatic policy
 
-1. explicit manual profile;
-2. explicit legacy game latch retained only for backward compatibility with genuine legacy rules;
-3. AUTO adaptive decision;
-4. safe learned/default behavior when evidence is insufficient.
+`AdaptiveGovernorRuntime` evaluates recent observations against the current operating envelope. `EnvelopeGovernor` produces the semantic model zone and decision state. App importance contributes an entitlement that limits or accelerates access to higher performance.
 
-New Low/Normal/High app-importance rules are excluded from the legacy game-latch detector.
+`PowerFlowOperatingProfiles.ForAutoZone` maps the model zone to a PowerFlow profile:
 
-## Adaptive model
+- Eco -> SAVER
+- Efficient -> BAL-E
+- Responsive -> BAL-P
+- Boost -> PERF
 
-The adaptive envelope is an internal decision mechanism used by AUTO and explained on Live. It is not a separate user product.
+`PowerModeProfileRuntime` is the source of truth for the profile that has actually been applied.
 
-The Live shell must not present projected envelope zones as applied power modes. Projected observations are labeled **MODEL ZONE**; the applied-profile readout comes from PowerModeProfileRuntime.CurrentProfile and is the authoritative SAVER / BAL-E / BAL-P / PERF / ULTRA state.
+The Live dashboard therefore keeps two concepts separate:
 
-Current app startup canonicalizes legacy persisted adaptive tuning to learned/default behavior and unpauses learning. This prevents removed Tune Auto controls from leaving invisible policy behind. The config shape remains tolerant of legacy fields so older JSON can be read and migrated safely.
+- **Model Zone**: the governor's current interpretation of demand.
+- **Applied Profile**: the profile currently active on Windows.
 
-## Workload policy
+## Manual authority
 
-`AppRule` retains legacy fields for configuration compatibility, but current UI writes explicit `AppImportance` and clears custom entitlements. `EffectiveEntitlement` derives the runtime ceiling/timing from Low/Normal/High.
+A manual profile selection latches until Auto is selected again. The controller also retains compatibility with older game-latch rules so existing configuration can continue to load safely.
 
-Service-policy records remain deserializable for backward compatibility but are normalized away by the current app and have no production UI or actuator.
+Authority order is:
 
-## Baseline architecture
+1. manual profile
+2. active game latch from compatible older configuration
+3. Auto
 
-`MachineBaselineComparison.Standard` is the sole standard schedule and contains seven fixed legs. `PowerFlowMachineBaselineHost` owns reversible profile transitions and exact processor-policy snapshot/restore. Historical persisted runs may still contain an older AUTO leg; the renderer can tolerate historical data, but new standard runs never schedule AUTO.
+## Profiles and actuation
 
-## UI architecture
+A PowerFlow profile contains both a Windows power-plan choice and a processor-policy overlay. The overlay controls values such as minimum processor state/core floor, energy-performance preference, and boost mode.
 
-`MainWindow` owns one morphing shell and four current sections: Live, Workloads, Baseline, Settings. Live uses `PerformanceTimelineControl` plus compact envelope/actor explanation. There is no production `PerformanceAtlasControl`, `EfficiencyCompareControl`, or Tune control region.
+`PowerFlowOperatingProfiles` contains the profile definitions. `PowerModeProfileRuntime` applies them, reads back the resulting policy, and exposes the active profile to the rest of the app.
 
-The same shell state is presented at glance, compact, expanded, and full-screen densities. Presentation changes must not create a second telemetry or policy path.
+PERF intentionally uses the Windows Balanced plan with a more aggressive processor overlay. ULTRA is the only PowerFlow profile that uses Windows High Performance.
 
-## Configuration boundary
+## Workloads
 
-User-editable durable settings are startup, theme, reduced motion, and app importance rules. Legacy threshold, plan-mapping, service-policy, and adaptive-tuning fields may remain in the serialized schema only for safe backward-compatible loading. They are not current UI/API concepts and must not regain product authority accidentally.
+Current app rules are expressed as `AppImportance`: Low, Normal, or High. Runtime entitlement is derived from that value and used by Auto when evaluating higher-performance zones.
 
-## Safety boundary
+The configuration reader remains tolerant of fields written by older versions. Unsupported service-policy and tuning fields do not create a second actuation path.
 
-PowerFlow does not modify BIOS, voltage, fan, firmware, or arbitrary process scheduling. Windows power plan and processor-policy writes remain the safety boundary. Live UI work on reference-host follows `AGENTS.md`: headless by default unless the user explicitly authorizes visible UI in the current conversation.
+## Baseline
+
+`MachineBaselineComparison.Standard` defines the seven fixed baseline legs. `PowerFlowMachineBaselineHost` applies each leg and snapshots the Windows plan and processor policy before the run so the original state can be restored afterward.
+
+`MachineBaselineRunner` gathers idle and synthetic-load measurements. The synthetic workload runs at 1, 2, 4, 8, and 16 workers to produce a throughput curve for each profile.
+
+## UI
+
+`MainWindow` hosts four sections:
+
+- Live
+- Workloads
+- Baseline
+- Settings
+
+`PerformanceTimelineControl` renders the Live history. The same runtime state is reused as the window changes between compact, expanded, and full-screen layouts.
+
+The tray is another entry point into the same running process rather than a separate controller or telemetry service.
+
+## Storage
+
+Per-user configuration is stored in `%LOCALAPPDATA%\PowerFlow\config.json`.
+
+Older configuration fields may still be deserialized so upgrades do not break existing installations, but current behavior is driven by the features described above.
+
+## System boundary
+
+PowerFlow writes only Windows power-plan and processor-policy settings. BIOS, voltage, fan, and firmware controls are outside the application.

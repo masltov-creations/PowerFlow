@@ -1,56 +1,50 @@
 # PowerFlow
 
-**Adaptive CPU power policy for Windows, built around measured profiles instead of plan-name folklore.**
+PowerFlow is a Windows CPU power manager that adjusts processor behavior to match the work the machine is doing. It combines live telemetry, a small set of measured power profiles, per-app importance, and a built-in machine baseline.
 
-PowerFlow watches the machine, explains what it is doing, and chooses the least-expensive qualified CPU profile for the work that is actually happening. The product is intentionally small: **Live**, **Workloads**, and **Baseline**, with **Settings** as a secondary surface.
+![PowerFlow Live dashboard](docs/assets/powerflow-fullscreen.png)
 
-## Current UI
+## How it works
 
-![PowerFlow Live dashboard with a fully populated 60-second telemetry graph](docs/assets/powerflow-fullscreen.png)
+PowerFlow can run automatically or hold a profile you choose manually.
 
-This is the current qualified full-screen **Live** view.
+In **Auto**, PowerFlow watches CPU demand and machine response, then moves between four profiles:
 
-## Product model
-
-PowerFlow has two kinds of authority:
-
-- **AUTO** is the normal operating mode. It interprets telemetry through the adaptive envelope and selects one of the same qualified PowerFlow profiles available manually.
-- **Manual profiles** are explicit overrides. They latch until AUTO is selected again.
-
-AUTO maps semantic demand to measured PowerFlow profiles:
-
-| AUTO zone | PowerFlow profile | Windows plan | Core floor | EPP | Boost |
+| Profile | Intended use | Windows plan | Core floor | EPP | Boost |
 | --- | --- | --- | ---: | ---: | ---: |
-| Eco | SAVER | Power Saver | 10% | 60 | 0 |
-| Efficient | BAL-E | Balanced | 25% | 35 | 3 |
-| Responsive | BAL-P | Balanced | 50% | 20 | 3 |
-| Boost | PERF | Balanced | 75% | 10 | 2 |
+| SAVER | Quiet / background work | Power Saver | 10% | 60 | 0 |
+| BAL-E | Efficient everyday work | Balanced | 25% | 35 | 3 |
+| BAL-P | More responsive work | Balanced | 50% | 20 | 3 |
+| PERF | Sustained high performance | Balanced | 75% | 10 | 2 |
 
-**ULTRA** is a manual-only profile: High Performance, 100% core floor, EPP 10, boost mode 2. AUTO does not enter ULTRA.
+**ULTRA** is available as a manual profile. It uses Windows High Performance with a 100% core floor, EPP 10, and boost mode 2. Auto does not select ULTRA.
 
-The important architectural rule is that AUTO and manual operation use the **same profile definitions and processor-policy actuator**. There is no legacy threshold controller competing for ownership.
+The Live view shows two related pieces of information:
 
-## The four user-facing surfaces
+- **Model Zone** shows how PowerFlow currently interprets demand.
+- **Applied Profile** shows the profile that is actually active on Windows.
 
-### Live
+The model can move while a change is being evaluated, so these two values are intentionally shown separately.
 
-Live is the operating cockpit. It shows current state, recent trajectory, CPU/core behavior, package power, clock/performance evidence, the adaptive envelope, the currently important actor, and why PowerFlow is or is not escalating.
+## Live
 
-The tray glance, compact dashboard, expanded view, and full-screen view are presentations of the same live state rather than separate products.
+The Live dashboard shows recent CPU activity, active-core behavior, package power, clock/performance data, model state, the active workload, and the profile PowerFlow is applying.
 
-### Workloads
+The graph keeps a rolling recent history so you can see both what the machine is doing now and how it got there.
 
-Workloads gives applications one understandable policy: **Low**, **Normal**, or **High** importance.
+## Workloads
 
-- **Low**: may use the machine, but cannot promote AUTO into Boost by itself.
-- **Normal**: may earn Boost after qualified sustained demand.
-- **High**: may earn Boost faster for latency-sensitive work.
+Apps can be assigned one of three importance levels:
 
-New importance rules never enter the old game/performance hard-latch path. Service-specific policy and custom entitlement timing are not exposed because they are not qualified product behavior.
+- **Low** ΓÇö background or non-urgent work. It cannot push Auto into PERF by itself.
+- **Normal** ΓÇö the default for ordinary applications.
+- **High** ΓÇö latency-sensitive work that should be allowed to reach higher performance sooner.
 
-### Baseline
+These rules influence Auto; they do not permanently lock the machine into a power mode.
 
-**BASELINE MACHINE** runs seven fixed five-minute profiles, in this order:
+## Baseline
+
+**Baseline Machine** measures how this PC behaves across seven fixed configurations:
 
 1. Windows Power Saver
 2. Windows Balanced
@@ -60,37 +54,19 @@ New importance rules never enter the old game/performance hard-latch path. Servi
 6. PowerFlow PERF
 7. PowerFlow ULTRA
 
-The 35-minute run records the policy signature actually applied, idle package power, throughput at 1/2/4/8/16 workers, throughput per watt, and the measured efficiency/throughput knee. It restores the exact pre-run processor policy on completion, cancellation, or failure.
+Each profile runs for five minutes. PowerFlow records idle power and CPU throughput at 1, 2, 4, 8, and 16 workers, then plots the curves and recommends a useful efficiency/performance point for the machine.
 
-AUTO is deliberately **not** a baseline leg. AUTO is dynamic and is validated through transition/scenario tests instead of pretending it is a fixed profile.
+The baseline restores the processor policy that was active before the run when it finishes or is cancelled.
 
-### Settings
+## Settings
 
-Settings contains only durable product preferences:
+Settings currently include:
 
-- theme;
-- reduced motion;
-- start with Windows.
+- theme
+- reduced motion
+- start with Windows
 
-CPU behavior belongs to AUTO, Workloads, and the fixed profiles—not to a page of implementation knobs.
-
-## Safety and ownership
-
-PowerFlow changes Windows power plans and processor policy only through its qualified actuation path. It does **not** alter BIOS settings, voltages, fan curves, or firmware.
-
-- one normal user process; no privileged service;
-- manual authority takes precedence over AUTO;
-- AUTO is confidence-gated and entitlement-gated;
-- profile application is read back and failures are surfaced;
-- machine baseline snapshots and restores the original policy in `finally`;
-- preview paths remain read-only;
-- legacy Tune/service-policy configuration is normalized out when a current build loads it, so obsolete hidden state cannot silently steer AUTO.
-
-## Repository truth
-
-The current product contract is [`docs/product.md`](docs/product.md). The current implementation architecture is [`docs/architecture.md`](docs/architecture.md). Current qualification evidence is under [`docs/acceptance`](docs/acceptance).
-
-Dated design/spec/plan material from earlier iterations is retained under [`docs/history`](docs/history) as historical evidence only. It is **not** a description of current product behavior.
+App importance is managed from Workloads, and CPU profiles are managed from the main PowerFlow controls.
 
 ## Build
 
@@ -102,7 +78,7 @@ dotnet test PowerFlow.sln -c Release
 dotnet build PowerFlow.sln -c Release
 ```
 
-Run in the background:
+Run PowerFlow in the background:
 
 ```powershell
 .\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --background
@@ -114,10 +90,12 @@ Open the dashboard through the running instance:
 .\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --dashboard
 ```
 
-Per-user configuration lives at `%LOCALAPPDATA%\PowerFlow\config.json`.
+PowerFlow stores per-user configuration in `%LOCALAPPDATA%\PowerFlow\config.json`.
 
-## Current release bar
+## More detail
 
-A PowerFlow build is not considered current merely because it compiles. The release gate requires the Core, Windows, and App test suites, a clean Release build, XAML parsing, `git diff --check`, a clean runtime launch when live UI validation is authorized, and exact policy-restoration evidence for any live baseline run.
+- [Product behavior](docs/product.md)
+- [Architecture](docs/architecture.md)
+- [Design notes](docs/design/)
 
-The product bar is equally strict: **a first-time user should be able to explain every visible control, and every visible control must have a verified runtime effect.**
+PowerFlow changes Windows power-plan and processor-policy settings. It does not change BIOS settings, CPU voltage, fan curves, or firmware.
