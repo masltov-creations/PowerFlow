@@ -83,10 +83,13 @@ public static class TimelinePolicyOverlayProjection
     private static void AddPowerRail(List<TimelinePolicyValueRail> rails, PerformanceTimelineData timeline, TimelinePolicyHandleKind kind, string label, double? learned, double? candidate)
     {
         if (learned is not double learnedWatts || candidate is not double candidateWatts) return;
-        var domain = timeline.Lanes.FirstOrDefault(lane => lane.Metric == PerformanceTimelineMetric.PackagePower)?.DomainMax ?? Math.Max(learnedWatts, candidateWatts);
-        domain = Math.Max(double.Epsilon, domain);
+        var lane = timeline.Lanes.FirstOrDefault(lane => lane.Metric == PerformanceTimelineMetric.PackagePower);
+        var domainMin = lane?.DomainMin ?? 0d;
+        var domainMax = lane?.DomainMax ?? Math.Max(learnedWatts, candidateWatts);
         rails.Add(new TimelinePolicyValueRail(kind, PerformanceTimelineMetric.PackagePower, label,
-            learnedWatts, candidateWatts, NormalizeY(learnedWatts, domain), NormalizeY(candidateWatts, domain), false));
+            learnedWatts, candidateWatts,
+            NormalizeY(learnedWatts, domainMin, domainMax),
+            NormalizeY(candidateWatts, domainMin, domainMax), false));
     }
 
     private static TimelinePolicyTimeBand TimeBand(TimelinePolicyHandleKind kind, string label, TimeSpan learned, TimeSpan candidate, double windowSeconds) =>
@@ -95,6 +98,11 @@ public static class TimelinePolicyOverlayProjection
             NormalizeStart(candidate, windowSeconds), 1d,
             true);
 
-    private static double NormalizeY(double value, double domainMax) => 1d - Math.Clamp(value / Math.Max(double.Epsilon, domainMax), 0d, 1d);
+    private static double NormalizeY(double value, double domainMax) => NormalizeY(value, 0d, domainMax);
+    private static double NormalizeY(double value, double domainMin, double domainMax)
+    {
+        var span = Math.Max(double.Epsilon, domainMax - domainMin);
+        return 1d - Math.Clamp((value - domainMin) / span, 0d, 1d);
+    }
     private static double NormalizeStart(TimeSpan duration, double windowSeconds) => 1d - Math.Clamp(duration.TotalSeconds / Math.Max(1d, windowSeconds), 0d, 1d);
 }

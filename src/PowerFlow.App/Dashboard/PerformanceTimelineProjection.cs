@@ -22,6 +22,7 @@ public sealed record TimelineLaneProjection(
     PerformanceTimelineMetric Metric,
     string Label,
     string Unit,
+    double DomainMin,
     double DomainMax,
     IReadOnlyList<TimelineSamplePoint> Points);
 
@@ -63,19 +64,28 @@ public static class PerformanceTimelineProjection
             .OrderBy(x => x.observation.At)
             .ToArray();
 
-        var powerMax = NiceCeiling(visible.Where(x => x.observation.PackageWatts.HasValue).Select(x => x.observation.PackageWatts!.Value), 25, 25);
-        var performanceValues = visible.Where(x => x.observation.ProcessorPerformancePercent.HasValue).Select(x => x.observation.ProcessorPerformancePercent!.Value).ToArray();
-        var performanceMax = performanceValues.Length == 0 ? 150d : NiceCeiling(performanceValues, 125, 25);
+        var powerValues = visible
+            .Where(x => x.observation.PackageWatts is double value && double.IsFinite(value) && value >= 0)
+            .Select(x => x.observation.PackageWatts!.Value)
+            .ToArray();
+        var powerRange = FocusRange(powerValues, minimumSpan: 40d, quantum: 5d, hardFloor: 0d, fallbackMin: 0d, fallbackMax: 100d);
+
+        var performanceValues = visible
+            .Where(x => x.observation.ProcessorPerformancePercent is double value && double.IsFinite(value) && value >= 0)
+            .Select(x => x.observation.ProcessorPerformancePercent!.Value)
+            .ToArray();
+        var performanceRange = FocusRange(performanceValues, minimumSpan: 30d, quantum: 5d, hardFloor: 0d, fallbackMin: 75d, fallbackMax: 150d, includeValue: 100d);
+
         var coreMax = Math.Max(1, visible.Select(x => x.observation.TotalCores ?? x.observation.ActiveCores ?? 0).DefaultIfEmpty(1).Max());
 
         double X(DateTimeOffset at) => Math.Clamp((at - start).TotalSeconds / seconds, 0, 1);
 
         var lanes = new[]
         {
-            Lane(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, visible, X, x => x.CpuPressurePercent),
-            Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerMax, visible, X, x => x.PackageWatts),
-            Lane(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", performanceMax, visible, X, x => x.ProcessorPerformancePercent),
-            Lane(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", coreMax, visible, X, x => x.ActiveCores)
+            Lane(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 0, 100, visible, X, x => x.CpuPressurePercent),
+            Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerRange.Min, powerRange.Max, visible, X, x => x.PackageWatts),
+            Lane(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", performanceRange.Min, performanceRange.Max, visible, X, x => x.ProcessorPerformancePercent),
+            Lane(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 0, coreMax, visible, X, x => x.ActiveCores)
         };
 
         var events = new List<TimelineEventMarker>();
@@ -105,12 +115,16 @@ public static class PerformanceTimelineProjection
         PerformanceTimelineMetric metric,
         string label,
         string unit,
+        double domainMin,
         double domainMax,
         IReadOnlyList<(OperatingObservation observation, int index)> visible,
         Func<DateTimeOffset, double> xSelector,
         Func<OperatingObservation, double?> valueSelector)
     {
-        var max = Math.Max(double.Epsilon, domainMax);
+        var min = double.IsFinite(domainMin) ? domainMin : 0d;
+        var max = double.IsFinite(domainMax) ? domainMax : min + 1d;
+        if (max <= min) max = min + 1d;
+        var span = max - min;
         var points = visible.Select(item =>
         {
             var value = valueSelector(item.observation);
@@ -118,27 +132,50 @@ public static class PerformanceTimelineProjection
             return new TimelineSamplePoint(
                 item.index,
                 xSelector(item.observation.At),
-                valid ? Math.Clamp(value!.Value / max, 0, 1) : null,
+                valid ? Math.Clamp((value!.Value - min) / span, 0, 1) : null,
                 valid ? value : null);
         }).ToArray();
-        return new TimelineLaneProjection(metric, label, unit, domainMax, points);
+        return new TimelineLaneProjection(metric, label, unit, min, max, points);
     }
 
-    private static double NiceCeiling(IEnumerable<double> values, double step, double minimum)
+    private static (double Min, double Max) FocusRange(
+        IReadOnlyList<double> values,
+        double minimumSpan,
+        double quantum,
+        double hardFloor,
+        double fallbackMin,
+        double fallbackMax,
+        double? includeValue = null)
     {
-        var valid = values.Where(x => double.IsFinite(x) && x > 0).ToArray();
-        if (valid.Length == 0) return minimum;
-        return Math.Max(minimum, Math.Ceiling(valid.Max() / step) * step);
+        var valid = values.Where(value => double.IsFinite(value) && value >= hardFloor).ToList();
+        if (includeValue is double included && double.IsFinite(included)) valid.Add(Math.Max(hardFloor, included));
+        if (valid.Count == 0) return (fallbackMin, fallbackMax);
+
+        var low = valid.Min();
+        var high = valid.Max();
+        var span = high - low;
+        if (span < minimumSpan)
+        {
+            var center = (low + high) / 2d;
+            low = center - minimumSpan / 2d;
+            high = center + minimumSpan / 2d;
+        }
+
+        low = Math.Max(hardFloor, Math.Floor(low / quantum) * quantum);
+        high = Math.Ceiling(high / quantum) * quantum;
+        if (high - low < minimumSpan)
+            high = Math.Ceiling((low + minimumSpan) / quantum) * quantum;
+        return (low, Math.Max(low + quantum, high));
     }
 
     private static PerformanceTimelineData Empty(DateTimeOffset start, DateTimeOffset latest, double seconds, PerformanceTimelineMode mode)
     {
         var lanes = new[]
         {
-            new TimelineLaneProjection(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 100, Array.Empty<TimelineSamplePoint>()),
-            new TimelineLaneProjection(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", 25, Array.Empty<TimelineSamplePoint>()),
-            new TimelineLaneProjection(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", 150, Array.Empty<TimelineSamplePoint>()),
-            new TimelineLaneProjection(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 1, Array.Empty<TimelineSamplePoint>())
+            new TimelineLaneProjection(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 0, 100, Array.Empty<TimelineSamplePoint>()),
+            new TimelineLaneProjection(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", 0, 100, Array.Empty<TimelineSamplePoint>()),
+            new TimelineLaneProjection(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", 75, 150, Array.Empty<TimelineSamplePoint>()),
+            new TimelineLaneProjection(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 0, 1, Array.Empty<TimelineSamplePoint>())
         };
         return new PerformanceTimelineData(start, latest, seconds, mode, lanes, Array.Empty<TimelineEventMarker>());
     }

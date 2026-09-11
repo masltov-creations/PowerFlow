@@ -35,6 +35,22 @@ public sealed class PerformanceTimelineContractTests
             Assert.DoesNotContain($"FontSize=\"{size}\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Timeline_UsesWeightedCompactLanesAndExplicitFocusRanges()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml");
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        var projection = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineProjection.cs");
+
+        Assert.Contains("Height=\"1.5*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("LaneWeights = [1.5d, 1d, 1d, 1.5d]", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("_plotHeight / 4d", code, StringComparison.Ordinal);
+        Assert.Contains("DomainMin", projection, StringComparison.Ordinal);
+        Assert.Contains("minimumSpan: 40d", projection, StringComparison.Ordinal);
+        Assert.Contains("minimumSpan: 30d", projection, StringComparison.Ordinal);
+        Assert.Contains("100d - _data.Lanes[lane].DomainMin", code, StringComparison.Ordinal);
+    }
+
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

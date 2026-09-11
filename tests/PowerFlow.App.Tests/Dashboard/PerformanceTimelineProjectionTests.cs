@@ -38,14 +38,48 @@ public sealed class PerformanceTimelineProjectionTests
 
         var data = PerformanceTimelineProjection.Build(history, 10);
 
-        Assert.Equal(100, Lane(data, PerformanceTimelineMetric.CpuPressure).DomainMax);
-        Assert.Equal(100, Lane(data, PerformanceTimelineMetric.PackagePower).DomainMax);
-        Assert.Equal(125, Lane(data, PerformanceTimelineMetric.EffectiveClock).DomainMax);
-        Assert.Equal(16, Lane(data, PerformanceTimelineMetric.ActiveCores).DomainMax);
-        Assert.Equal(.5, Lane(data, PerformanceTimelineMetric.CpuPressure).Points[0].Y!.Value, 3);
-        Assert.Equal(.5, Lane(data, PerformanceTimelineMetric.PackagePower).Points[0].Y!.Value, 3);
-        Assert.Equal(.5, Lane(data, PerformanceTimelineMetric.EffectiveClock).Points[0].Y!.Value, 3);
-        Assert.Equal(.5, Lane(data, PerformanceTimelineMetric.ActiveCores).Points[0].Y!.Value, 3);
+        var pressure = Lane(data, PerformanceTimelineMetric.CpuPressure);
+        var power = Lane(data, PerformanceTimelineMetric.PackagePower);
+        var performance = Lane(data, PerformanceTimelineMetric.EffectiveClock);
+        var cores = Lane(data, PerformanceTimelineMetric.ActiveCores);
+
+        Assert.Equal(0, pressure.DomainMin);
+        Assert.Equal(100, pressure.DomainMax);
+        Assert.Equal(50, power.DomainMin);
+        Assert.Equal(100, power.DomainMax);
+        Assert.Equal(60, performance.DomainMin);
+        Assert.Equal(125, performance.DomainMax);
+        Assert.Equal(0, cores.DomainMin);
+        Assert.Equal(16, cores.DomainMax);
+        Assert.Equal(.5, pressure.Points[0].Y!.Value, 3);
+        Assert.Equal(0, power.Points[0].Y!.Value, 3);
+        Assert.Equal((62.5 - 60) / 65, performance.Points[0].Y!.Value, 3);
+        Assert.Equal(.5, cores.Points[0].Y!.Value, 3);
+        Assert.Equal(50, power.Points[0].Value);
+        Assert.Equal(62.5, performance.Points[0].Value);
+    }
+
+    [Fact]
+    public void Build_FocusesOrdinaryPowerAndPerformanceVariationWithoutChangingRawValues()
+    {
+        var history = new[]
+        {
+            Observation(0, 40, 82, 5040, 4, 16),
+            Observation(10, 42, 88, 5120, 4, 16),
+            Observation(20, 45, 94, 5160, 5, 16)
+        };
+
+        var data = PerformanceTimelineProjection.Build(history, 20);
+        var power = Lane(data, PerformanceTimelineMetric.PackagePower);
+        var performance = Lane(data, PerformanceTimelineMetric.EffectiveClock);
+
+        Assert.True(power.DomainMax - power.DomainMin <= 50);
+        Assert.True(performance.DomainMax - performance.DomainMin <= 40);
+        Assert.True(performance.DomainMin <= 100 && performance.DomainMax >= 100);
+        Assert.Equal(new[] { 82d, 88d, 94d }, power.Points.Select(point => point.Value!.Value));
+        Assert.Equal(new[] { 126d, 128d, 129d }, performance.Points.Select(point => point.Value!.Value));
+        Assert.True(power.Points[^1].Y - power.Points[0].Y > .20);
+        Assert.True(performance.Points[^1].Y - performance.Points[0].Y > .05);
     }
 
     [Fact]

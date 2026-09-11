@@ -2,12 +2,12 @@
     x:Class="PowerFlow.App.Dashboard.PerformanceTimelineControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="TimelineRoot" MinHeight="190">
+    <Grid x:Name="TimelineRoot" MinHeight="156">
         <Border Background="{ThemeResource PowerFlowPanelBrush}"
                 BorderBrush="{ThemeResource PowerFlowCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="12"/>
-        <Grid Padding="12,10,12,9" RowSpacing="6">
+        <Grid Padding="10,8,10,7" RowSpacing="4">
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="TimelineHeaderRow" Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -33,15 +33,15 @@
 
             <Grid Grid.Row="1" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition x:Name="LaneLabelColumn" Width="112"/>
+                    <ColumnDefinition x:Name="LaneLabelColumn" Width="104"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid x:Name="LaneLabels" Grid.Column="0" Padding="0,3,0,3">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="1.5*"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="1.5*"/>
                     </Grid.RowDefinitions>
                                         <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="1">
                         <TextBlock x:Name="CpuPressureLabel" Text="COMPUTE PRESSURE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
@@ -64,7 +64,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid Grid.Column="1" x:Name="TimelinePlotHost" MinWidth="120" MinHeight="132">
+                <Grid Grid.Column="1" x:Name="TimelinePlotHost" MinWidth="120" MinHeight="120">
                     <Canvas x:Name="GridLayer" SizeChanged="OnSizeChanged" IsHitTestVisible="False"/>
                     <Canvas x:Name="PolicyTimeLayer" IsHitTestVisible="False"/>
                     <Canvas x:Name="PolicyValueLayer" IsHitTestVisible="False"/>
@@ -101,7 +101,7 @@
                 </Grid>
             </Grid>
 
-            <Grid x:Name="TimelineFooter" Grid.Row="2" Margin="120,0,0,0">
+            <Grid x:Name="TimelineFooter" Grid.Row="2" Margin="112,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>

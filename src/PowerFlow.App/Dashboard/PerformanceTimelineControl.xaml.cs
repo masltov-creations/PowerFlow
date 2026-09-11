@@ -37,6 +37,9 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private double _windowSeconds = 60;
     private double _plotWidth = 1;
     private double _plotHeight = 1;
+    private static readonly double[] LaneWeights = [1.5d, 1d, 1d, 1.5d];
+    private const double LaneWeightTotal = 5d;
+    private const double LegacyPressureLaneFraction = .25d;
     private HashSet<int> _selectedObservationIndices = [];
     private HashSet<int> _linkedHoveredObservationIndices = [];
     private OperatingEnvelope _learnedEnvelope = DefaultEnvelope;
@@ -72,20 +75,22 @@ public sealed partial class PerformanceTimelineControl : UserControl
         GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
         LaneLabels.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        LaneLabelColumn.Width = new GridLength(glance ? 0 : presentation == TimelinePresentation.Compact ? 96 : 112);
+        var labelWidth = glance ? 0d : presentation == TimelinePresentation.Compact ? 92d : 104d;
+        LaneLabelColumn.Width = new GridLength(labelWidth);
+        TimelineFooter.Margin = new Thickness(glance ? 0d : labelWidth + 8d, 0, 0, 0);
         TimelineRoot.MinHeight = presentation switch
         {
             TimelinePresentation.Glance => 72,
-            TimelinePresentation.Compact => 170,
-            TimelinePresentation.Expanded => 280,
-            _ => 340
+            TimelinePresentation.Compact => 156,
+            TimelinePresentation.Expanded => 230,
+            _ => 280
         };
         TimelinePlotHost.MinHeight = presentation switch
         {
             TimelinePresentation.Glance => 58,
-            TimelinePresentation.Compact => 132,
-            TimelinePresentation.Expanded => 238,
-            _ => 300
+            TimelinePresentation.Compact => 120,
+            TimelinePresentation.Expanded => 190,
+            _ => 235
         };
         RequestRedraw();
     }
@@ -203,11 +208,12 @@ public sealed partial class PerformanceTimelineControl : UserControl
         ActorDecisionLayer.Children.Clear();
         SelectionLayer.Children.Clear();
 
-        var laneHeight = height / 4d;
-        DrawPressureContext(0, laneHeight);
+        var pressureLane = LaneBounds(0, height);
+        DrawPressureContext(pressureLane.Top, pressureLane.Height);
         var light = ActualTheme == ElementTheme.Light;
         var grid = light ? Brush(17, 34, 51, 24) : Brush(255, 255, 255, 18);
         var text = light ? Brush(17, 34, 51, 118) : Brush(255, 255, 255, 105);
+        var baseline = light ? Brush(17, 34, 51, 65) : Brush(255, 255, 255, 58);
         var series = new[]
         {
             light ? Brush(12, 145, 132, 235) : Brush(80, 224, 207, 240),
@@ -218,16 +224,26 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
         for (var lane = 0; lane < 3; lane++)
         {
-            var top = lane * laneHeight;
+            var geometry = LaneBounds(lane, height);
+            var top = geometry.Top;
+            var laneHeight = geometry.Height;
             if (lane > 0) AddLine(GridLayer, 0, top, width, top, grid, 1);
-            AddLine(GridLayer, 0, top + laneHeight * .5, width, top + laneHeight * .5, grid, 1);
-            UpdateTracePath(lane, _data.Lanes[lane], top + 4, Math.Max(1, laneHeight - 8), series[lane]);
-            AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 65), top + 2, 11, text);
+            AddLine(GridLayer, 0, top + laneHeight * .5, width, top + laneHeight * .5, grid, 1).Opacity = .55;
+            UpdateTracePath(lane, _data.Lanes[lane], top + 3, Math.Max(1, laneHeight - 6), series[lane]);
+            if (_data.Lanes[lane].Metric == PerformanceTimelineMetric.EffectiveClock &&
+                _data.Lanes[lane].DomainMin <= 100d && _data.Lanes[lane].DomainMax >= 100d)
+            {
+                var span = Math.Max(double.Epsilon, _data.Lanes[lane].DomainMax - _data.Lanes[lane].DomainMin);
+                var normalized = Math.Clamp((100d - _data.Lanes[lane].DomainMin) / span, 0d, 1d);
+                var baselineY = top + 3 + (1d - normalized) * Math.Max(1, laneHeight - 6);
+                AddLine(GridLayer, 0, baselineY, width, baselineY, baseline, .8).Opacity = .52;
+            }
+            AddText(GridLayer, FormatDomain(_data.Lanes[lane]), Math.Max(0, width - 86), top + 1, 11, text);
         }
 
-        var coreTop = laneHeight * 3;
-        AddLine(GridLayer, 0, coreTop, width, coreTop, grid, 1);
-        DrawCoreStateTimeline(coreTop, laneHeight, series[3], text);
+        var coreLane = LaneBounds(3, height);
+        AddLine(GridLayer, 0, coreLane.Top, width, coreLane.Top, grid, 1);
+        DrawCoreStateTimeline(coreLane.Top, coreLane.Height, series[3], text);
 
         RedrawPolicy();
         DrawDecisionEvents(height);
@@ -482,13 +498,12 @@ public sealed partial class PerformanceTimelineControl : UserControl
         PolicyHandleLayer.Children.Clear();
 
         var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
-        var laneHeight = _plotHeight / 4d;
         foreach (var rail in overlay.ValueRails)
         {
             if (!_tuneMode && rail.Metric == PerformanceTimelineMetric.CpuPressure) continue;
             var laneIndex = LaneIndex(rail.Metric);
-            var learnedY = PolicyValueY(laneIndex, laneHeight, rail.LearnedNormalizedY);
-            var candidateY = PolicyValueY(laneIndex, laneHeight, rail.CandidateNormalizedY);
+            var learnedY = PolicyValueY(laneIndex, rail.LearnedNormalizedY);
+            var candidateY = PolicyValueY(laneIndex, rail.CandidateNormalizedY);
             var learnedBrush = PolicyBrush(rail.Kind, false);
             var candidateBrush = PolicyBrush(rail.Kind, true);
 
@@ -540,6 +555,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
     }
 
+    private static (double Top, double Height) LaneBounds(int laneIndex, double totalHeight)
+    {
+        if (laneIndex < 0 || laneIndex >= LaneWeights.Length) return (0d, Math.Max(1d, totalHeight));
+        var topWeight = 0d;
+        for (var i = 0; i < laneIndex; i++) topWeight += LaneWeights[i];
+        return (totalHeight * topWeight / LaneWeightTotal, totalHeight * LaneWeights[laneIndex] / LaneWeightTotal);
+    }
+
     private int LaneIndex(PerformanceTimelineMetric metric)
     {
         for (var i = 0; i < _data.Lanes.Count; i++)
@@ -547,19 +570,21 @@ public sealed partial class PerformanceTimelineControl : UserControl
         return 0;
     }
 
-    private double PolicyValueY(int laneIndex, double laneHeight, double normalizedY)
-        => laneIndex * laneHeight + 4 + Math.Clamp(normalizedY, 0d, 1d) * Math.Max(1, laneHeight - 8);
+    private double PolicyValueY(int laneIndex, double normalizedY)
+    {
+        var geometry = LaneBounds(laneIndex, _plotHeight);
+        return geometry.Top + 4 + Math.Clamp(normalizedY, 0d, 1d) * Math.Max(1, geometry.Height - 8);
+    }
 
     private TimelinePolicyHandleKind? HitTestPolicyHandle(Point point)
     {
         if (!_tuneMode || _plotWidth <= 1 || _plotHeight <= 1) return null;
         var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
-        var laneHeight = _plotHeight / 4d;
         TimelinePolicyHandleKind? winner = null;
         var best = 14d;
         foreach (var rail in overlay.ValueRails.Where(rail => rail.Editable))
         {
-            var distance = Math.Abs(point.Y - PolicyValueY(LaneIndex(rail.Metric), laneHeight, rail.CandidateNormalizedY));
+            var distance = Math.Abs(point.Y - PolicyValueY(LaneIndex(rail.Metric), rail.CandidateNormalizedY));
             if (distance <= best) { best = distance; winner = rail.Kind; }
         }
         foreach (var band in overlay.TimeBands.Where(band => band.Editable))
@@ -573,11 +598,18 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private void ApplyPolicyDrag(Point point)
     {
         if (_draggingPolicyHandle is not TimelinePolicyHandleKind kind) return;
+        var normalizedCanvasY = point.Y / Math.Max(1, _plotHeight);
+        if (kind is TimelinePolicyHandleKind.EcoPressure or TimelinePolicyHandleKind.EfficientPressure or TimelinePolicyHandleKind.ResponsivePressure)
+        {
+            var pressureLane = LaneBounds(0, _plotHeight);
+            var withinPressureLane = Math.Clamp((point.Y - pressureLane.Top) / Math.Max(1d, pressureLane.Height), 0d, 1d);
+            normalizedCanvasY = withinPressureLane * LegacyPressureLaneFraction;
+        }
         var updated = TimelinePolicyInteraction.ApplyDrag(
             _candidateTuning,
             kind,
             point.X / Math.Max(1, _plotWidth),
-            point.Y / Math.Max(1, _plotHeight),
+            normalizedCanvasY,
             _learnedEnvelope,
             _learnedEntitlement,
             _data.WindowSeconds);
@@ -778,12 +810,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
     {
         if (_plotWidth <= 1 || _plotHeight <= 1) return;
         var overlay = TimelinePolicyOverlayProjection.Build(_data, _learnedEnvelope, _learnedEntitlement, _candidateTuning);
-        var laneHeight = _plotHeight / 4d;
         var brush = PolicyBrush(kind, true);
         var rail = overlay.ValueRails.FirstOrDefault(item => item.Kind == kind);
         if (rail is not null)
         {
-            var y = PolicyValueY(LaneIndex(rail.Metric), laneHeight, rail.CandidateNormalizedY);
+            var y = PolicyValueY(LaneIndex(rail.Metric), rail.CandidateNormalizedY);
             AddLine(PolicyHoverLayer, 0, y, _plotWidth, y, brush, 3);
             return;
         }
@@ -959,10 +990,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     private static string FormatDomain(TimelineLaneProjection lane) => lane.Metric switch
     {
-        PerformanceTimelineMetric.CpuPressure => "100%",
-        PerformanceTimelineMetric.PackagePower => $"{lane.DomainMax:0} W",
-        PerformanceTimelineMetric.EffectiveClock => $"{lane.DomainMax:0}%",
-        PerformanceTimelineMetric.ActiveCores => $"{lane.DomainMax:0}",
+        PerformanceTimelineMetric.CpuPressure => "0-100%",
+        PerformanceTimelineMetric.PackagePower => $"{lane.DomainMin:0}-{lane.DomainMax:0} W",
+        PerformanceTimelineMetric.EffectiveClock => $"{lane.DomainMin:0}-{lane.DomainMax:0}%",
+        PerformanceTimelineMetric.ActiveCores => $"0-{lane.DomainMax:0}",
         _ => string.Empty
     };
 
