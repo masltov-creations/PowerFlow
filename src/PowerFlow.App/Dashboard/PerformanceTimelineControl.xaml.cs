@@ -48,6 +48,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private bool _presentationApplied;
     private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
     private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
+    private GraduatedCapacityTimelineData _capacityTimeline = GraduatedCapacityTimelineData.Empty;
 
     public PerformanceTimelineControl()
     {
@@ -92,6 +93,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     {
         _coreThreadHistory = history?.ToArray() ?? Array.Empty<ContinuitySample>();
         _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
         UpdateCoreStateLabel();
         RequestRedraw();
     }
@@ -153,6 +155,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         _windowSeconds = Math.Max(1, windowSeconds);
         _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
         _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
         WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
         WindowStartLabel.Text = $"-{_windowSeconds:0}s";
         UpdateLiveLabels();
@@ -246,6 +249,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         if (data.Samples.Count == 0 || data.TotalCores <= 0)
         {
             CoreActivePath.Data = CoreActiveMediumPath.Data = CoreActiveHighPath.Data = CoreActiveHotPath.Data = CoreAwakePath.Data = CoreParkedPath.Data = null;
+            DrawCapacityOverlay(top, laneHeight);
             return;
         }
 
@@ -297,6 +301,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         CoreActiveHotPath.Data = BuildCoreCellGeometry(activeHot);
         CoreAwakePath.Data = BuildCoreCellGeometry(awakeCells);
         CoreParkedPath.Data = BuildCoreCellGeometry(parkedCells);
+        DrawCapacityOverlay(top, laneHeight);
 
         for (var q = 1; q < 4; q++)
         {
@@ -305,6 +310,32 @@ public sealed partial class PerformanceTimelineControl : UserControl
         }
     }
 
+    private void DrawCapacityOverlay(double top, double laneHeight)
+    {
+        if (_capacityTimeline.Samples.Count == 0)
+        {
+            RequestedCapacityPath.Data = DeliveredCapacityPath.Data = null;
+            return;
+        }
+
+        var light = ActualTheme == ElementTheme.Light;
+        RequestedCapacityPath.Stroke = light ? Brush(16, 132, 172, 245) : Brush(98, 220, 255, 245);
+        DeliveredCapacityPath.Stroke = light ? Brush(72, 82, 96, 155) : Brush(235, 241, 248, 155);
+        var innerTop = top + 3d;
+        var innerHeight = Math.Max(8d, laneHeight - 6d);
+        Point? PointFor(GraduatedCapacitySample sample, double value)
+        {
+            var x = Math.Clamp((sample.At - _data.WindowStart).TotalSeconds / Math.Max(1d, _data.WindowSeconds), 0d, 1d) * _plotWidth;
+            var y = innerTop + (1d - Math.Clamp(value / 100d, 0d, 1d)) * innerHeight;
+            return new Point(x, y);
+        }
+
+        var requested = _capacityTimeline.Samples.Select(sample => PointFor(sample, sample.RequestedCapacityPercent)).ToArray();
+        var delivered = _capacityTimeline.Samples.Select(sample => PointFor(sample, sample.DeliveredCapacityPercent)).ToArray();
+        var maximumGapX = Math.Clamp(_plotWidth * 10d / Math.Max(1d, _windowSeconds), 1d, _plotWidth);
+        RequestedCapacityPath.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(requested, maximumGapX));
+        DeliveredCapacityPath.Data = ToPathGeometry(ShapePreservingCurve.BuildSparseObservations(delivered, maximumGapX));
+    }
     private static void AddLoadCells(
         List<Rect> low,
         List<Rect> medium,
@@ -670,9 +701,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
         SetTransient(InspectionCursor, true);
         var explanation = InspectionExplanationProjection.ForObservation(observation).AsPlainText();
         var pressure = FindDemandPressureNear(observation.At);
-        CursorReadout.Text = pressure is null
-            ? explanation
-            : $"{explanation}\nPressure {pressure.PressurePercent:0}% ({pressure.Driver}) · demand {pressure.DemandPercent:0}% · awake saturation {pressure.CapacitySaturationPercent:0}% · queue {pressure.QueueLength:0.##} ({pressure.QueuePressurePercent:0}% pressure)";
+        var capacity = FindCapacityNear(observation.At);
+        var pressureText = pressure is null
+            ? string.Empty
+            : $"\nPressure {pressure.PressurePercent:0}% ({pressure.Driver}) · demand {pressure.DemandPercent:0}% · available {pressure.AvailableCapacityPercent:0}% · saturation {pressure.CapacitySaturationPercent:0}% · queue {pressure.QueueLength:0.##} ({pressure.QueuePressurePercent:0}% pressure)";
+        var capacityText = capacity is null
+            ? string.Empty
+            : $"\nCapacity request {capacity.RequestedCapacityPercent:0}% · delivered {capacity.DeliveredCapacityPercent:0}% · ideal {capacity.IdealCapacityPercent:0}% · target sat {capacity.TargetSaturationPercent:0}% · ramp {capacity.RampPercentPerSecond:+0.0;-0.0;0.0}%/s · sustained {capacity.SustainedPressurePercent:0}% · burst {capacity.BurstAgeSeconds:0.0}s ({capacity.Driver})";
+        CursorReadout.Text = explanation + pressureText + capacityText;
         SetTransient(CursorCard, true);
         CursorChanged?.Invoke(this, new TimelineCursorChangedEventArgs(observationIndex));
     }
@@ -836,11 +872,20 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private void UpdateCoreStateLabel()
     {
         var latest = _coreStateTimeline.Samples.LastOrDefault();
+        var capacity = _capacityTimeline.Samples.LastOrDefault();
+        if (latest is null && capacity is null) return;
+
+        CoresValueText.Text = capacity is null
+            ? $"{latest!.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}"
+            : $"R{capacity.RequestedCapacityPercent:0} D{capacity.DeliveredCapacityPercent:0}";
+
         if (latest is null) return;
-        CoresValueText.Text = $"{latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}";
         var frequency = latest.AverageAwakeFrequencyMhz is double mhz ? $" · {mhz / 1000d:0.00} GHz avg" : string.Empty;
         var maxFrequency = latest.AverageAwakePercentOfMaximumFrequency is double max ? $" · {max:0}% max freq" : string.Empty;
-        ToolTipService.SetToolTip(CoresValueText, $"Active / awake-idle / parked physical cores. Active cells vary in intensity by core load: <25%, 25-49%, 50-74%, 75%+. Current awake-core load averages {latest.AverageAwakeLoadPercent:0}%{frequency}{maxFrequency}.");
+        var capacityDetail = capacity is null
+            ? string.Empty
+            : $" Requested {capacity.RequestedCapacityPercent:0.0}%, delivered {capacity.DeliveredCapacityPercent:0.0}%, ideal {capacity.IdealCapacityPercent:0.0}%, target saturation {capacity.TargetSaturationPercent:0.0}%, ramp {capacity.RampPercentPerSecond:+0.0;-0.0;0.0}%/s, sustained {capacity.SustainedPressurePercent:0.0}%, burst age {capacity.BurstAgeSeconds:0.0}s ({capacity.Driver}).";
+        ToolTipService.SetToolTip(CoresValueText, $"Active / awake-idle / parked physical cores: {latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}. Active cells vary in intensity by core load: <25%, 25-49%, 50-74%, 75%+. Current awake-core load averages {latest.AverageAwakeLoadPercent:0}%{frequency}{maxFrequency}.{capacityDetail}");
     }
 
     private DemandPressureTelemetry? LatestDemandPressure()
@@ -851,6 +896,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
             .Where(sample => sample.DemandPressure is not null)
             .OrderBy(sample => Math.Abs((sample.At - at).TotalMilliseconds))
             .FirstOrDefault()?.DemandPressure;
+
+    private GraduatedCapacitySample? FindCapacityNear(DateTimeOffset at)
+        => _capacityTimeline.Samples
+            .OrderBy(sample => Math.Abs((sample.At - at).TotalMilliseconds))
+            .FirstOrDefault();
 
     private static string PressureDriverShort(string driver) => driver switch
     {

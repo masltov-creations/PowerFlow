@@ -59,7 +59,7 @@
                         <TextBlock x:Name="ClockValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                     <StackPanel Grid.Row="3" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="CORES A/I/P" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock Text="CAPACITY / CORES" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
                         <TextBlock x:Name="CoresValueText" Text="—" FontSize="12"/>
                     </StackPanel>
                 </Grid>
@@ -80,6 +80,8 @@
                         <Path x:Name="CoreActiveMediumPath"/>
                         <Path x:Name="CoreActiveHighPath"/>
                         <Path x:Name="CoreActiveHotPath"/>
+                        <Path x:Name="DeliveredCapacityPath" StrokeThickness="1.35" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <Path x:Name="RequestedCapacityPath" StrokeThickness="1.9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
                     <Canvas x:Name="PolicyHandleLayer" IsHitTestVisible="False" Visibility="Collapsed"/>
                     <Canvas x:Name="ActorDecisionLayer" IsHitTestVisible="False"/>
