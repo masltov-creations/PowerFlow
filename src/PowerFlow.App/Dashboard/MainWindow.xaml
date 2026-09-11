@@ -21,7 +21,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,8,0,12">
                         <Grid Width="28" Height="28">
                             <Ellipse Fill="{ThemeResource PowerFlowGlowBrush}"/>
-                            <Image Source="Assets/PowerFlow.png" Width="25" Height="25" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Image Source="ms-appx:///Assets/PowerFlow.png" Width="25" Height="25" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
                         <StackPanel VerticalAlignment="Center" Spacing="0">
                             <TextBlock Text="POWERFLOW" FontSize="12" FontWeight="SemiBold" CharacterSpacing="70"/>
@@ -33,7 +33,7 @@
                     <NavigationViewItem Content="Live" Tag="flow"><NavigationViewItem.Icon><SymbolIcon Symbol="Play"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Apps" Tag="rules"><NavigationViewItem.Icon><SymbolIcon Symbol="List"/></NavigationViewItem.Icon></NavigationViewItem>
                     <NavigationViewItem Content="Model" Tag="model"><NavigationViewItem.Icon><SymbolIcon Symbol="View"/></NavigationViewItem.Icon></NavigationViewItem>
-                    <NavigationViewItem Content="Tune" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
+                    <NavigationViewItem Content="Tune Auto" Tag="tune"><NavigationViewItem.Icon><SymbolIcon Symbol="Edit"/></NavigationViewItem.Icon></NavigationViewItem>
                 </NavigationView.MenuItems>
                 <NavigationView.FooterMenuItems>
                     <NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem>
@@ -73,10 +73,10 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="TUNE THE LIVE POLICY" FontSize="11" FontWeight="SemiBold" CharacterSpacing="140" Opacity="0.72"/>
+                                            <TextBlock Text="TUNE AUTO BEHAVIOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="140" Opacity="0.72"/>
                                             <Border x:Name="TuningLayerBadge" Padding="8,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}"><TextBlock x:Name="TuningLayerBadgeText" Text="LEARNED" FontSize="11" FontWeight="SemiBold"/></Border>
                                         </StackPanel>
-                                        <TextBlock Text="Drag the [DRAG] CPU pressure rails and timing edges on the graph. Power rails marked [LEARNED] are reference frontiers; use the values below for precise edits." FontSize="11" Opacity="0.62" TextWrapping="Wrap"/>
+                                        <TextBlock Text="Changes how the new Auto model reacts to demand: when it adds capacity, how long it holds it, and when it backs off. Manual Saver, Balanced, Performance, and Ultra profiles are not changed. Auto actuation remains disabled until explicitly enabled." FontSize="11" Opacity="0.62" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
                                         <ToggleSwitch x:Name="PauseLearningToggle" Header="LEARNING" OffContent="LIVE" OnContent="PAUSED" FontSize="11" AutomationProperties.Name="Pause learning" Toggled="OnPauseLearningToggled"/>
@@ -88,7 +88,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="1.15*"/></Grid.ColumnDefinitions>
                                     <Grid RowSpacing="5">
                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="PRESSURE RAILS" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                                        <TextBlock Text="WHEN AUTO SPEEDS UP" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
                                         <Grid Grid.Row="1" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="ECO" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="EcoBoundaryNumber" Grid.Column="1" Minimum="0" Maximum="98" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Eco boundary" ValueChanged="OnEcoBoundaryNumberChanged"/></Grid>
                                         <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="EFFICIENT" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="EfficientBoundaryNumber" Grid.Column="1" Minimum="1" Maximum="99" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Efficient boundary" ValueChanged="OnEfficientBoundaryNumberChanged"/></Grid>
                                         <Grid Grid.Row="3" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="RESPONSIVE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="ResponsiveBoundaryNumber" Grid.Column="1" Minimum="2" Maximum="100" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Responsive boundary" ValueChanged="OnResponsiveBoundaryNumberChanged"/></Grid>
@@ -96,7 +96,7 @@
 
                                     <Grid Grid.Column="1" RowSpacing="5">
                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="TIMING EDGES" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                                        <TextBlock Text="HOLD / RELEASE TIMING" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
                                         <Grid Grid.Row="1" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="QUALIFY" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="QualificationDurationNumber" Grid.Column="1" Minimum="0" Maximum="60" SmallChange="0.5" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Boost qualification duration" ValueChanged="OnQualificationDurationNumberChanged"/></Grid>
                                         <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="LEASE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="LeaseDurationNumber" Grid.Column="1" Minimum="1" Maximum="60" SmallChange="1" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Boost lease duration" ValueChanged="OnLeaseDurationNumberChanged"/></Grid>
                                         <Grid Grid.Row="3" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="RELEASE" FontSize="11" VerticalAlignment="Center"/><NumberBox x:Name="ReleaseHysteresisNumber" Grid.Column="1" Minimum="0" Maximum="60" SmallChange="0.5" SpinButtonPlacementMode="Compact" AutomationProperties.Name="Release quiet duration" ValueChanged="OnReleaseHysteresisNumberChanged"/></Grid>
@@ -104,7 +104,7 @@
 
                                     <Grid Grid.Column="2" RowSpacing="6">
                                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Text="SELECTED POLICY" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
+                                        <TextBlock Text="MODEL / WORKLOAD TARGET" FontSize="11" FontWeight="SemiBold" Opacity="0.56"/>
                                         <TextBlock x:Name="TuneContextText" Grid.Row="1" Text="SYSTEM / DEFAULT ENTITLEMENT" FontSize="11" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="The app or workload whose entitlement is being inspected"/>
                                         <Grid Grid.Row="2" ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="CEILING" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/><ComboBox x:Name="MaximumZoneSelector" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Maximum semantic zone" SelectionChanged="OnMaximumZoneChanged"><ComboBoxItem Content="ECO"/><ComboBoxItem Content="EFFICIENT"/><ComboBoxItem Content="RESPONSIVE"/><ComboBoxItem Content="BOOST"/></ComboBox></Grid>
                                         <StackPanel Grid.Row="3" Spacing="2"><TextBlock Text="COUNTERFACTUAL" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.54"/><TextBlock x:Name="ReplaySummaryText" Text="No retained observations to replay" FontSize="11" TextWrapping="Wrap"/><TextBlock x:Name="TuneBoundarySummaryText" FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis"/></StackPanel>

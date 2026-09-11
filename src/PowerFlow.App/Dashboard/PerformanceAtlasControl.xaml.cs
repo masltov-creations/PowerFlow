@@ -61,7 +61,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
         _envelope = envelope;
         _efficiencySelector = efficiencySelector;
         UpdateDimensionAvailability();
-        Redraw();
+        RequestRedraw();
     }
 
     public void SetModelExplanation(ModelExplanation explanation)
@@ -297,7 +297,7 @@ public sealed partial class PerformanceAtlasControl : UserControl
     {
         PerformanceAtlasDimension.CpuPressure => point.CpuPressurePercent,
         PerformanceAtlasDimension.PackagePower => point.PackageWatts,
-        PerformanceAtlasDimension.EffectiveClock => point.EffectiveClockMhz,
+        PerformanceAtlasDimension.EffectiveClock => point.ProcessorPerformancePercent,
         PerformanceAtlasDimension.ActiveCores => point.AwakeCores,
         _ => null
     };

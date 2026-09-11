@@ -29,7 +29,7 @@ public sealed class AdaptiveShellEvolutionContractTests
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
 
-        foreach (var label in new[] { "Content=\"Live\"", "Content=\"Apps\"", "Content=\"Model\"", "Content=\"Tune\"" })
+        foreach (var label in new[] { "Content=\"Live\"", "Content=\"Apps\"", "Content=\"Model\"", "Content=\"Tune Auto\"" })
             Assert.Contains(label, xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Dashboard\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Rules / Apps\"", xaml, StringComparison.Ordinal);

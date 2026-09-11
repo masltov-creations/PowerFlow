@@ -202,9 +202,9 @@ public static class PerformanceAtlasProjection
         {
             PerformanceAtlasDimension.CpuPressure => new(dimension, "CPU PRESSURE", "%", 0, 100, bins),
             PerformanceAtlasDimension.PackagePower => new(dimension, "PACKAGE POWER", "W", 0,
-                NiceCeiling(observations.Select(o => o.PackageWatts), 25, 25), bins),
+                NiceCeiling(observations.Select(o => o.PackageWatts), 50, 150), bins),
             PerformanceAtlasDimension.EffectiveClock => new(dimension, "CPU PERFORMANCE", "%", 0,
-                NiceCeiling(observations.Select(o => o.ProcessorPerformancePercent), 25, 125), bins),
+                NiceCeiling(observations.Select(o => o.ProcessorPerformancePercent), 25, 150), bins),
             PerformanceAtlasDimension.ActiveCores => new(dimension, "CORES AWAKE", "cores", 0,
                 Math.Max(1, observations.Select(o => (double?)(o.TotalCores ?? o.ActiveCores)).Where(IsValid).Select(v => v!.Value).DefaultIfEmpty(1).Max()), bins),
             _ => throw new ArgumentOutOfRangeException(nameof(dimension))

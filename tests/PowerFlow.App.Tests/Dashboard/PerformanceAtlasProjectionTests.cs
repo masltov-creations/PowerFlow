@@ -131,8 +131,8 @@ public sealed class PerformanceAtlasProjectionTests
         Assert.Contains(pressureVsCores.Cells, c => c.XBin == 4 && c.YBin == 4 && c.ObservationIndices.SequenceEqual(new[] { 1 }));
 
         var powerVsClock = PerformanceAtlasProjection.Build(observations, PerformanceAtlasDimension.PackagePower, PerformanceAtlasDimension.EffectiveClock, bins: 5);
-        Assert.Equal(100, powerVsClock.XAxis.DomainMax);
-        Assert.Equal(125, powerVsClock.YAxis.DomainMax);
+        Assert.Equal(150, powerVsClock.XAxis.DomainMax);
+        Assert.Equal(150, powerVsClock.YAxis.DomainMax);
     }
 
     [Fact]

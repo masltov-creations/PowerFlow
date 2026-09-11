@@ -84,6 +84,12 @@ public sealed partial class MainWindow : Window
         _tuningViewModel.RestorePersistedTuning(adaptiveSettings.EffectiveTuning);
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        try
+        {
+            var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "PowerFlow.ico");
+            if (System.IO.File.Exists(iconPath)) AppWindow.SetIcon(iconPath);
+        }
+        catch { }
         ApplyTheme(config.Theme);
         ApplyInspectionMotionPreference();
         ViewModel.Configure(config);
@@ -860,13 +866,11 @@ public sealed partial class MainWindow : Window
         return file?.Path;
     }
 
-    private async void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    private void OnNavigationChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         var tag = (args.SelectedItemContainer?.Tag as string) ?? "flow";
         _currentSection = tag;
         PerformanceTimeline.SetTuneMode(tag == "tune");
-        if (tag != "flow" && _shellState is PowerFlowShellState.Glance or PowerFlowShellState.Compact)
-            await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
         var cockpitSection = tag is "flow" or "model" or "tune";
         CockpitSurface.Visibility = cockpitSection ? Visibility.Visible : Visibility.Collapsed;
         RulesPanel.Visibility = tag == "rules" ? Visibility.Visible : Visibility.Collapsed;

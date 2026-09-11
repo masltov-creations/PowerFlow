@@ -13,7 +13,7 @@ public sealed class ModelExplanationProjectionTests
     [Fact]
     public void HighConfidence_CurrentEfficientRegion_ExplainsLearnedDoingAndConfidence()
     {
-        var observation = new OperatingObservation(T0, 35, 42, 3200, 5, 16, EnvelopeZone.Efficient, "chrome.exe", EnvelopeDecisionKind.None);
+        var observation = new OperatingObservation(T0, 35, 42, 3200, 5, 16, EnvelopeZone.Efficient, "chrome.exe", EnvelopeDecisionKind.None, 126);
         var decision = new GovernorDecision(EnvelopeZone.Efficient, EnvelopeZone.Efficient, EnvelopeDecisionKind.None, 0, null, "Holding in Efficient", EnvelopeConfidence.High);
 
         var result = ModelExplanationProjection.Create(Envelope, EnvelopeConfidence.High, observation, Entitlement, decision, manualMode: false);
@@ -26,6 +26,7 @@ public sealed class ModelExplanationProjectionTests
         Assert.NotNull(result.CurrentPoint);
         Assert.Equal(42, result.CurrentPoint!.PackageWatts);
         Assert.Equal(3200, result.CurrentPoint.EffectiveClockMhz);
+        Assert.Equal(126, result.CurrentPoint.ProcessorPerformancePercent);
         Assert.Equal(5, result.CurrentPoint.AwakeCores);
     }
 

@@ -17,7 +17,7 @@ public sealed class PerformanceAtlasContractTests
         })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
 
-        Assert.Contains("PERFORMANCE ATLAS", xaml, StringComparison.Ordinal);
+        Assert.Contains("POWER / PERFORMANCE MODEL", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceAtlasProjection.Build", code, StringComparison.Ordinal);
         Assert.Contains("AtlasSelectionChangedEventArgs", code, StringComparison.Ordinal);
         Assert.Contains("SelectionChanged", code, StringComparison.Ordinal);
@@ -103,9 +103,9 @@ public sealed class PerformanceAtlasContractTests
         foreach (var name in new[] { "WhatLearnedText", "WhatDoingNowText", "ConfidenceExplanationText", "CurrentPointLayer", "YouAreHereLabel", "AtlasUnavailableMessage", "DimensionAvailabilityText" })
             Assert.Contains($"x:Name=\"{name}\"", xaml, StringComparison.Ordinal);
 
-        Assert.Contains("WHAT POWERFLOW LEARNED", xaml, StringComparison.Ordinal);
-        Assert.Contains("WHAT IT IS DOING NOW", xaml, StringComparison.Ordinal);
-        Assert.Contains("HOW SURE IS THIS", xaml, StringComparison.Ordinal);
+        Assert.Contains("LEARNED PATTERN", xaml, StringComparison.Ordinal);
+        Assert.Contains("RIGHT NOW", xaml, StringComparison.Ordinal);
+        Assert.Contains("MODEL CONFIDENCE", xaml, StringComparison.Ordinal);
         Assert.Contains("YOU ARE HERE", xaml, StringComparison.Ordinal);
         Assert.Contains("AvailableDimensions", projection, StringComparison.Ordinal);
         Assert.Contains("ResolveAvailablePair", projection, StringComparison.Ordinal);
