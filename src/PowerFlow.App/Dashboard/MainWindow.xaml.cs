@@ -13,6 +13,7 @@ using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Rules;
 using PowerFlow.Windows.Activity;
+using PowerFlow.Windows.Power;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
 using Windows.UI.ViewManagement;
@@ -53,6 +54,9 @@ public sealed partial class MainWindow : Window
     private bool _candidateLearningPaused;
     private OperatingEnvelope? _candidateFrozenLearnedEnvelope;
     private EnvelopeConfidence? _candidateFrozenConfidence;
+    private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
+    private ProcessorPolicySnapshot? _processorPolicySnapshot;
+    private DateTimeOffset _nextProcessorPolicyReadAt;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
@@ -564,6 +568,7 @@ public sealed partial class MainWindow : Window
         _tuningViewModel.UpdateLearnedContext(learningModel.Envelope, tuningEntitlement, ViewModel.OperatingHistory, _analyticalSelection);
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
         PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
+        PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
         PerformanceTimeline.SetPolicyContext(learningModel.Envelope, tuningEntitlement, _tuningViewModel.CandidateTuning);
         PerformanceTimeline.SetTuneMode(string.Equals(_currentSection, "tune", StringComparison.OrdinalIgnoreCase));
         PerformanceAtlas.Apply(ViewModel.OperatingHistory, learningModel.Envelope);
@@ -641,6 +646,21 @@ public sealed partial class MainWindow : Window
 
     private void OnAtlasHoverChanged(object? sender, AtlasHoverChangedEventArgs e)
         => PerformanceTimeline.SetHoveredObservationIndices(e.ObservationIndices);
+    private ProcessorPolicySnapshot? ReadProcessorPolicySnapshot()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (_processorPolicySnapshot is not null && now < _nextProcessorPolicyReadAt) return _processorPolicySnapshot;
+        try
+        {
+            _processorPolicySnapshot = _processorPolicyController.CaptureActive();
+            _nextProcessorPolicyReadAt = now.AddSeconds(5);
+        }
+        catch
+        {
+            _nextProcessorPolicyReadAt = now.AddSeconds(5);
+        }
+        return _processorPolicySnapshot;
+    }
     private void OnTimelineSelectionChanged(object? sender, TimelineSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
     private void OnAtlasSelectionChanged(object? sender, AtlasSelectionChangedEventArgs e) => UpdateAnalyticalSelection(e.ObservationIndices);
 

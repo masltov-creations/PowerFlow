@@ -90,3 +90,12 @@ Initial candidate ownership is:
 - **time to spike / time to release:** PowerFlow qualification/lease/hysteresis plus the Windows increase/decrease timing controls, tested independently before composition.
 
 No live mutation of these controls is part of v1. Each control must have a snapshot/restore path and isolated stability test before adaptive actuation is allowed to write it.
+### Live actuator sandbox calibration — reference-host / Power Saver
+
+The first reversible live characterization used the compiled `WindowsProcessorPolicyController`, with exact snapshot/readback and `finally` restoration on every run. Baseline values were `CPMINCORES=10` and `PERFEPP=60`.
+
+- EPP-only sweep `60 -> 45 -> 30 -> 60`: delivered capacity stayed about 23-24% and awake frequency stayed about 1746 MHz under the observed workload. This is not sufficient evidence to qualify EPP as an actuator on the current path. reference-host currently reports `PERFAUTONOMOUS=0`; EPP remains HOLD until the performance-state/autonomous path is characterized separately.
+- Core-floor `10 -> 25 -> 50 -> 10`: 25% remained below the organically awake population; 50% only slightly exceeded it, confirming `CPMINCORES` acts as a floor rather than a delivered-capacity command.
+- Core-floor `10 -> 75 -> 10`: awake logical processors moved 14 -> 24 -> 14, delivered capacity moved 22.3% -> 38.2% -> 22.3%, and capacity saturation moved about 49% -> 31-35% -> 52% under roughly comparable demand. This qualifies core-floor control for the next guarded closed-loop stage.
+
+The advisory actuator translator therefore normalizes requested capacity by current percent-of-maximum-frequency to estimate a required logical-processor floor, uses a 3-point delivery deadband, rises at no more than 15 core-floor percentage points per control step, and releases at no more than 10 points per step. EPP is explicitly held.

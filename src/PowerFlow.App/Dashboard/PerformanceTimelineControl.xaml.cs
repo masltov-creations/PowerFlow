@@ -5,8 +5,10 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Shapes;
 using PowerFlow.App.Telemetry;
+using PowerFlow.App.Controller;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Windows.Activity;
+using PowerFlow.Windows.Power;
 using Windows.Foundation;
 
 namespace PowerFlow.App.Dashboard;
@@ -49,6 +51,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
     private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
     private GraduatedCapacityTimelineData _capacityTimeline = GraduatedCapacityTimelineData.Empty;
+    private ProcessorPolicySnapshot? _processorPolicySnapshot;
 
     public PerformanceTimelineControl()
     {
@@ -98,6 +101,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
         RequestRedraw();
     }
 
+    public void SetProcessorPolicySnapshot(ProcessorPolicySnapshot? snapshot)
+    {
+        _processorPolicySnapshot = snapshot;
+        UpdateCoreStateLabel();
+    }
     public void SetPolicyContext(OperatingEnvelope learnedEnvelope, PerformanceEntitlement learnedEntitlement, EnvelopeTuning candidateTuning)
     {
         ArgumentNullException.ThrowIfNull(learnedEnvelope);
@@ -885,7 +893,20 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var capacityDetail = capacity is null
             ? string.Empty
             : $" Requested {capacity.RequestedCapacityPercent:0.0}%, delivered {capacity.DeliveredCapacityPercent:0.0}%, ideal {capacity.IdealCapacityPercent:0.0}%, target saturation {capacity.TargetSaturationPercent:0.0}%, ramp {capacity.RampPercentPerSecond:+0.0;-0.0;0.0}%/s, sustained {capacity.SustainedPressurePercent:0.0}%, burst age {capacity.BurstAgeSeconds:0.0}s ({capacity.Driver}).";
-        ToolTipService.SetToolTip(CoresValueText, $"Active / awake-idle / parked physical cores: {latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}. Active cells vary in intensity by core load: <25%, 25-49%, 50-74%, 75%+. Current awake-core load averages {latest.AverageAwakeLoadPercent:0}%{frequency}{maxFrequency}.{capacityDetail}");
+        var actuatorDetail = string.Empty;
+        if (_processorPolicySnapshot is not null && capacity is not null)
+        {
+            var actuatorPlan = GraduatedProcessorPolicyPlanner.Plan(
+                capacity.RequestedCapacityPercent,
+                capacity.DeliveredCapacityPercent,
+                latest.AverageAwakePercentOfMaximumFrequency,
+                _processorPolicySnapshot);
+            var floorAction = actuatorPlan.NextCoreFloorPercent == actuatorPlan.CurrentCoreFloorPercent
+                ? $"core floor HOLD {actuatorPlan.CurrentCoreFloorPercent}%"
+                : $"core floor {actuatorPlan.CurrentCoreFloorPercent}% -> {actuatorPlan.NextCoreFloorPercent}% (estimated requirement {actuatorPlan.EstimatedRequiredCoreFloorPercent:0}%)";
+            actuatorDetail = $" Actuator dry-run: {floorAction}; EPP HOLD {actuatorPlan.CurrentEnergyPerformancePreferencePercent}%. {actuatorPlan.Reason}";
+        }
+        ToolTipService.SetToolTip(CoresValueText, $"Active / awake-idle / parked physical cores: {latest.ActiveCores} / {latest.AwakeIdleCores} / {latest.ParkedCores}. Active cells vary in intensity by core load: <25%, 25-49%, 50-74%, 75%+. Current awake-core load averages {latest.AverageAwakeLoadPercent:0}%{frequency}{maxFrequency}.{capacityDetail}{actuatorDetail}");
     }
 
     private DemandPressureTelemetry? LatestDemandPressure()
