@@ -6,6 +6,12 @@ PowerFlow watches the machine, explains what it is doing, and chooses the least-
 
 PowerFlow does not expose experimental model editors, advisory-only service policy, raw Windows power-plan mapping, or a second competing Auto controller.
 
+## Current UI
+
+![PowerFlow Live dashboard with a fully populated 60-second telemetry graph](docs/assets/powerflow-fullscreen.png)
+
+This is the current qualified full-screen **Live** view, captured after the complete 60-second telemetry window had populated. The repository keeps this as the single canonical product screenshot so visual documentation does not drift behind the running app.
+
 ## Product model
 
 PowerFlow has two kinds of authority:
