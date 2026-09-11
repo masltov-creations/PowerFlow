@@ -42,6 +42,8 @@ AUTO has one authority path:
 
 `telemetry -> adaptive envelope -> entitlement/confidence gate -> semantic zone -> PowerFlow profile -> verified Windows/profile actuation`
 
+Live deliberately separates **MODEL ZONE** from the **applied PowerFlow profile**. MODEL ZONE is the envelope's interpretation of demand and may change while the governor qualifies, leases, or brakes. The applied profile is the real SAVER / BAL-E / BAL-P / PERF / ULTRA processor policy currently written to Windows.
+
 The semantic mapping is fixed:
 
 - Eco -> SAVER

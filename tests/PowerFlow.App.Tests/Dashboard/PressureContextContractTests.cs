@@ -13,7 +13,7 @@ public sealed class PressureContextContractTests
         Assert.Contains("x:Name=\"CpuThresholdText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("DrawPressureContext", code, StringComparison.Ordinal);
         Assert.Contains("PressureZoneProjection.Build", code, StringComparison.Ordinal);
-        Assert.Contains("Actual governor pressure is current CPU utilization", code, StringComparison.Ordinal);
+        Assert.Contains("Model-zone pressure uses current CPU utilization", code, StringComparison.Ordinal);
         Assert.Contains("if (!_tuneMode && rail.Metric == PerformanceTimelineMetric.CpuPressure) continue", code, StringComparison.Ordinal);
     }
 

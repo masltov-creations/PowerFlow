@@ -55,13 +55,14 @@ public sealed partial class MainWindow : Window
     private readonly Func<GraduatedCoreActuatorStatus?>? _coreActuatorStatusProvider;
     private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
     private readonly MachineBaselineSessionRuntime? _machineBaselineSession;
+    private readonly Func<PowerFlowOperatingMode?>? _currentProfileProvider;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null, Func<PowerFlowOperatingMode?>? currentProfileProvider = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -72,6 +73,7 @@ public sealed partial class MainWindow : Window
         _coreActuatorStatusProvider = coreActuatorStatusProvider;
         _applyOperatingMode = applyOperatingMode;
         _machineBaselineSession = machineBaselineSession;
+        _currentProfileProvider = currentProfileProvider;
         _config = config;
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
@@ -547,31 +549,19 @@ public sealed partial class MainWindow : Window
             ? "LEARNING"
             : $"{learningModel.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
         EnvelopeSummaryText.Text = learningModel.Envelope.EfficientPowerFrontierWatts is double frontier
-            ? $"{ViewModel.GovernorDryRunLabel} · frontier near {frontier:0} W · {ViewModel.GovernorDryRunExplanation}"
-            : $"{ViewModel.GovernorDryRunLabel} · {ViewModel.GovernorDryRunExplanation}";
+            ? $"{ViewModel.GovernorModelLabel} · frontier near {frontier:0} W · {ViewModel.GovernorModelExplanation}"
+            : $"{ViewModel.GovernorModelLabel} · {ViewModel.GovernorModelExplanation}";
 
         var actor = ShortActor(snapshot.TriggerApplication);
         SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;
         var manualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
-        DecisionStateText.Text = manualAuthority
-            ? _manualModeSelection switch
-            {
-                PowerModeSelection.Eco => "SAVER",
-                PowerModeSelection.Efficient => "BALANCED EFFICIENT",
-                PowerModeSelection.Responsive => "BALANCED PERFORMANCE",
-                PowerModeSelection.Boost => "PERFORMANCE",
-                PowerModeSelection.Ultra => "ULTRA",
-                _ => "MANUAL"
-            }
-            : snapshot.IsLatched
-                ? $"{(snapshot.LatchType ?? "LOCK").ToUpperInvariant()}"
-                : snapshot.State switch
-                {
-                    PowerState.PowerSaver => "ECO",
-                    PowerState.Balanced => "EFFICIENT",
-                    PowerState.HighPerformance => "BOOST",
-                    _ => "OBSERVING"
-                };
+        var currentProfile = _currentProfileProvider?.Invoke();
+        if (snapshot.IsLatched && !manualAuthority)
+            DecisionStateText.Text = (snapshot.LatchType ?? "LOCK").ToUpperInvariant();
+        else if (currentProfile is PowerFlowOperatingMode profile)
+            DecisionStateText.Text = $"{(manualAuthority ? "MANUAL" : "AUTO")} / {AppliedProfileLabel(profile)}";
+        else
+            DecisionStateText.Text = manualAuthority ? "MANUAL" : "AUTO / OBSERVING";
         DecisionExplanationText.Text = string.IsNullOrWhiteSpace(snapshot.Reason) ? "Observing demand and machine response" : snapshot.Reason;
         var selectedMode = manualAuthority
             ? _manualModeSelection != PowerModeSelection.Auto
@@ -587,6 +577,15 @@ public sealed partial class MainWindow : Window
         SystemHeaderHost.SetModeSelection(selectedMode, manualAuthority, activationError);
     }
 
+    private static string AppliedProfileLabel(PowerFlowOperatingMode mode) => mode switch
+    {
+        PowerFlowOperatingMode.Saver => "SAVER",
+        PowerFlowOperatingMode.Balanced => "BAL-E",
+        PowerFlowOperatingMode.BalancedPerformance => "BAL-P",
+        PowerFlowOperatingMode.Performance => "PERF",
+        PowerFlowOperatingMode.Ultra => "ULTRA",
+        _ => mode.ToString().ToUpperInvariant()
+    };
     private async void OnModeRequested(object? sender, PowerModeRequestedEventArgs e)
     {
         try

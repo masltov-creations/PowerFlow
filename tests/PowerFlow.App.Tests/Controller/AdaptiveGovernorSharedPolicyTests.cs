@@ -42,7 +42,7 @@ public sealed class AdaptiveGovernorSharedPolicyTests
     }
 
     [Fact]
-    public void DashboardDryRun_UsesSamePersistedFrozenModelAndSavedTuning()
+    public void DashboardModelProjection_UsesSamePersistedFrozenModelAndSavedTuning()
     {
         var config = Config();
         var vm = new DashboardViewModel();
@@ -56,7 +56,7 @@ public sealed class AdaptiveGovernorSharedPolicyTests
 
         Assert.NotEmpty(vm.OperatingHistory);
         Assert.All(vm.OperatingHistory, observation => Assert.Equal(EnvelopeZone.Efficient, observation.Zone));
-        Assert.Contains("override", vm.GovernorDryRunExplanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("override", vm.GovernorModelExplanation, StringComparison.OrdinalIgnoreCase);
     }
 
     private static PowerFlowConfig Config() => PowerFlowConfig.Default with

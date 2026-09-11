@@ -487,7 +487,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     {
         var context = PressureZoneProjection.Build(_learnedEnvelope, _candidateTuning);
         CpuThresholdText.Text = $"T {context.EcoThreshold:0}/{context.EfficientThreshold:0}/{context.ResponsiveThreshold:0}";
-        var explanation = $"Actual governor pressure is current CPU utilization on a 0-100% scale. Thresholds: Eco {context.EcoThreshold:0}%, Efficient {context.EfficientThreshold:0}%, Responsive {context.ResponsiveThreshold:0}%; above Responsive is Boost.";
+        var explanation = $"Model-zone pressure uses current CPU utilization on a 0-100% scale. Thresholds: Eco {context.EcoThreshold:0}%, Efficient {context.EfficientThreshold:0}%, Responsive {context.ResponsiveThreshold:0}%; above Responsive is Boost.";
         ToolTipService.SetToolTip(CpuPressureLabel, explanation);
         ToolTipService.SetToolTip(CpuThresholdText, explanation);
     }
@@ -911,13 +911,13 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var actor = ShortActor(latest.Actor);
         var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" - {actor}";
         var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" - {latest.Decision.ToString().ToUpperInvariant()}";
-        GlanceSummary.Text = $"{latest.Zone.ToString().ToUpperInvariant()} - {PowerValueText.Text} - {ClockValueText.Text} - {CoresValueText.Text}{actorPart}{decisionPart}";
+        GlanceSummary.Text = $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - {PowerValueText.Text} - {ClockValueText.Text} - {CoresValueText.Text}{actorPart}{decisionPart}";
         EnvelopeBadgeText.Text = latest.Decision switch
         {
-            EnvelopeDecisionKind.Brake => $"{latest.Zone.ToString().ToUpperInvariant()} - BRAKING",
-            EnvelopeDecisionKind.Lease => $"{latest.Zone.ToString().ToUpperInvariant()} - LEASE",
-            EnvelopeDecisionKind.Qualifying => $"{latest.Zone.ToString().ToUpperInvariant()} - QUALIFYING",
-            _ => latest.Zone.ToString().ToUpperInvariant()
+            EnvelopeDecisionKind.Brake => $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - BRAKING",
+            EnvelopeDecisionKind.Lease => $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - LEASE",
+            EnvelopeDecisionKind.Qualifying => $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - QUALIFYING",
+            _ => $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()}"
         };
     }
 

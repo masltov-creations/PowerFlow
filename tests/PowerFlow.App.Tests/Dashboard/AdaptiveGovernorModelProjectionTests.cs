@@ -9,7 +9,7 @@ using Xunit;
 
 namespace PowerFlow.App.Tests.Dashboard;
 
-public sealed class AdaptiveGovernorDryRunTests
+public sealed class AdaptiveGovernorModelProjectionTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 9, 9, 21, 0, 0, TimeSpan.Zero);
 
@@ -28,7 +28,7 @@ public sealed class AdaptiveGovernorDryRunTests
     }
 
     [Fact]
-    public void AppCeilingDryRunProducesBrakeEvidenceWithoutChangingControllerSnapshot()
+    public void AppCeilingModelProjectionProducesBrakeEvidenceWithoutChangingControllerSnapshot()
     {        var rule = new AppRule("render.exe", AppRuleMode.Performance, "Render", true, Entitlement: null, Importance: AppImportance.Low);
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlowConfig.Default with { AppRules = new[] { rule } });
@@ -39,13 +39,13 @@ public sealed class AdaptiveGovernorDryRunTests
         var observation = Assert.Single(vm.OperatingHistory);
         Assert.Equal(EnvelopeDecisionKind.Brake, observation.Decision);
         Assert.Equal(EnvelopeZone.Efficient, observation.Zone);
-        Assert.Contains("ceiling", vm.GovernorDryRunExplanation, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("BRAKE", vm.GovernorDryRunLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ceiling", vm.GovernorModelExplanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("BRAKE", vm.GovernorModelLabel, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(PowerState.Balanced, snapshot.State);
     }
 
     [Fact]
-    public void HighConfidenceHistoryDryRunShowsQualifyingThenLeaseUsingSameRetainedSamples()
+    public void HighConfidenceHistoryModelProjectionShowsQualifyingThenLeaseUsingSameRetainedSamples()
     {
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlowConfig.Default);
@@ -61,12 +61,12 @@ public sealed class AdaptiveGovernorDryRunTests
         Assert.Equal(125, vm.OperatingHistory.Count);
         Assert.Contains(vm.OperatingHistory.Take(5), x => x.Decision == EnvelopeDecisionKind.Qualifying);
         Assert.Contains(vm.OperatingHistory.Skip(4), x => x.Decision == EnvelopeDecisionKind.Lease);
-        Assert.Contains("LEASE", vm.GovernorDryRunLabel, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("lease", vm.GovernorDryRunExplanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LEASE", vm.GovernorModelLabel, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lease", vm.GovernorModelExplanation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void DryRunSourceContractKeepsRealControllerAuthoritative()
+    public void ModelProjectionSourceContractKeepsRealControllerAuthoritative()
     {
         var root = RepoRoot();
         var vm = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "DashboardViewModel.cs"));
@@ -76,6 +76,22 @@ public sealed class AdaptiveGovernorDryRunTests
         Assert.DoesNotContain("PowerPlanController", vm, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void LiveSurface_DistinguishesModelZonesFromActualAppliedProfile()
+    {
+        var root = RepoRoot();
+        var vm = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "DashboardViewModel.cs"));
+        var window = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"));
+        var timeline = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs"));
+        var app = File.ReadAllText(Path.Combine(root, "src", "PowerFlow.App", "App.xaml.cs"));
+
+        Assert.DoesNotContain("DRY RUN", vm, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GovernorDryRun", vm, StringComparison.Ordinal);
+        Assert.DoesNotContain("GovernorDryRun", window, StringComparison.Ordinal);
+        Assert.Contains("MODEL ZONE", timeline, StringComparison.Ordinal);
+        Assert.Contains("_currentProfileProvider", window, StringComparison.Ordinal);
+        Assert.Contains("_powerModeProfileRuntime.CurrentProfile?.Mode", app, StringComparison.Ordinal);
+    }
     private static ControllerSnapshot Snapshot(PowerState state, double cpu, DateTimeOffset at, string? actor) =>
         new(state, "controller remains authoritative", false, null, cpu, 0, null, actor, at, Array.Empty<TransitionRecord>(), 0, 0);
 
@@ -87,7 +103,7 @@ public sealed class AdaptiveGovernorDryRunTests
     }
 
     [Fact]
-    public void LatestGovernorDecision_IsTheDecisionBehindDryRunPresentation()
+    public void LatestGovernorDecision_IsTheDecisionBehindModelProjection()
     {
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlow.Core.Rules.PowerFlowConfig.Default);
@@ -125,7 +141,7 @@ public sealed class AdaptiveGovernorDryRunTests
         vm.UpdateContinuity(snapshot, continuity, null);
 
         Assert.NotNull(vm.LatestGovernorDecision);
-        Assert.Equal(vm.LatestGovernorDecision!.Explanation, vm.GovernorDryRunExplanation);
+        Assert.Equal(vm.LatestGovernorDecision!.Explanation, vm.GovernorModelExplanation);
         Assert.Equal(vm.OperatingHistory[^1].Decision, vm.LatestGovernorDecision.Kind);
         Assert.Equal(vm.OperatingHistory[^1].Zone, vm.LatestGovernorDecision.AllowedZone);
     }}

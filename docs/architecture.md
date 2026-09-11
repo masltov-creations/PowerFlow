@@ -33,6 +33,8 @@ New Low/Normal/High app-importance rules are excluded from the legacy game-latch
 
 The adaptive envelope is an internal decision mechanism used by AUTO and explained on Live. It is not a separate user product.
 
+The Live shell must not present projected envelope zones as applied power modes. Projected observations are labeled **MODEL ZONE**; the applied-profile readout comes from PowerModeProfileRuntime.CurrentProfile and is the authoritative SAVER / BAL-E / BAL-P / PERF / ULTRA state.
+
 Current app startup canonicalizes legacy persisted adaptive tuning to learned/default behavior and unpauses learning. This prevents removed Tune Auto controls from leaving invisible policy behind. The config shape remains tolerant of legacy fields so older JSON can be read and migrated safely.
 
 ## Workload policy

@@ -18,8 +18,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     private PowerFlowConfig _config = PowerFlowConfig.Default;
     private DateTimeOffset? _lastSampleAt;
     private IReadOnlyList<TransitionRecord> _history = Array.Empty<TransitionRecord>();
-    private string _governorDryRunLabel = "DRY RUN · OBSERVING";
-    private string _governorDryRunExplanation = "Waiting for retained observations";
+    private string _governorModelLabel = "MODEL ZONE · OBSERVING";
+    private string _governorModelExplanation = "Waiting for retained observations";
     private GovernorDecision? _latestGovernorDecision;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -104,8 +104,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> RecentEventLines => _history.Take(4).Select(FormatTransition).ToArray();
     public IReadOnlyList<DashboardSample> Samples => _samples;
     public IReadOnlyList<OperatingObservation> OperatingHistory => _operatingHistory;
-    public string GovernorDryRunLabel => _governorDryRunLabel;
-    public string GovernorDryRunExplanation => _governorDryRunExplanation;
+    public string GovernorModelLabel => _governorModelLabel;
+    public string GovernorModelExplanation => _governorModelExplanation;
     public GovernorDecision? LatestGovernorDecision => _latestGovernorDecision;
     public double PromotionThresholdPercent => _config.CpuPromotionThresholdPercent;
     public double QuietThresholdPercent => _config.QuietThresholdPercent;
@@ -178,8 +178,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
             .ToArray();
         if (raw.Length == 0)
         {
-            _governorDryRunLabel = "DRY RUN · OBSERVING";
-            _governorDryRunExplanation = "Waiting for retained observations";
+            _governorModelLabel = "MODEL ZONE · OBSERVING";
+            _governorModelExplanation = "Waiting for retained observations";
             return;
         }
 
@@ -192,7 +192,7 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         GovernorDecision? latest = null;
         foreach (var observation in raw)
         {
-            var entitlement = tuning.ApplyTo(ResolveDryRunEntitlement(observation.Actor));
+            var entitlement = tuning.ApplyTo(ResolveModelEntitlement(observation.Actor));
             var decision = governor.Evaluate(observation, effectiveEnvelope, entitlement, observation.At, learningModel.Confidence, tuning.ManualOverrideZone);
             latest = decision;
             _operatingHistory.Add(new OperatingObservation(
@@ -208,25 +208,25 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
                 observation.ProcessorPerformancePercent));
         }
 
-        _governorDryRunLabel = latest!.Kind switch
+        _governorModelLabel = latest!.Kind switch
         {
-            EnvelopeDecisionKind.Brake => "DRY RUN · BRAKE",
-            EnvelopeDecisionKind.Qualifying => "DRY RUN · QUALIFYING",
-            EnvelopeDecisionKind.Lease => "DRY RUN · LEASE",
-            _ => $"DRY RUN · {latest.AllowedZone.ToString().ToUpperInvariant()}"
+            EnvelopeDecisionKind.Brake => "MODEL ZONE · BRAKE",
+            EnvelopeDecisionKind.Qualifying => "MODEL ZONE · QUALIFYING",
+            EnvelopeDecisionKind.Lease => "MODEL ZONE · LEASE",
+            _ => $"MODEL ZONE · {latest.AllowedZone.ToString().ToUpperInvariant()}"
         };
         _latestGovernorDecision = latest;
-        _governorDryRunExplanation = latest.Explanation;
+        _governorModelExplanation = latest.Explanation;
     }
 
-    private PerformanceEntitlement ResolveDryRunEntitlement(string? actor)
+    private PerformanceEntitlement ResolveModelEntitlement(string? actor)
     {
         if (string.IsNullOrWhiteSpace(actor)) return PerformanceEntitlement.LegacyPerformance;
-        var rule = _config.AppRules.FirstOrDefault(candidate => DryRunActorMatches(candidate.ExecutablePath, actor));
+        var rule = _config.AppRules.FirstOrDefault(candidate => ModelActorMatches(candidate.ExecutablePath, actor));
         return rule?.EffectiveEntitlement ?? PerformanceEntitlement.LegacyPerformance;
     }
 
-    private static bool DryRunActorMatches(string executablePath, string actor)
+    private static bool ModelActorMatches(string executablePath, string actor)
     {
         if (string.Equals(executablePath, actor, StringComparison.OrdinalIgnoreCase)) return true;
         try { return string.Equals(Path.GetFileName(executablePath), Path.GetFileName(actor), StringComparison.OrdinalIgnoreCase); }
@@ -243,8 +243,8 @@ public sealed class DashboardViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WattsLabel));
         OnPropertyChanged(nameof(FrequencyLabel));
         OnPropertyChanged(nameof(OperatingHistory));
-        OnPropertyChanged(nameof(GovernorDryRunLabel));
-        OnPropertyChanged(nameof(GovernorDryRunExplanation));
+        OnPropertyChanged(nameof(GovernorModelLabel));
+        OnPropertyChanged(nameof(GovernorModelExplanation));
         OnPropertyChanged(nameof(MemoryPercent));
         OnPropertyChanged(nameof(MemoryLabel));
         OnPropertyChanged(nameof(MachineLabel));

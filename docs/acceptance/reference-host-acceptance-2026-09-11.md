@@ -59,5 +59,6 @@ This record proves the 2026-09-11 behavior and restoration gates. Older UI scree
 - Relaunched the qualified Release build on reference-host with --fullscreen on September 11, 2026.
 - Confirmed the visible PowerFlow window and allowed more than 60 seconds of live telemetry to accumulate before capture, matching the Live timeline's 60-second window.
 - Refreshed docs/assets/powerflow-fullscreen.png at 1936x1048 from the populated Live view.
-- Screenshot SHA-256: 487f1db15ee3319d5a4d85285d68084b669ba6597ccf612ffe0f50c70835838e.
+- Screenshot SHA-256: e0dcb76d67c6dcb7cc44b58a28ff4542ff491b1bb405865742b85c829488fc78.
 - PowerFlow remained responsive after capture; no launch-only frame was used.
+- The refreshed Live UI explicitly labels projected envelope state as **MODEL ZONE** and separately reports the actual applied PowerFlow profile (`AUTO / SAVER`, `AUTO / BAL-E`, `AUTO / BAL-P`, or `AUTO / PERF`; ULTRA remains manual-only). This prevents model-zone motion from being mistaken for verified profile switching.
