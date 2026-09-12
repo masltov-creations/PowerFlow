@@ -43,6 +43,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private HashSet<int> _selectedObservationIndices = [];
     private HashSet<int> _linkedHoveredObservationIndices = [];
     private OperatingEnvelope _learnedEnvelope = DefaultEnvelope;
+    private OperatingEnvelope? _shadowEnvelope;
     private PerformanceEntitlement _learnedEntitlement = PerformanceEntitlement.LegacyPerformance;
     private EnvelopeTuning _candidateTuning = EnvelopeTuning.Learned;
     private bool _tuneMode;
@@ -174,6 +175,11 @@ public sealed partial class PerformanceTimelineControl : UserControl
         RequestRedraw();
     }
 
+    public void SetShadowPolicyContext(OperatingEnvelope? envelope)
+    {
+        _shadowEnvelope = envelope;
+        RequestRedraw();
+    }
     public void SetTuneMode(bool enabled)
     {
         _tuneMode = enabled;
@@ -525,8 +531,31 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var line = AddLine(GridLayer, 0, y, _plotWidth, y, PolicyBrush(item.Item1, true), .9);
             line.Opacity = .42;
         }
+        DrawShadowEnvelope(top, laneHeight);
     }
 
+    private void DrawShadowEnvelope(double top, double laneHeight)
+    {
+        if (_shadowEnvelope is null || _plotWidth <= 1 || laneHeight <= 1) return;
+        var innerTop = top + 4d;
+        var innerHeight = Math.Max(1d, laneHeight - 8d);
+        double Y(double percent) => innerTop + (1d - Math.Clamp(percent / 100d, 0d, 1d)) * innerHeight;
+        var ghost = ActualTheme == ElementTheme.Light
+            ? Brush(102, 78, 160, 150)
+            : Brush(198, 166, 255, 155);
+        foreach (var threshold in new[]
+        {
+            _shadowEnvelope.EcoCeilingPressure,
+            _shadowEnvelope.EfficientCeilingPressure,
+            _shadowEnvelope.ResponsiveCeilingPressure
+        })
+        {
+            var line = AddLine(GridLayer, 0, Y(threshold), _plotWidth, Y(threshold), ghost, 1.15);
+            line.StrokeDashArray = new DoubleCollection { 4d, 3d };
+            line.Opacity = .68;
+            line.IsHitTestVisible = false;
+        }
+    }
     private void UpdatePressureContextLabel()
     {
         var context = PressureZoneProjection.Build(_learnedEnvelope, _candidateTuning);
