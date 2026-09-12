@@ -331,6 +331,7 @@ public sealed partial class MainWindow : Window
         ApplyShellTransitionFrame(compactProfile, expandedProfile, progress, reducedMotion: false);
         SystemHeaderHost.ShowBrand = true;
         SystemHeaderHost.ApplyBrandMorph(1d - progress);
+        ApplyDisclosureProgress(ShellDisclosurePolicy.Progress(size, _shellState), settled: false);
     }
 
     private void CommitResizePresentation(ShellLogicalSize size)
@@ -364,13 +365,14 @@ public sealed partial class MainWindow : Window
         PrepareShellTransition(compactProfile, expandedProfile);
         ApplyShellGeometryMorph(compactProfile, expandedProfile, progress);
         ApplyShellTransitionFrame(compactProfile, expandedProfile, progress, reducedMotion: false);
+        ApplyDisclosureProgress(ShellDisclosurePolicy.Progress(new ShellLogicalSize(width, height), state), settled: false);
 
         SystemHeaderHost.ShowBrand = true;
         SystemHeaderHost.ApplyBrandMorph(1d - progress);
         CompactButton.Visibility = Visibility.Visible;
         CompactButton.Opacity = progress;
         CompactButton.IsHitTestVisible = progress >= .6d;
-        PresentationToggleButton.Content = progress < .5d ? "EXPAND" : "FULL SCREEN";
+        PresentationToggleButton.Content = progress < .5d ? "EXPAND" : "WORKSPACE";
     }
 
     private void ApplyShellLayout(PowerFlowShellState state, int width, int height)
@@ -429,6 +431,7 @@ public sealed partial class MainWindow : Window
         CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
         CockpitSurface.RowSpacing = profile.Geometry.Gap;
         SystemHeaderRow.ColumnSpacing = profile.Geometry.Gap;
+        SystemHeaderRow.Margin = new Thickness(profile.Geometry.ContentPadding, 0, profile.Geometry.ContentPadding, 0);
         AdaptiveControlRegion.ColumnSpacing = profile.Geometry.Gap;
 
         SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
@@ -441,10 +444,7 @@ public sealed partial class MainWindow : Window
             _ => new GridLength(Math.Max(132, profile.Geometry.ControlBandHeight + 18))
         };
         AdaptiveControlRegion.Visibility = profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
-        GovernorDetailPanel.Visibility = profile.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep ? Visibility.Visible : Visibility.Collapsed;
-        GovernorDetailPanel.Opacity = GovernorDetailPanel.Visibility == Visibility.Visible ? 1d : 0d;
-        SelectedActorPanel.Visibility = profile.GovernorControls == GovernorControlPresentation.Bias && width < 680 ? Visibility.Collapsed : Visibility.Visible;
-        FooterRowDefinition.Height = state == PowerFlowShellState.FullScreen || _layoutDensity == ShellDensity.Expanded ? GridLength.Auto : new GridLength(0);
+        ApplyDisclosureProgress(ShellDisclosurePolicy.Progress(new ShellLogicalSize(width, height), state), settled: true);
     }
     private RectInt32 ResolveTargetBounds(PowerFlowShellState state)
     {
@@ -506,6 +506,8 @@ public sealed partial class MainWindow : Window
         var toLogical = LogicalSize(target);
         var fromProfile = PowerFlowShellLayout.Resolve(fromLogical.Width, fromLogical.Height, fromState, _currentSection, fromState is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
         var toProfile = PowerFlowShellLayout.Resolve(toLogical.Width, toLogical.Height, toState, _currentSection, toState is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
+        _motionFromDisclosure = ShellDisclosurePolicy.Progress(fromLogical, fromState);
+        _motionToDisclosure = ShellDisclosurePolicy.Progress(toLogical, toState);
 
         if (duration == TimeSpan.Zero || effectiveStart.Equals(target))
         {
@@ -568,6 +570,8 @@ public sealed partial class MainWindow : Window
         AppWindow.MoveAndResize(frame.Bounds);
         ApplyShellGeometryMorph(_motionFromProfile, _motionToProfile, frame.Sample.Progress);
         ApplyShellTransitionFrame(_motionFromProfile, _motionToProfile, frame.ChildSample.Progress, reducedMotion: false);
+        var disclosure = Lerp(_motionFromDisclosure, _motionToDisclosure, Math.Clamp(frame.ChildSample.Progress, 0d, 1d));
+        ApplyDisclosureProgress(disclosure, settled: false);
         ApplyMaterialResponse(frame.Sample, frame.ChildSample);
         if (!frame.IsComplete) return;
 
@@ -576,6 +580,7 @@ public sealed partial class MainWindow : Window
         var finalLogical = LogicalSize(frame.Bounds);
         ApplyShellLayout(_motionToState, finalLogical.Width, finalLogical.Height);
         ResetSemanticMorphPresentation(_motionToProfile);
+        ApplyDisclosureProgress(_motionToDisclosure, settled: true);
         ResetMaterialResponse();
         var completion = _motionCompletion;
         _motionCompletion = null;
@@ -611,10 +616,6 @@ public sealed partial class MainWindow : Window
 
         if (from.GovernorControls != GovernorControlPresentation.Summary || to.GovernorControls != GovernorControlPresentation.Summary)
             AdaptiveControlRegion.Visibility = Visibility.Visible;
-        var fromDetail = from.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
-        var toDetail = to.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
-        if (fromDetail || toDetail) GovernorDetailPanel.Visibility = Visibility.Visible;
-        if (ShowsFooter(from) || ShowsFooter(to)) FooterRowDefinition.Height = GridLength.Auto;
     }
 
     private void ApplyShellGeometryMorph(ShellPresentationProfile from, ShellPresentationProfile to, double progress)
@@ -624,6 +625,7 @@ public sealed partial class MainWindow : Window
         CockpitSurface.Padding = new Thickness(geometry.ContentPadding);
         CockpitSurface.RowSpacing = geometry.Gap;
         SystemHeaderRow.ColumnSpacing = geometry.Gap;
+        SystemHeaderRow.Margin = new Thickness(geometry.ContentPadding, 0, geometry.ContentPadding, 0);
         AdaptiveControlRegion.ColumnSpacing = geometry.Gap;
         SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, geometry.HeaderHeight));
         AdaptiveControlRowDefinition.Height = new GridLength(Math.Max(0, Lerp(ControlBandHeight(from), ControlBandHeight(to), t)));
@@ -631,13 +633,7 @@ public sealed partial class MainWindow : Window
         var fromControls = from.GovernorControls != GovernorControlPresentation.Summary;
         var toControls = to.GovernorControls != GovernorControlPresentation.Summary;
         AdaptiveControlRegion.Opacity = fromControls == toControls ? 1d : toControls ? t : 1d - t;
-        var fromDetail = from.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
-        var toDetail = to.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
-        GovernorDetailPanel.Opacity = fromDetail == toDetail ? (toDetail ? 1d : 0d) : toDetail ? t : 1d - t;
 
-        var fromFooter = ShowsFooter(from);
-        var toFooter = ShowsFooter(to);
-        StatusFooter.Opacity = fromFooter == toFooter ? 1d : toFooter ? t : 1d - t;
 
         var paneWidth = Math.Max(0d, geometry.NavigationWidth);
         if (from.Navigation == NavigationPresentation.Rail || to.Navigation == NavigationPresentation.Rail)
@@ -712,7 +708,7 @@ public sealed partial class MainWindow : Window
     {
         SystemHeaderHost.ApplyMorph(target.Header, target.Header, 1d, reducedMotion: true);
         PerformanceTimeline.SetPresentation(target.Timeline);
-        foreach (var element in new UIElement[] { PresentationActions, NavigationRail, StatusFooter, AdaptiveControlRegion, SectionHost })
+        foreach (var element in new UIElement[] { PresentationActions, NavigationRail, AdaptiveControlRegion, SectionHost })
         {
             element.Opacity = 1d;
             ElementCompositionPreview.GetElementVisual(element).Offset = Vector3.Zero;

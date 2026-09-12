@@ -20,17 +20,20 @@
                 </NavigationView.MenuItems>
                 <NavigationView.FooterMenuItems><NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem></NavigationView.FooterMenuItems>
                 <Grid x:Name="SectionHost">
-                    <Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
-                        <Grid.RowDefinitions><RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/><RowDefinition x:Name="TimelineRowDefinition" Height="*"/><RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/><RowDefinition x:Name="FooterRowDefinition" Height="Auto"/></Grid.RowDefinitions>
-                        <Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
+                    <Grid.RowDefinitions><RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+<Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <Border x:Name="DragSurface" Grid.ColumnSpan="2" Height="10" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent"/>
                             <dash:ShellHeaderControl x:Name="SystemHeaderHost" Margin="0,10,0,0" RulesRequested="OnHeaderRulesRequested" SettingsRequested="OnHeaderSettingsRequested"/>
                             <StackPanel x:Name="PresentationActions" Grid.Column="1" Margin="0,10,0,0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" MinHeight="34" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" MinHeight="34" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
                         </Grid>
-                        <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="1"><dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/></Grid>
-                        <Grid x:Name="AdaptiveControlRegion" Grid.Row="2" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.05*"/><ColumnDefinition Width="0.95*"/></Grid.ColumnDefinitions>
+                    <Grid x:Name="SectionContentHost" Grid.Row="1">
+<Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
+                        <Grid.RowDefinitions><RowDefinition x:Name="TimelineRowDefinition" Height="*"/><RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/><RowDefinition x:Name="FooterRowDefinition" Height="Auto"/></Grid.RowDefinitions>
+
+                        <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="0"><dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/></Grid>
+                        <Grid x:Name="AdaptiveControlRegion" Grid.Row="1" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions><ColumnDefinition x:Name="GovernorModelColumn" Width="1.05*"/><ColumnDefinition x:Name="ActorContextColumn" Width="0.95*"/></Grid.ColumnDefinitions>
                             <Border x:Name="MachineEnvelopePanel" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="9,4">
                                 <Grid RowSpacing="1">
                                     <Grid.RowDefinitions>
@@ -84,11 +87,12 @@
                             </Border>
                             <Border x:Name="SelectedActorPanel" Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9"><Grid RowSpacing="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="CURRENT ACTOR" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/><TextBlock x:Name="DecisionStateText" Grid.Column="1" Text="OBSERVING" FontSize="11" FontWeight="SemiBold"/></Grid><TextBlock x:Name="SelectedActorNameText" Grid.Row="1" Text="SYSTEM" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock x:Name="DecisionExplanationText" Grid.Row="2" Text="No dominant app pressure identified" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextTrimming="CharacterEllipsis"/></Grid></Border>
                         </Grid>
-                        <Grid x:Name="StatusFooter" Grid.Row="3" ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/><TextBlock Text="POWERFLOW ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding NextActionLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/></StackPanel></Grid>
+                        <Grid x:Name="StatusFooter" Grid.Row="2" ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Ellipse Width="6" Height="6" Fill="{ThemeResource PowerFlowHealthyBrush}"/><TextBlock Text="POWERFLOW ACTIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding CauseLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"><TextBlock Text="NEXT" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/><TextBlock Text="{Binding NextActionLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="240"/></StackPanel></Grid>
                     </Grid>
                     <dash:CpuCapabilityProfileControl x:Name="CpuProfilePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
+                                    </Grid>
                 </Grid>
             </NavigationView>
         </Grid>
