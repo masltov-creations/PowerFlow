@@ -71,3 +71,17 @@ This record proves the 2026-09-11 behavior and restoration gates. Older UI scree
 - Native high-cadence transition evidence on the final build: Full Screen->Compact 1920x1080->760x440, 37 distinct native sizes, max sampled step 88x48, zero reversals; Compact->Expanded 760x440->1280x800, max sampled step 76x53, zero reversals; Expanded->Full Screen 1280x800->1920x1080, max sampled step 79x34, zero reversals.
 - Stable Full Screen, Expanded, and Compact endpoints each audited with zero visible clipping and zero undersized controls. The `NavigationRail` automation wrapper is excluded from clipping counts because NavigationView reports its un-clipped desired bounds rather than visible child bounds during responsive morphs.
 - Final canonical screenshot was captured from the same accepted Release process after 72.9 seconds of runtime, with the 60-second Live telemetry history populated; the process remained responsive after capture.
+## Telemetry and timeline stabilization acceptance
+
+A later isolated candidate on September 11, 2026 hardened the Live telemetry inputs and timeline against transient invalid samples while preserving the published app until the replacement candidate was ready.
+
+- Regression gate: PowerFlow.Core.Tests **50/50**, PowerFlow.Windows.Tests **63/63**, PowerFlow.App.Tests **373/373**; Release solution build **0 warnings / 0 errors**; source XAML **9/9**; `git diff --check` clean.
+- Energy Meter package power is treated consistently as milliwatts and converted to watts for every valid sample; invalid/non-finite readings are rejected rather than plotted.
+- Optional PDH processor metrics outside their defined validity range are rejected as unavailable rather than clamped into false extrema.
+- Timeline projection suppresses only a large isolated rich-telemetry excursion when its adjacent samples agree; a sustained power ramp remains plotted and participates in the lane domain.
+- Headless candidate trace: 120/120 valid samples over 60 seconds; package power 89.82-119.62 W, processor performance 125.12-131.63%, active physical cores 4-16 of 16, **0 suspicious samples**.
+- Live candidate process remained responsive for more than 8 minutes with **0** PowerFlow Application Error/.NET Runtime/Windows Error Reporting events during the run.
+- HWND raster acceptance at 950x550 after the 60-second history populated: CPU trace covered 100% of plot columns with max adjacent center movement 4.5 px and no >=12 px vertical hairline columns; package-power trace covered 100% under nearest-series classification with max adjacent movement 3 px and no vertical hairline columns. The processor-performance trace is intentionally dashed (`StrokeDashArray="3,2"`) and shares the power lane.
+- The timeline renderer continues to use the shape-preserving cubic curve path; underlying observations remain available to cursor/inspection even when one isolated rich-metric sample is omitted from the visual curve.
+
+Validation screenshots used for this analysis were temporary worktree artifacts and are not part of the repository.
