@@ -57,13 +57,14 @@ public sealed partial class MainWindow : Window
     private readonly Func<PowerModeSelection, Task>? _applyOperatingMode;
     private readonly MachineBaselineSessionRuntime? _machineBaselineSession;
     private readonly Func<PowerFlowOperatingMode?>? _currentProfileProvider;
+    private readonly Func<TensionShadowEvaluation?>? _tensionShadowProvider;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
     public bool IsShellVisible => _shellVisible;
     public DashboardViewModel ViewModel { get; } = new();
 
-    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null, Func<PowerFlowOperatingMode?>? currentProfileProvider = null)
+    public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null, Func<PowerFlowOperatingMode?>? currentProfileProvider = null, Func<TensionShadowEvaluation?>? tensionShadowProvider = null)
     {
         InitializeComponent();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
@@ -75,6 +76,7 @@ public sealed partial class MainWindow : Window
         _applyOperatingMode = applyOperatingMode;
         _machineBaselineSession = machineBaselineSession;
         _currentProfileProvider = currentProfileProvider;
+        _tensionShadowProvider = tensionShadowProvider;
         _config = config;
         _applyConfig = applyConfig;
         _dispatcher = DispatcherQueue.GetForCurrentThread();

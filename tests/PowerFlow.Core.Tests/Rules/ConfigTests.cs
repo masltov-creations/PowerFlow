@@ -33,4 +33,22 @@ public sealed class ConfigTests
         Assert.Null(c.BalancedPlanId);
         Assert.Null(c.HighPerformancePlanId);
     }
+    [Fact]
+    public void GovernorTension_DefaultsToNeutralFifty()
+    {
+        Assert.Null(PowerFlowConfig.Default.GovernorTensionPercent);
+        Assert.Equal(50d, PowerFlowConfig.Default.EffectiveGovernorTensionPercent);
+    }
+
+    [Theory]
+    [InlineData(-20, 0)]
+    [InlineData(0, 0)]
+    [InlineData(37.5, 37.5)]
+    [InlineData(100, 100)]
+    [InlineData(140, 100)]
+    public void GovernorTension_EffectiveValueClampsPersistedInput(double configured, double expected)
+    {
+        var config = PowerFlowConfig.Default with { GovernorTensionPercent = configured };
+        Assert.Equal(expected, config.EffectiveGovernorTensionPercent);
+    }
 }

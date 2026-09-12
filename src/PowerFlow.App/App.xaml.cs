@@ -31,6 +31,8 @@ public partial class App : Application
     private DispatcherQueueTimer? _trayHoverTimer;
     private readonly TrayHoverPolicy _trayHoverPolicy = new(TimeSpan.FromMilliseconds(350));
     private readonly AdaptiveGovernorRuntime _adaptiveGovernorRuntime = new();
+    private readonly TensionShadowRuntime _tensionShadowRuntime = new();
+    private TensionShadowEvaluation? _latestTensionShadowEvaluation;
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
     private MachineBaselineSessionRuntime? _machineBaselineSession;
@@ -144,6 +146,11 @@ public partial class App : Application
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
     {
         _telemetryRecorder?.UpdateControllerSnapshot(snapshot);
+        if (_telemetryRecorder is not null)
+        {
+            var shadowEvaluation = _tensionShadowRuntime.Evaluate(snapshot, _telemetryRecorder.History, _config, _config.EffectiveGovernorTensionPercent);
+            if (shadowEvaluation is not null) _latestTensionShadowEvaluation = shadowEvaluation;
+        }
         if (_config.AdaptiveActuationEnabled && _controller is not null && _telemetryRecorder is not null)
         {
             var evaluation = _adaptiveGovernorRuntime.Evaluate(snapshot, _telemetryRecorder.History, _config);
@@ -338,7 +345,7 @@ public partial class App : Application
         if (_controller is null || _telemetryRecorder is null) return;
         if (_shellWindow is null)
         {
-            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _machineBaselineSession, () => _powerModeProfileRuntime.CurrentProfile?.Mode);
+            _shellWindow = new MainWindow(_controller, _telemetryRecorder, _config, ApplyConfigAsync, _previewMode, () => _graduatedCoreActuatorRuntime.Status, ApplyOperatingModeAsync, _machineBaselineSession, () => _powerModeProfileRuntime.CurrentProfile?.Mode, () => _latestTensionShadowEvaluation);
             _shellWindow.Closed += async (_, _) =>
             {
                 _shellWindow = null;
