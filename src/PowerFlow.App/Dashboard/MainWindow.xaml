@@ -44,8 +44,8 @@
                                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                         <TextBlock Text="GOVERNOR MODELS" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                            <TextBlock x:Name="GovernorReferenceText" Text="BAL-E" FontSize="10" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
-                                            <TextBlock x:Name="ModelConfidenceText" Text="LEARNING" FontSize="10" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                                            <TextBlock x:Name="GovernorReferenceText" Text="BAL-E" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
+                                            <TextBlock x:Name="ModelConfidenceText" Text="LEARNING" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
                                         </StackPanel>
                                     </Grid>
                                     <Grid Grid.Row="1" ColumnSpacing="8">
@@ -55,29 +55,29 @@
                                     </Grid>
                                     <Grid Grid.Row="2" ColumnSpacing="4" Height="22">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="RELAXED" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="RELAXED" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
                                         <Grid Grid.Column="1">
                                             <Slider x:Name="GovernorTensionSlider" Minimum="0" Maximum="100" Value="50" StepFrequency="1" TickFrequency="25" Height="22" Margin="2,-2" VerticalAlignment="Center" AutomationProperties.Name="Governor tension shadow model" ToolTipService.ToolTip="Shadow only: changes the alternative governor envelope. It does not apply a power mode."/>
-                                            <TextBlock x:Name="GovernorTensionValueText" Text="T50" FontSize="9" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" IsHitTestVisible="False"/>
+                                            <TextBlock x:Name="GovernorTensionValueText" Text="T50" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" IsHitTestVisible="False"/>
                                         </Grid>
-                                        <TextBlock Grid.Column="2" Text="RESPONSIVE" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="RESPONSIVE" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
                                     </Grid>
                                     <Grid Grid.Row="3" ColumnSpacing="2">
                                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="SAVER" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="1" Text="BAL-E" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="BAL-P" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Center"/>
-                                        <TextBlock Grid.Column="3" Text="PERF" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="SAVER" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Left"/>
+                                        <TextBlock Grid.Column="1" Text="BAL-E" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="BAL-P" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="PERF" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" HorizontalAlignment="Right"/>
                                     </Grid>
                                     <Grid x:Name="GovernorDetailPanel" Grid.Row="4" ColumnSpacing="8" Visibility="Collapsed" Opacity="0">
                                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                                         <StackPanel Spacing="1">
-                                            <TextBlock x:Name="CurrentAutoDetailText" Text="MODEL OBSERVING" FontSize="10" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock x:Name="CurrentEvidenceText" Text="ESTIMATE · gathering baseline context" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="CurrentAutoDetailText" Text="MODEL OBSERVING" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="CurrentEvidenceText" Text="ESTIMATE · gathering baseline context" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Spacing="1">
-                                            <TextBlock x:Name="TensionShadowDetailText" Text="WOULD USE · observing" FontSize="10" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock x:Name="ShadowEvidenceText" Text="ESTIMATE · gathering baseline context" FontSize="9" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="TensionShadowDetailText" Text="WOULD USE · observing" FontSize="11" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock x:Name="ShadowEvidenceText" Text="ESTIMATE · gathering baseline context" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                     </Grid>
                                 </Grid>

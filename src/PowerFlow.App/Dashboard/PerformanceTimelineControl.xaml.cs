@@ -549,10 +549,15 @@ public sealed partial class PerformanceTimelineControl : UserControl
             _shadowEnvelope.EfficientCeilingPressure,
             _shadowEnvelope.ResponsiveCeilingPressure
         })
+            DrawShadowGhostThreshold(Y(threshold), ghost);
+    }
+
+    private void DrawShadowGhostThreshold(double y, Brush ghost)
+    {
+        foreach (var (offset, thickness, opacity) in new[] { (-1.25d, .75d, .22d), (1.25d, .75d, .14d) })
         {
-            var line = AddLine(GridLayer, 0, Y(threshold), _plotWidth, Y(threshold), ghost, 1.15);
-            line.StrokeDashArray = new DoubleCollection { 4d, 3d };
-            line.Opacity = .68;
+            var line = AddLine(GridLayer, 0, y + offset, _plotWidth, y + offset, ghost, thickness);
+            line.Opacity = opacity;
             line.IsHitTestVisible = false;
         }
     }
@@ -583,9 +588,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
             if (_tuneMode && Math.Abs(learnedY - candidateY) > .5)
             {
-                var ghost = AddLine(PolicyValueLayer, 0, learnedY, _plotWidth, learnedY, learnedBrush, .75);
-                ghost.StrokeDashArray = new DoubleCollection { 1, 6 };
-                ghost.Opacity = .42;
+                var ghost = AddLine(PolicyValueLayer, 0, learnedY, _plotWidth, learnedY, learnedBrush, .6);
+                ghost.Opacity = .24;
             }
 
             // Policy is context, not the data. Keep it quiet and solid so telemetry remains dominant.
@@ -609,9 +613,8 @@ public sealed partial class PerformanceTimelineControl : UserControl
             var brush = PolicyBrush(band.Kind, true);
             if (_tuneMode && Math.Abs(learnedX - candidateX) > .5)
             {
-                var ghost = AddLine(PolicyTimeLayer, learnedX, 0, learnedX, _plotHeight, PolicyBrush(band.Kind, false), .75);
-                ghost.StrokeDashArray = new DoubleCollection { 1, 6 };
-                ghost.Opacity = .38;
+                var ghost = AddLine(PolicyTimeLayer, learnedX, 0, learnedX, _plotHeight, PolicyBrush(band.Kind, false), .6);
+                ghost.Opacity = .22;
             }
 
             // Timing policy is a clean vertical edge. Full-height overlapping fills obscured the traces.

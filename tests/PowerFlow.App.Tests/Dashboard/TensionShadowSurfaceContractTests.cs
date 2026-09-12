@@ -51,7 +51,7 @@ public sealed class TensionShadowSurfaceContractTests
         var layout = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellLayout.cs");
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("GovernorControlPresentation.Bias", layout, StringComparison.Ordinal);
-        Assert.Contains("new ShellGeometry(0, 10, 8, 42, 82)", layout, StringComparison.Ordinal);
+        Assert.Contains("new ShellGeometry(0, 10, 8, 44, 82)", layout, StringComparison.Ordinal);
         Assert.Contains("GovernorDetailPanel.Visibility", code, StringComparison.Ordinal);
         Assert.Contains("GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep", code, StringComparison.Ordinal);
         Assert.Contains("GovernorDetailPanel.Opacity", code, StringComparison.Ordinal);

@@ -5,14 +5,15 @@ namespace PowerFlow.App.Tests.Dashboard;
 public sealed class TensionShadowOverlayTests
 {
     [Fact]
-    public void Timeline_HasSeparateNonInteractiveDashedShadowEnvelopeState()
+    public void Timeline_HasSeparateNonInteractiveSoftGhostEnvelopeState()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
 
         Assert.Contains("private OperatingEnvelope? _shadowEnvelope;", code, StringComparison.Ordinal);
         Assert.Contains("public void SetShadowPolicyContext(OperatingEnvelope? envelope)", code, StringComparison.Ordinal);
         Assert.Contains("DrawShadowEnvelope", code, StringComparison.Ordinal);
-        Assert.Contains("StrokeDashArray", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("StrokeDashArray", code, StringComparison.Ordinal);
+        Assert.Contains("DrawShadowGhostThreshold", code, StringComparison.Ordinal);
         Assert.Contains("IsHitTestVisible = false", code, StringComparison.Ordinal);
     }
 
