@@ -25,6 +25,36 @@ public sealed class TensionShadowWiringTests
         Assert.Contains("_tensionShadowProvider = tensionShadowProvider", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ShadowAuthorityAudit_HasNoActuationPath()
+    {
+        var runtime = Read("src", "PowerFlow.App", "Controller", "TensionShadowRuntime.cs");
+        foreach (var forbidden in new[]
+        {
+            "PowerModeProfileRuntime", "ProcessorPolicyController", "GraduatedCoreFloorActuatorRuntime",
+            "SetManualStateAsync", "ApplyOperatingModeAsync", "ApplyAdaptiveGovernorEvaluationAsync",
+            "WindowsPowerPlanController"
+        })
+            Assert.DoesNotContain(forbidden, runtime, StringComparison.Ordinal);
+
+        var app = Read("src", "PowerFlow.App", "App.xaml.cs");
+        foreach (var forbiddenRoute in new[]
+        {
+            "ApplyAdaptiveGovernorEvaluationAsync(shadowEvaluation)",
+            "ApplyOperatingModeAsync(shadowEvaluation)",
+            "SetManualStateAsync(shadowEvaluation)"
+        })
+            Assert.DoesNotContain(forbiddenRoute, app, StringComparison.Ordinal);
+
+        var slider = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var start = slider.IndexOf("private async void OnGovernorTensionChanged", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = slider.IndexOf("private async void OnModeRequested", start, StringComparison.Ordinal);
+        Assert.True(end > start);
+        var sliderBody = slider[start..end];
+        foreach (var forbidden in new[] { "_applyOperatingMode", "PowerModeProfileRuntime", "SetManualStateAsync", "ReleaseManualLatchAsync" })
+            Assert.DoesNotContain(forbidden, sliderBody, StringComparison.Ordinal);
+    }
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

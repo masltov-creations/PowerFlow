@@ -1,4 +1,5 @@
 using Xunit;
+using PowerFlow.App.Dashboard;
 
 namespace PowerFlow.App.Tests.Dashboard;
 
@@ -57,6 +58,24 @@ public sealed class TensionShadowSurfaceContractTests
         Assert.Contains("GovernorDetailPanel.Opacity = context", disclosure, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ShadowPresentation_FollowsPeekLiveWorkspaceDisclosureHierarchy()
+    {
+        var peek = PowerFlowShellLayout.Resolve(320, 176, PowerFlowShellState.Glance, "flow");
+        var live = PowerFlowShellLayout.Resolve(760, 440, PowerFlowShellState.Compact, "flow");
+        var workspace = PowerFlowShellLayout.Resolve(1360, 860, PowerFlowShellState.Workspace, "flow");
+
+        Assert.Equal(GovernorControlPresentation.Summary, peek.GovernorControls);
+        Assert.Equal(GovernorControlPresentation.Bias, live.GovernorControls);
+        Assert.Equal(GovernorControlPresentation.Deep, workspace.GovernorControls);
+
+        var liveDisclosure = ShellDisclosurePolicy.Progress(new ShellLogicalSize(760, 440), PowerFlowShellState.Compact);
+        var workspaceDisclosure = ShellDisclosurePolicy.Progress(new ShellLogicalSize(1360, 860), PowerFlowShellState.Workspace);
+        Assert.Equal(0d, ShellDisclosurePolicy.ContextProgress(liveDisclosure), 6);
+        Assert.Equal(0d, ShellDisclosurePolicy.DeepProgress(liveDisclosure), 6);
+        Assert.Equal(1d, ShellDisclosurePolicy.ContextProgress(workspaceDisclosure), 6);
+        Assert.Equal(1d, ShellDisclosurePolicy.DeepProgress(workspaceDisclosure), 6);
+    }
     private static string MethodBody(string source, string signature)
     {
         var start = source.IndexOf(signature, StringComparison.Ordinal);
