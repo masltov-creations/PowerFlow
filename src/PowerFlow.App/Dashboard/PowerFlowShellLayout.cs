@@ -50,7 +50,7 @@ public static class PowerFlowShellLayout
         HeaderPresentation.Compact,
         TimelinePresentation.Compact,
         GovernorControlPresentation.Bias,
-        new ShellGeometry(0, 10, 8, 44, 82));
+        new ShellGeometry(0, 10, 8, 50, 82));
 
     private static ShellPresentationProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
     {
@@ -61,7 +61,7 @@ public static class PowerFlowShellLayout
         var navigationWidth = 128 + 24 * widthProgress;
         var padding = 14 + 8 * fluid;
         var gap = 10 + 8 * fluid;
-        var headerHeight = 44 + 8 * fluid + (fullDensity ? 4 : 0);
+        var headerHeight = 50 + 8 * fluid + (fullDensity ? 4 : 0);
         var controlBandHeight = 108 + 32 * fluid + (fullDensity ? 12 : 0);
 
         return new ShellPresentationProfile(

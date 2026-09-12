@@ -428,6 +428,12 @@ public sealed partial class MainWindow : Window
     }
     private void ApplyCockpitGeometry(ShellPresentationProfile profile, PowerFlowShellState state, int width, int height)
     {
+        var compactMoveStrip = state is PowerFlowShellState.Hidden or PowerFlowShellState.Glance;
+        var headerTopInset = compactMoveStrip ? 10d : 16d;
+        DragSurface.Height = compactMoveStrip ? 10d : 16d;
+        DragHandle.Opacity = compactMoveStrip ? 0d : .32d;
+        SystemHeaderHost.Margin = new Thickness(0, headerTopInset, 0, 0);
+        PresentationActions.Margin = new Thickness(0, headerTopInset, 0, 0);
         CockpitSurface.Padding = new Thickness(profile.Geometry.ContentPadding);
         CockpitSurface.RowSpacing = profile.Geometry.Gap;
         SystemHeaderRow.ColumnSpacing = profile.Geometry.Gap;

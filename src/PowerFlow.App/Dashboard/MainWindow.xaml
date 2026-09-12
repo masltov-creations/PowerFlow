@@ -23,7 +23,9 @@
                     <Grid.RowDefinitions><RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 <Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <Border x:Name="DragSurface" Grid.ColumnSpan="2" Height="10" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent"/>
+                            <Border x:Name="DragSurface" Grid.ColumnSpan="2" Height="10" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent" AutomationProperties.Name="Move PowerFlow window" ToolTipService.ToolTip="Drag to move PowerFlow">
+                                <Border x:Name="DragHandle" Width="42" Height="3" CornerRadius="2" Background="{ThemeResource PowerFlowTextMutedBrush}" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            </Border>
                             <dash:ShellHeaderControl x:Name="SystemHeaderHost" Margin="0,10,0,0" RulesRequested="OnHeaderRulesRequested" SettingsRequested="OnHeaderSettingsRequested"/>
                             <StackPanel x:Name="PresentationActions" Grid.Column="1" Margin="0,10,0,0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" MinHeight="34" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" MinHeight="34" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
                         </Grid>
