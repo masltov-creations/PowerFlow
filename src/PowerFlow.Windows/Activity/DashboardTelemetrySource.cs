@@ -44,6 +44,12 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
         return nominal * performance / 100d;
     }
 
+    public static double? NormalizeEnergyMeterMilliwatts(double rawMilliwatts)
+    {
+        if (!double.IsFinite(rawMilliwatts) || rawMilliwatts < 0) return null;
+        return rawMilliwatts / 1000d;
+    }
+
     public void Dispose()
     {
         _energy.Dispose();
@@ -103,8 +109,7 @@ public sealed class DashboardTelemetrySource : IDashboardTelemetrySource
             if (_query == IntPtr.Zero || _counter == IntPtr.Zero) return null;
             if (PdhCollectQueryData(_query) != 0) return null;
             if (PdhGetFormattedCounterValue(_counter, PdhFmtDouble, out _, out var value) != 0 || value.CStatus != 0) return null;
-            var raw = value.DoubleValue;
-            return raw > 1000 ? raw / 1000d : raw;
+            return NormalizeEnergyMeterMilliwatts(value.DoubleValue);
         }
 
         public void Dispose()

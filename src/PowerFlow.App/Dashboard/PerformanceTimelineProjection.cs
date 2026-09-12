@@ -64,16 +64,12 @@ public static class PerformanceTimelineProjection
             .OrderBy(x => x.observation.At)
             .ToArray();
 
-        var powerValues = visible
-            .Where(x => x.observation.PackageWatts is double value && double.IsFinite(value) && value >= 0)
-            .Select(x => x.observation.PackageWatts!.Value)
-            .ToArray();
+        var powerSeries = SuppressIsolatedSpikes(visible.Select(x => x.observation.PackageWatts).ToArray(), minimumExcursion: 150d, neighborAgreement: 40d);
+        var powerValues = powerSeries.Where(value => value is double).Select(value => value!.Value).ToArray();
         var powerRange = FocusRange(powerValues, minimumSpan: 40d, quantum: 5d, hardFloor: 0d, fallbackMin: 0d, fallbackMax: 100d);
 
-        var performanceValues = visible
-            .Where(x => x.observation.ProcessorPerformancePercent is double value && double.IsFinite(value) && value >= 0)
-            .Select(x => x.observation.ProcessorPerformancePercent!.Value)
-            .ToArray();
+        var performanceSeries = SuppressIsolatedSpikes(visible.Select(x => x.observation.ProcessorPerformancePercent).ToArray(), minimumExcursion: 90d, neighborAgreement: 25d);
+        var performanceValues = performanceSeries.Where(value => value is double).Select(value => value!.Value).ToArray();
         var performanceRange = FocusRange(performanceValues, minimumSpan: 30d, quantum: 5d, hardFloor: 0d, fallbackMin: 75d, fallbackMax: 150d, includeValue: 100d);
 
         var coreMax = Math.Max(1, visible.Select(x => x.observation.TotalCores ?? x.observation.ActiveCores ?? 0).DefaultIfEmpty(1).Max());
@@ -83,8 +79,8 @@ public static class PerformanceTimelineProjection
         var lanes = new[]
         {
             Lane(PerformanceTimelineMetric.CpuPressure, "COMPUTE PRESSURE", "%", 0, 100, visible, X, x => x.CpuPressurePercent),
-            Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerRange.Min, powerRange.Max, visible, X, x => x.PackageWatts),
-            Lane(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", performanceRange.Min, performanceRange.Max, visible, X, x => x.ProcessorPerformancePercent),
+            Lane(PerformanceTimelineMetric.PackagePower, "PACKAGE POWER", "W", powerRange.Min, powerRange.Max, visible, X, x => x.PackageWatts, powerSeries),
+            Lane(PerformanceTimelineMetric.EffectiveClock, "CPU PERFORMANCE", "%", performanceRange.Min, performanceRange.Max, visible, X, x => x.ProcessorPerformancePercent, performanceSeries),
             Lane(PerformanceTimelineMetric.ActiveCores, "CORES AWAKE", "cores", 0, coreMax, visible, X, x => x.ActiveCores)
         };
 
@@ -119,15 +115,16 @@ public static class PerformanceTimelineProjection
         double domainMax,
         IReadOnlyList<(OperatingObservation observation, int index)> visible,
         Func<DateTimeOffset, double> xSelector,
-        Func<OperatingObservation, double?> valueSelector)
+        Func<OperatingObservation, double?> valueSelector,
+        IReadOnlyList<double?>? valuesOverride = null)
     {
         var min = double.IsFinite(domainMin) ? domainMin : 0d;
         var max = double.IsFinite(domainMax) ? domainMax : min + 1d;
         if (max <= min) max = min + 1d;
         var span = max - min;
-        var points = visible.Select(item =>
+        var points = visible.Select((item, sequenceIndex) =>
         {
-            var value = valueSelector(item.observation);
+            var value = valuesOverride is not null ? valuesOverride[sequenceIndex] : valueSelector(item.observation);
             var valid = value is double raw && double.IsFinite(raw) && raw >= 0;
             return new TimelineSamplePoint(
                 item.index,
@@ -136,6 +133,25 @@ public static class PerformanceTimelineProjection
                 valid ? value : null);
         }).ToArray();
         return new TimelineLaneProjection(metric, label, unit, min, max, points);
+    }
+
+    private static double?[] SuppressIsolatedSpikes(IReadOnlyList<double?> values, double minimumExcursion, double neighborAgreement)
+    {
+        var result = values
+            .Select(value => value is double raw && double.IsFinite(raw) && raw >= 0 ? (double?)raw : null)
+            .ToArray();
+        if (result.Length < 3) return result;
+
+        for (var i = 1; i < result.Length - 1; i++)
+        {
+            if (result[i - 1] is not double previous || result[i] is not double current || result[i + 1] is not double next) continue;
+            if (Math.Abs(previous - next) > neighborAgreement) continue;
+            var neighborCenter = (previous + next) / 2d;
+            if (Math.Abs(current - neighborCenter) < minimumExcursion) continue;
+            result[i] = null;
+        }
+
+        return result;
     }
 
     private static (double Min, double Max) FocusRange(

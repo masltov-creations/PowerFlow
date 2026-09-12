@@ -44,6 +44,12 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
     public static int? NormalizeTotalProcessorCount(uint count)
         => count is > 0 and <= int.MaxValue ? (int)count : null;
 
+    public static double? NormalizeOptionalCounter(double value, double minimum, double maximum)
+    {
+        if (!double.IsFinite(value) || !double.IsFinite(minimum) || !double.IsFinite(maximum) || maximum < minimum) return null;
+        return value >= minimum && value <= maximum ? value : null;
+    }
+
     public static int CountAwakePhysicalCores(IEnumerable<CoreParkingState> states)
         => states
             .GroupBy(state => state.PhysicalCoreIndex)
@@ -227,7 +233,7 @@ public sealed class WindowsSystemMetricsProvider : ISystemMetricsProvider, IDisp
             if (counter == IntPtr.Zero) return null;
             if (PdhGetFormattedCounterValue(counter, PdhFmtDouble, out _, out var value) != 0 || value.CStatus != 0 || !double.IsFinite(value.DoubleValue))
                 return null;
-            return Math.Clamp(value.DoubleValue, minimum, maximum);
+            return NormalizeOptionalCounter(value.DoubleValue, minimum, maximum);
         }
 
         private sealed record LogicalProcessorCounters(
