@@ -69,6 +69,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(PowerFlowController controller, TelemetryContinuityRecorder recorder, PowerFlowConfig config, Func<PowerFlowConfig, Task> applyConfig, bool previewMode = false, Func<GraduatedCoreActuatorStatus?>? coreActuatorStatusProvider = null, Func<PowerModeSelection, Task>? applyOperatingMode = null, MachineBaselineSessionRuntime? machineBaselineSession = null, Func<PowerFlowOperatingMode?>? currentProfileProvider = null, Func<TensionShadowEvaluation?>? tensionShadowProvider = null)
     {
         InitializeComponent();
+        ConfigureCustomTitleBar();
         Title = previewMode ? "PowerFlow - Preview" : "PowerFlow";
         SystemHeaderHost.IsPreviewMode = previewMode;
         _controller = controller;
@@ -111,6 +112,12 @@ public sealed partial class MainWindow : Window
         ApplyShellLayout(PowerFlowShellState.Hidden, 320, 176);
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
+    }
+
+    private void ConfigureCustomTitleBar()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(DragSurface);
     }
 
     public Task ShowAsync(bool showSettings = false, bool fullScreen = false)
@@ -890,17 +897,15 @@ public sealed partial class MainWindow : Window
         await NavigateToSectionAsync(tag);
     }
 
-    private async Task NavigateToSectionAsync(string tag)
+    private Task NavigateToSectionAsync(string tag)
     {
-        var minimumState = ShellSectionPolicy.MinimumState(tag);
-        if (_shellVisible && ShellMotionPolicy.Rank(_shellState) < ShellMotionPolicy.Rank(minimumState))
-            await TransitionToAsync(minimumState, ShellActivationMode.PinnedActive, animate: true);
 
         _currentSection = tag;
         PerformanceTimeline.SetTuneMode(false);
         ApplySectionVisibility(tag);
         var logical = CurrentLogicalAppWindowSize();
         ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        return Task.CompletedTask;
     }
 
     private void ApplySectionVisibility(string tag)

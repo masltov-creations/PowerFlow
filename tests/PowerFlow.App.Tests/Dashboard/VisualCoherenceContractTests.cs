@@ -9,9 +9,9 @@ public sealed class VisualCoherenceContractTests
 {
     [Theory]
     [InlineData("flow", PowerFlowShellState.Compact)]
-    [InlineData("rules", PowerFlowShellState.Expanded)]
-    [InlineData("profile", PowerFlowShellState.Expanded)]
-    [InlineData("settings", PowerFlowShellState.Expanded)]
+    [InlineData("rules", PowerFlowShellState.Compact)]
+    [InlineData("profile", PowerFlowShellState.Compact)]
+    [InlineData("settings", PowerFlowShellState.Compact)]
     public void SectionPolicy_DefinesMinimumUsableShell(string section, PowerFlowShellState expected)
     {
         var type = typeof(PowerFlowShellLayout).Assembly.GetType("PowerFlow.App.Dashboard.ShellSectionPolicy");
