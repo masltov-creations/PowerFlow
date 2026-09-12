@@ -49,6 +49,9 @@ public sealed partial class MainWindow : Window
     private TrayRect? _lastWorkArea;
     private string _currentSection = "flow";
     private DispatcherQueueTimer? _presentationTimer;
+    private readonly ShellRenderScheduler _resizeRenderScheduler = new(TimeSpan.FromMilliseconds(110));
+    private DispatcherQueueTimer? _resizeFrameTimer;
+    private DispatcherQueueTimer? _resizeSettleTimer;
     private bool _suppressResizeModeSync;
     private bool _suppressNavigationSelection;
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
@@ -203,6 +206,8 @@ public sealed partial class MainWindow : Window
     {
         _presentationTimer?.Stop();
         _presentationTimer = null;
+        if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
+        if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
         if (!_shellVisible)
         {
             _shellState = PowerFlowShellState.Hidden;
@@ -265,18 +270,69 @@ public sealed partial class MainWindow : Window
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if ((!args.DidSizeChange && !args.DidPresenterChange) || _suppressResizeModeSync || !_shellVisible) return;
-        var logical = CurrentLogicalAppWindowSize();
-        if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen && !IsFullScreenPresenter())
-            _layoutDensity = ShellResponsiveDensity.Resolve(logical, _layoutDensity);
-
-        if (string.Equals(_currentSection, "flow", StringComparison.OrdinalIgnoreCase)
-            && _shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen
-            && !IsFullScreenPresenter())
-            ApplyResponsiveResizeMorph(_shellState, logical.Width, logical.Height);
-        else
-            ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        _resizeRenderScheduler.SubmitSize(CurrentLogicalAppWindowSize(), DateTimeOffset.UtcNow);
+        EnsureResizeRenderLoop();
     }
 
+    private void EnsureResizeRenderLoop()
+    {
+        if (_resizeFrameTimer is null)
+        {
+            _resizeFrameTimer = _dispatcher.CreateTimer();
+            _resizeFrameTimer.Interval = TimeSpan.FromMilliseconds(16);
+            _resizeFrameTimer.IsRepeating = true;
+            _resizeFrameTimer.Tick += OnResizeFrameTick;
+        }
+        if (_resizeSettleTimer is null)
+        {
+            _resizeSettleTimer = _dispatcher.CreateTimer();
+            _resizeSettleTimer.Interval = TimeSpan.FromMilliseconds(25);
+            _resizeSettleTimer.IsRepeating = true;
+            _resizeSettleTimer.Tick += OnResizeSettleTick;
+        }
+        if (!_resizeFrameTimer.IsRunning) _resizeFrameTimer.Start();
+        if (!_resizeSettleTimer.IsRunning) _resizeSettleTimer.Start();
+    }
+
+    private void OnResizeFrameTick(DispatcherQueueTimer sender, object args)
+    {
+        var pending = _resizeRenderScheduler.ConsumePendingFrame();
+        if (pending is not ShellLogicalSize size)
+        {
+            sender.Stop();
+            return;
+        }
+        ApplyInteractiveResizeFrame(size);
+    }
+
+    private void OnResizeSettleTick(DispatcherQueueTimer sender, object args)
+    {
+        if (!_resizeRenderScheduler.ShouldCommit(DateTimeOffset.UtcNow)) return;
+        CommitResizePresentation(CurrentLogicalAppWindowSize());
+        _resizeRenderScheduler.MarkCommitted();
+        sender.Stop();
+    }
+
+    private void ApplyInteractiveResizeFrame(ShellLogicalSize size)
+    {
+        if (_shellState is PowerFlowShellState.Glance or PowerFlowShellState.FullScreen || IsFullScreenPresenter()) return;
+        var progress = ShellResponsiveDensity.MorphProgress(size);
+        var compactProfile = PowerFlowShellLayout.Resolve(size.Width, size.Height, _shellState, _currentSection, ShellDensity.Compact);
+        var expandedProfile = PowerFlowShellLayout.Resolve(size.Width, size.Height, _shellState, _currentSection, ShellDensity.Expanded);
+        ApplyShellGeometryMorph(compactProfile, expandedProfile, progress);
+        ApplyShellTransitionFrame(compactProfile, expandedProfile, progress, reducedMotion: false);
+        SystemHeaderHost.ShowBrand = true;
+        SystemHeaderHost.ApplyBrandMorph(1d - progress);
+    }
+
+    private void CommitResizePresentation(ShellLogicalSize size)
+    {
+        if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen && !IsFullScreenPresenter())
+            _layoutDensity = ShellResponsiveDensity.Resolve(size, _layoutDensity);
+        ApplyShellLayout(_shellState, size.Width, size.Height);
+        var profile = PowerFlowShellLayout.Resolve(size.Width, size.Height, _shellState, _currentSection, _layoutDensity);
+        ResetSemanticMorphPresentation(profile);
+    }
     private void ApplyResponsiveResizeMorph(PowerFlowShellState state, int width, int height)
     {
         var logical = new ShellLogicalSize(width, height);
@@ -430,6 +486,8 @@ public sealed partial class MainWindow : Window
     {
         _presentationTimer?.Stop();
         _presentationTimer = null;
+        if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
+        if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var travel = Math.Sqrt(Math.Pow(target.Width - start.Width, 2) + Math.Pow(target.Height - start.Height, 2));
         var duration = ShellMotionPolicy.DurationForTravel(fromState, toState, reducedMotion, travel);
@@ -937,6 +995,8 @@ public sealed partial class MainWindow : Window
         _closed = true;
         _presentationTimer?.Stop();
         _presentationTimer = null;
+        if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
+        if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
         AppWindow.Closing -= OnAppWindowClosing;
         AppWindow.Changed -= OnAppWindowChanged;
         _controller.SnapshotChanged -= OnSnapshotChanged;

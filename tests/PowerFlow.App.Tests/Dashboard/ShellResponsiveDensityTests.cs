@@ -35,13 +35,13 @@ public sealed class ShellResponsiveDensityTests
     }
 
     [Fact]
-    public void NonLiveSectionForcesExpandedDensityWithoutChangingRequestedState()
+    public void NonLiveSectionPreservesRequestedCompactDensityWithoutChangingState()
     {
         var profile = PowerFlowShellLayout.Resolve(760, 440, PowerFlowShellState.Compact, "model", ShellDensity.Compact);
 
         Assert.Equal(PowerFlowShellState.Compact, profile.State);
-        Assert.Equal(NavigationPresentation.Rail, profile.Navigation);
-        Assert.Equal(TimelinePresentation.Expanded, profile.Timeline);
+        Assert.Equal(NavigationPresentation.Overlay, profile.Navigation);
+        Assert.Equal(TimelinePresentation.Compact, profile.Timeline);
     }
 
     [Fact]
