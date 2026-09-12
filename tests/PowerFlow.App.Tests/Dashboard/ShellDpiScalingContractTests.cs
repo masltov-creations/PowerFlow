@@ -35,11 +35,13 @@ public sealed class ShellDpiScalingContractTests
     public void MainWindowResolvesLogicalEndpointsOnceAndMorphsTheExistingShellContinuously()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("var fromLogical = LogicalSize(start)", code, StringComparison.Ordinal);
+        Assert.Contains("var effectiveStart = _motionRenderingAttached ? activeFrame.Bounds : start", code, StringComparison.Ordinal);
+        Assert.Contains("var fromLogical = LogicalSize(effectiveStart)", code, StringComparison.Ordinal);
         Assert.Contains("var toLogical = LogicalSize(target)", code, StringComparison.Ordinal);
-        Assert.Contains("ShellTransitionGeometry.Interpolate(start, target, eased)", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellGeometryMorph(fromProfile, toProfile, eased)", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellTransitionFrame(fromProfile, toProfile, eased", code, StringComparison.Ordinal);
+        Assert.Contains("AppWindow.MoveAndResize(frame.Bounds)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellGeometryMorph(_motionFromProfile, _motionToProfile, frame.Sample.Progress)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellTransitionFrame(_motionFromProfile, _motionToProfile, frame.ChildSample.Progress", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellTransitionGeometry.Interpolate(start, target, eased)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("ApplyShellLayout(layoutState", code, StringComparison.Ordinal);
         Assert.Contains("ShellCoordinateProjection.ToPhysicalSize", code, StringComparison.Ordinal);
     }

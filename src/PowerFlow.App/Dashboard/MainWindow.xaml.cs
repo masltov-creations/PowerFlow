@@ -48,7 +48,13 @@ public sealed partial class MainWindow : Window
     private TrayRect? _lastTrayAnchor;
     private TrayRect? _lastWorkArea;
     private string _currentSection = "flow";
-    private DispatcherQueueTimer? _presentationTimer;
+    private readonly ShellMotionCoordinator _motionCoordinator = new();
+    private TaskCompletionSource? _motionCompletion;
+    private ShellPresentationProfile _motionFromProfile = null!;
+    private ShellPresentationProfile _motionToProfile = null!;
+    private PowerFlowShellState _motionToState;
+    private bool _motionRenderingAttached;
+    private int _transitionVersion;
     private readonly ShellRenderScheduler _resizeRenderScheduler = new(TimeSpan.FromMilliseconds(110));
     private DispatcherQueueTimer? _resizeFrameTimer;
     private DispatcherQueueTimer? _resizeSettleTimer;
@@ -148,6 +154,8 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        var transitionVersion = ++_transitionVersion;
+
         if (state == PowerFlowShellState.Compact) _layoutDensity = ShellDensity.Compact;
         else if (state is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen) _layoutDensity = ShellDensity.Expanded;
 
@@ -189,6 +197,7 @@ public sealed partial class MainWindow : Window
         }
 
         await AnimateShellBoundsAsync(start, target, fromState, state, animate);
+        if (transitionVersion != _transitionVersion) return;
 
         if (state == PowerFlowShellState.FullScreen)
         {
@@ -204,10 +213,7 @@ public sealed partial class MainWindow : Window
     }
     public async Task HideShellAsync()
     {
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
-        if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
-        if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
+        var transitionVersion = ++_transitionVersion;
         if (!_shellVisible)
         {
             _shellState = PowerFlowShellState.Hidden;
@@ -219,6 +225,7 @@ public sealed partial class MainWindow : Window
         var start = CurrentBounds();
         var target = ResolveTargetBounds(PowerFlowShellState.Hidden);
         await AnimateShellBoundsAsync(start, target, fromState, PowerFlowShellState.Hidden, animate: true);
+        if (transitionVersion != _transitionVersion) return;
         ShowWindow(_hwnd, SwHide);
         _shellVisible = false;
         _shellState = PowerFlowShellState.Hidden;
@@ -489,20 +496,20 @@ public sealed partial class MainWindow : Window
 
     private Task AnimateShellBoundsAsync(RectInt32 start, RectInt32 target, PowerFlowShellState fromState, PowerFlowShellState toState, bool animate)
     {
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
-        if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
-        if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var travel = Math.Sqrt(Math.Pow(target.Width - start.Width, 2) + Math.Pow(target.Height - start.Height, 2));
         var duration = ShellMotionPolicy.DurationForTravel(fromState, toState, reducedMotion, travel);
-        var fromLogical = LogicalSize(start);
+        var now = DateTimeOffset.UtcNow;
+        var activeFrame = _motionRenderingAttached ? _motionCoordinator.Sample(now) : default;
+        var effectiveStart = _motionRenderingAttached ? activeFrame.Bounds : start;
+        var fromLogical = LogicalSize(effectiveStart);
         var toLogical = LogicalSize(target);
         var fromProfile = PowerFlowShellLayout.Resolve(fromLogical.Width, fromLogical.Height, fromState, _currentSection, fromState is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
         var toProfile = PowerFlowShellLayout.Resolve(toLogical.Width, toLogical.Height, toState, _currentSection, toState is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen ? ShellDensity.Expanded : ShellDensity.Compact);
 
-        if (duration == TimeSpan.Zero || start.Equals(target))
+        if (duration == TimeSpan.Zero || effectiveStart.Equals(target))
         {
+            StopShellMotionRendering(completeAwaiter: true);
             _suppressResizeModeSync = true;
             AppWindow.MoveAndResize(target);
             _suppressResizeModeSync = false;
@@ -510,42 +517,89 @@ public sealed partial class MainWindow : Window
             ApplyShellLayout(toState, targetLogical.Width, targetLogical.Height);
             ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: true);
             ResetSemanticMorphPresentation(toProfile);
+            ResetMaterialResponse();
             return Task.CompletedTask;
         }
 
         PrepareShellTransition(fromProfile, toProfile);
-        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var timer = _dispatcher.CreateTimer();
-        _presentationTimer = timer;
-        timer.Interval = TimeSpan.FromMilliseconds(16);
+        _motionCompletion?.TrySetResult();
+        _motionCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _motionFromProfile = fromProfile;
+        _motionToProfile = toProfile;
+        _motionToState = toState;
+        var material = ShellMotionPolicy.NativeMaterial(fromState, toState);
+        if (_motionRenderingAttached) _motionCoordinator.Retarget(target, material, duration, now);
+        else _motionCoordinator.Begin(effectiveStart, target, material, duration, now);
         _suppressResizeModeSync = true;
-        timer.Tick += Tick;
-        timer.Start();
-        return tcs.Task;
+        StartShellMotionRendering();
+        return _motionCompletion.Task;
+    }
 
-        void Tick(DispatcherQueueTimer sender, object args)
+    private void StartShellMotionRendering()
+    {
+        if (_motionRenderingAttached) return;
+        CompositionTarget.Rendering += OnShellMotionRendering;
+        _motionRenderingAttached = true;
+    }
+
+    private void StopShellMotionRendering(bool completeAwaiter = false)
+    {
+        if (_motionRenderingAttached)
         {
-            var t = Math.Clamp(stopwatch.Elapsed.TotalMilliseconds / duration.TotalMilliseconds, 0d, 1d);
-            var eased = ShellMotionPolicy.Ease(fromState, toState, t);
-            var rect = ShellTransitionGeometry.Interpolate(start, target, eased);
-            AppWindow.MoveAndResize(rect);
-            ApplyShellGeometryMorph(fromProfile, toProfile, eased);
-            ApplyShellTransitionFrame(fromProfile, toProfile, eased, reducedMotion: false);
-
-            if (t < 1d) return;
-            sender.Stop();
-            sender.Tick -= Tick;
-            stopwatch.Stop();
-            AppWindow.MoveAndResize(target);
-            _presentationTimer = null;
-            _suppressResizeModeSync = false;
-            ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: false);
-            var finalLogical = LogicalSize(target);
-            ApplyShellLayout(toState, finalLogical.Width, finalLogical.Height);
-            ResetSemanticMorphPresentation(toProfile);
-            tcs.TrySetResult();
+            CompositionTarget.Rendering -= OnShellMotionRendering;
+            _motionRenderingAttached = false;
         }
+        _suppressResizeModeSync = false;
+        if (!completeAwaiter) return;
+        var completion = _motionCompletion;
+        _motionCompletion = null;
+        completion?.TrySetResult();
+    }
+
+    private void OnShellMotionRendering(object? sender, object e)
+    {
+        if (!_motionRenderingAttached) return;
+        var frame = _motionCoordinator.Sample(DateTimeOffset.UtcNow);
+        ApplyMotionFrame(frame);
+    }
+
+    private void ApplyMotionFrame(ShellMotionFrame frame)
+    {
+        AppWindow.MoveAndResize(frame.Bounds);
+        ApplyShellGeometryMorph(_motionFromProfile, _motionToProfile, frame.Sample.Progress);
+        ApplyShellTransitionFrame(_motionFromProfile, _motionToProfile, frame.ChildSample.Progress, reducedMotion: false);
+        ApplyMaterialResponse(frame.Sample, frame.ChildSample);
+        if (!frame.IsComplete) return;
+
+        StopShellMotionRendering();
+        AppWindow.MoveAndResize(frame.Bounds);
+        var finalLogical = LogicalSize(frame.Bounds);
+        ApplyShellLayout(_motionToState, finalLogical.Width, finalLogical.Height);
+        ResetSemanticMorphPresentation(_motionToProfile);
+        ResetMaterialResponse();
+        var completion = _motionCompletion;
+        _motionCompletion = null;
+        completion?.TrySetResult();
+    }
+
+    private void ApplyMaterialResponse(MotionSample shellSample, MotionSample childSample)
+    {
+        var sectionVisual = ElementCompositionPreview.GetElementVisual(SectionHost);
+        var shellScaleX = (float)Math.Clamp(shellSample.SecondaryScale, .97d, 1.03d);
+        var shellScaleY = (float)Math.Clamp(2d - shellSample.SecondaryScale, .97d, 1.03d);
+        sectionVisual.CenterPoint = new Vector3((float)(SectionHost.ActualWidth / 2d), (float)(SectionHost.ActualHeight / 2d), 0f);
+        sectionVisual.Scale = new Vector3(shellScaleX, shellScaleY, 1f);
+
+        var controlsVisual = ElementCompositionPreview.GetElementVisual(AdaptiveControlRegion);
+        var compliance = (float)(1d + Math.Clamp(childSample.Progress - 1d, 0d, .025d) * .35d);
+        controlsVisual.CenterPoint = new Vector3((float)(AdaptiveControlRegion.ActualWidth / 2d), (float)(AdaptiveControlRegion.ActualHeight / 2d), 0f);
+        controlsVisual.Scale = new Vector3(compliance, compliance, 1f);
+    }
+
+    private void ResetMaterialResponse()
+    {
+        ElementCompositionPreview.GetElementVisual(SectionHost).Scale = Vector3.One;
+        ElementCompositionPreview.GetElementVisual(AdaptiveControlRegion).Scale = Vector3.One;
     }
 
     private void PrepareShellTransition(ShellPresentationProfile from, ShellPresentationProfile to)
@@ -998,8 +1052,7 @@ public sealed partial class MainWindow : Window
         CpuProfilePanel.Detach();
         if (_closed) return;
         _closed = true;
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
+        StopShellMotionRendering(completeAwaiter: true);
         if (_resizeFrameTimer is not null) { _resizeFrameTimer.Stop(); _resizeFrameTimer.Tick -= OnResizeFrameTick; _resizeFrameTimer = null; }
         if (_resizeSettleTimer is not null) { _resizeSettleTimer.Stop(); _resizeSettleTimer.Tick -= OnResizeSettleTick; _resizeSettleTimer = null; }
         AppWindow.Closing -= OnAppWindowClosing;

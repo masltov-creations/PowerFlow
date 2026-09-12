@@ -274,19 +274,19 @@ Preserve internal enum names for Peek/Live/Dashboard if renaming would cause unn
 - Native bounds consume monotonic rigid/fluid shell progress.
 - Header/timeline/navigation/control details consume material-specific child progress derived from the same transition sample.
 
-- [ ] **Step 1: Write RED integration tests**
+- [x] **Step 1: Write RED integration tests**
 
 Require a single coordinator field, forbid independent presentation timers for shell motion, and assert transition frames take one `MotionSample` source.
 
-- [ ] **Step 2: Replace `DispatcherQueueTimer` shell animation with coordinator-driven render frames**
+- [x] **Step 2: Replace `DispatcherQueueTimer` shell animation with coordinator-driven render frames**
 
 Use one render-frame cadence. Native bounds never use compliant overshoot. Internal cards may use compliant child progress.
 
-- [ ] **Step 3: Test reduced motion and interrupted transitions**
+- [x] **Step 3: Test reduced motion and interrupted transitions**
 
 Reduced motion reaches identical target geometry with zero overshoot. Mid-flight retargeting begins from current geometry.
 
-- [ ] **Step 4: Run full motion/layout test family; commit**
+- [x] **Step 4: Run full motion/layout test family; commit**
 
 `git commit -am "Drive PowerFlow shell from one motion coordinator"`
 

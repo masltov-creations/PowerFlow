@@ -33,6 +33,11 @@ public static class ShellMotionPolicy
         var travelMs = Math.Clamp(180d + travel * 0.40d + longTravelExtra, baseline.TotalMilliseconds, 1250d);
         return TimeSpan.FromMilliseconds(travelMs);
     }
+    public static MotionMaterial NativeMaterial(PowerFlowShellState from, PowerFlowShellState to)
+        => from is PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen || to is PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen
+            ? MotionMaterial.Rigid
+            : MotionMaterial.Fluid;
+
     public static bool IsGrowth(PowerFlowShellState from, PowerFlowShellState to) => Rank(to) > Rank(from);
 
     public static double Ease(PowerFlowShellState from, PowerFlowShellState to, double progress)
