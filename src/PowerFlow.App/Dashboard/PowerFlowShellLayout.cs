@@ -29,7 +29,7 @@ public static class PowerFlowShellLayout
                 GovernorControlPresentation.Summary,
                 new ShellGeometry(0, 5, 3, 22, 0));
 
-        if (requestedState == PowerFlowShellState.FullScreen)
+        if (requestedState is PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen)
             return Expanded(width, height, requestedState, fullDensity: true);
 
         var effectiveDensity = density;
@@ -40,7 +40,7 @@ public static class PowerFlowShellLayout
     }
 
     private static ShellDensity DefaultDensity(PowerFlowShellState state)
-        => state is PowerFlowShellState.Expanded or PowerFlowShellState.FullScreen
+        => state is PowerFlowShellState.Expanded or PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen
             ? ShellDensity.Expanded
             : ShellDensity.Compact;
 

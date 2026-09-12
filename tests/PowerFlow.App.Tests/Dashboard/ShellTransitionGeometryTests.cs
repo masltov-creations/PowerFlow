@@ -77,4 +77,41 @@ public sealed class ShellTransitionGeometryTests
 
         Assert.Equal(progress < 0 ? start : end, frame);
     }
-}
+
+    [Fact]
+    public void TargetBounds_Workspace_Uses1360x860WhenWorkAreaAllowsAndPreservesPinnedCenter()
+    {
+        var tray = new TrayRect(1800, 1030, 1840, 1070);
+        var work = new TrayRect(0, 0, 1920, 1040);
+        var current = new RectInt32(300, 120, 1280, 800);
+        var target = ShellTransitionGeometry.TargetBounds(tray, work, current, PowerFlowShellState.Workspace);
+
+        Assert.Equal(1360, target.Width);
+        Assert.Equal(860, target.Height);
+        Assert.InRange(Math.Abs((target.X + target.Width / 2) - (current.X + current.Width / 2)), 0, 1);
+        Assert.InRange(Math.Abs((target.Y + target.Height / 2) - (current.Y + current.Height / 2)), 0, 1);
+    }
+
+    [Fact]
+    public void TargetBounds_ExpandedAfterUserMove_PreservesPinnedCenterInsteadOfReturningToTray()
+    {
+        var tray = new TrayRect(1800, 1030, 1840, 1070);
+        var work = new TrayRect(0, 0, 1920, 1040);
+        var current = new RectInt32(580, 300, 760, 440);
+        var target = ShellTransitionGeometry.TargetBounds(tray, work, current, PowerFlowShellState.Expanded);
+
+        Assert.InRange(Math.Abs((target.X + target.Width / 2) - (current.X + current.Width / 2)), 0, 1);
+        Assert.InRange(Math.Abs((target.Y + target.Height / 2) - (current.Y + current.Height / 2)), 0, 1);
+        Assert.True(target.X < 500, "Pinned growth should not snap back toward the tray edge.");
+    }
+
+    [Fact]
+    public void TargetBounds_Glance_RemainsTrayAnchored()
+    {
+        var tray = new TrayRect(1800, 1030, 1840, 1070);
+        var work = new TrayRect(0, 0, 1920, 1040);
+        var moved = new RectInt32(100, 100, 760, 440);
+        var target = ShellTransitionGeometry.TargetBounds(tray, work, moved, PowerFlowShellState.Glance);
+        Assert.True(target.X > 1400);
+        Assert.True(target.Y + target.Height <= tray.Top);
+    }}

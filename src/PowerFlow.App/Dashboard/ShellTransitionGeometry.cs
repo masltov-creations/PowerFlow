@@ -25,20 +25,26 @@ public static class ShellTransitionGeometry
             PowerFlowShellState.Glance => new ShellLogicalSize(320, 176),
             PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
             PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
+            PowerFlowShellState.Workspace => new ShellLogicalSize(1360, 860),
             _ => ShellCoordinateProjection.ToLogicalSize(Math.Max(1, current.Width), Math.Max(1, current.Height), rasterizationScale)
         };
         var requested = ShellCoordinateProjection.ToPhysicalSize(logical.Width, logical.Height, rasterizationScale);
         var width = Math.Min(requested.Width, Math.Max(1, workArea.Width));
         var height = Math.Min(requested.Height, Math.Max(1, workArea.Height));
-        var desiredX = tray.Right - width;
-        var desiredY = tray.Top - TrayGap - height;
+        var trayAnchored = target == PowerFlowShellState.Glance
+            || (target == PowerFlowShellState.Compact && current.Width <= 360 && current.Height <= 220);
+        var desiredX = trayAnchored
+            ? tray.Right - width
+            : current.X + current.Width / 2 - width / 2;
+        var desiredY = trayAnchored
+            ? tray.Top - TrayGap - height
+            : current.Y + current.Height / 2 - height / 2;
         var maxX = workArea.Right - width;
         var maxY = workArea.Bottom - height;
         var xClamped = Math.Clamp(desiredX, workArea.Left, Math.Max(workArea.Left, maxX));
         var yClamped = Math.Clamp(desiredY, workArea.Top, Math.Max(workArea.Top, maxY));
         return new RectInt32(xClamped, yClamped, width, height);
     }
-
     public static RectInt32 Interpolate(RectInt32 start, RectInt32 end, double progress)
     {
         var p = Math.Clamp(progress, 0, 1);

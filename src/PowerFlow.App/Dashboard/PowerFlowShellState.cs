@@ -6,6 +6,7 @@ public enum PowerFlowShellState
     Glance,
     Compact,
     Expanded,
+    Workspace,
     FullScreen
 }
 

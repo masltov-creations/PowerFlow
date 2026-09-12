@@ -15,8 +15,10 @@ public static class ShellMotionPolicy
             (PowerFlowShellState.Glance, PowerFlowShellState.Hidden) => TimeSpan.FromMilliseconds(130),
             (_, PowerFlowShellState.Hidden) => TimeSpan.FromMilliseconds(220),
             (PowerFlowShellState.Hidden, _) => TimeSpan.FromMilliseconds(260),
-            (PowerFlowShellState.Expanded, PowerFlowShellState.FullScreen) => TimeSpan.FromMilliseconds(360),
-            (PowerFlowShellState.FullScreen, PowerFlowShellState.Expanded) => TimeSpan.FromMilliseconds(340),
+            (PowerFlowShellState.Expanded, PowerFlowShellState.Workspace) => TimeSpan.FromMilliseconds(380),
+            (PowerFlowShellState.Workspace, PowerFlowShellState.Expanded) => TimeSpan.FromMilliseconds(340),
+            (PowerFlowShellState.Workspace, PowerFlowShellState.FullScreen) => TimeSpan.FromMilliseconds(360),
+            (PowerFlowShellState.FullScreen, PowerFlowShellState.Workspace) => TimeSpan.FromMilliseconds(340),
             (PowerFlowShellState.FullScreen, PowerFlowShellState.Compact) => TimeSpan.FromMilliseconds(380),
             _ => TimeSpan.FromMilliseconds(IsGrowth(from, to) ? 340 : 320)
         };
@@ -67,7 +69,8 @@ public static class ShellMotionPolicy
         PowerFlowShellState.Glance => 1,
         PowerFlowShellState.Compact => 2,
         PowerFlowShellState.Expanded => 3,
-        PowerFlowShellState.FullScreen => 4,
+        PowerFlowShellState.Workspace => 4,
+        PowerFlowShellState.FullScreen => 5,
         _ => 0
     };
 }
