@@ -21,12 +21,12 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="LIVE PERFORMANCE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="150" Opacity="0.72"/>
+                        <TextBlock Text="LIVE PERFORMANCE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="150" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}"/>
                         <Border x:Name="EnvelopeBadge" Padding="7,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}">
                             <TextBlock x:Name="EnvelopeBadgeText" Text="LEARNING" FontSize="11" FontWeight="SemiBold"/>
                         </Border>
                     </StackPanel>
-                    <TextBlock Grid.Column="1" x:Name="WindowLabel" Text="60 SEC" FontSize="11" Opacity="0.50" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="WindowLabel" Text="60 SEC" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock x:Name="GlanceSummary" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
             </Grid>
@@ -43,22 +43,22 @@
                         <RowDefinition Height="1.5*"/>
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock x:Name="CpuPressureLabel" Text="COMPUTE PRESSURE" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock x:Name="CpuPressureLabel" Text="COMPUTE PRESSURE" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <TextBlock x:Name="CpuValueText" Text="-" FontSize="12"/>
-                            <TextBlock x:Name="CpuThresholdText" Text="" FontSize="11" Opacity="0.52" VerticalAlignment="Bottom"/>
+                            <TextBlock x:Name="CpuThresholdText" Text="" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Bottom"/>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="POWER / CPU PERF" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock Text="POWER / CPU PERF" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <TextBlock x:Name="PowerValueText" Text="-" FontSize="12"/>
-                            <TextBlock Text="/" FontSize="11" Opacity="0.40"/>
+                            <TextBlock Text="/" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                             <TextBlock x:Name="ClockValueText" Text="-" FontSize="12"/>
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Grid.Row="2" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="CAPACITY / CORES" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                        <TextBlock Text="CAPACITY / CORES" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                         <TextBlock x:Name="CoresValueText" Text="-" FontSize="12"/>
                     </StackPanel>
                 </Grid>
@@ -104,8 +104,8 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="WindowStartLabel" Text="-60s" FontSize="11" Opacity="0.42"/>
-                <TextBlock Grid.Column="1" Text="NOW" FontSize="11" FontWeight="SemiBold" Opacity="0.62"/>
+                <TextBlock x:Name="WindowStartLabel" Text="-60s" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
+                <TextBlock Grid.Column="1" Text="NOW" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
             </Grid>
         </Grid>
     </Grid>

@@ -5,9 +5,9 @@
     <ScrollViewer>
         <StackPanel Padding="20,14" Spacing="14" MaxWidth="620" HorizontalAlignment="Left">
             <StackPanel Spacing="1">
-                <TextBlock Text="SETTINGS" FontSize="11" CharacterSpacing="180" Opacity="0.45"/>
+                <TextBlock Text="SETTINGS" FontSize="11" CharacterSpacing="180" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                 <TextBlock Text="PowerFlow preferences" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="Appearance and startup behavior. CPU policy is owned by Auto, Workloads, and the fixed PowerFlow profiles." FontSize="12" Opacity="0.52" TextWrapping="Wrap"/>
+                <TextBlock Text="Appearance and startup behavior. CPU policy is owned by Auto, Workloads, and the fixed PowerFlow profiles." FontSize="12" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
             </StackPanel>
             <Grid ColumnSpacing="14" RowSpacing="10">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -19,7 +19,7 @@
                 <TextBlock Grid.Row="2" Text="Start with Windows" VerticalAlignment="Center"/>
                 <ToggleSwitch x:Name="StartupToggle" Grid.Row="2" Grid.Column="1" OnContent="On" OffContent="Off"/>
             </Grid>
-            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Save settings" Click="OnSave"/><TextBlock x:Name="StatusText" VerticalAlignment="Center" Opacity="0.55"/></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="Save settings" Click="OnSave"/><TextBlock x:Name="StatusText" VerticalAlignment="Center" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/></StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

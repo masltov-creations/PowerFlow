@@ -20,7 +20,8 @@
                     <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#FF244151"/>
                     <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF55E6F2"/>
                     <SolidColorBrush x:Key="PowerFlowGlowBrush" Color="#5421D9FF"/>
-                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#B8C3D8EA"/>
+                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#FF90A3B3"/>
+                    <SolidColorBrush x:Key="PowerFlowTextMutedBrush" Color="#FF788D9D"/>
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1C9FDFFF"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#243A6688"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FA10243A"/>
@@ -50,7 +51,8 @@
                     <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#FF244151"/>
                     <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF55E6F2"/>
                     <SolidColorBrush x:Key="PowerFlowGlowBrush" Color="#5421D9FF"/>
-                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#B8C3D8EA"/>
+                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#FF90A3B3"/>
+                    <SolidColorBrush x:Key="PowerFlowTextMutedBrush" Color="#FF788D9D"/>
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#1C9FDFFF"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#243A6688"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FA10243A"/>
@@ -80,7 +82,8 @@
                     <SolidColorBrush x:Key="PowerFlowCardBorderBrush" Color="#352D5878"/>
                     <SolidColorBrush x:Key="PowerFlowAccentBrush" Color="#FF007DA8"/>
                     <SolidColorBrush x:Key="PowerFlowGlowBrush" Color="#26007DA8"/>
-                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#B34C6275"/>
+                    <SolidColorBrush x:Key="PowerFlowTextSecondaryBrush" Color="#FF4C6275"/>
+                    <SolidColorBrush x:Key="PowerFlowTextMutedBrush" Color="#FF607384"/>
                     <SolidColorBrush x:Key="PowerFlowSubtleBrush" Color="#14007099"/>
                     <SolidColorBrush x:Key="PowerFlowTrackBrush" Color="#182D5878"/>
                     <SolidColorBrush x:Key="PowerFlowHoverBrush" Color="#FFFFFFFF"/>

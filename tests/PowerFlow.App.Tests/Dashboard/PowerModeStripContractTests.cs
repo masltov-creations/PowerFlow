@@ -26,6 +26,13 @@ public sealed class PowerModeStripContractTests
     }
 
     [Fact]
+    public void ModeStrip_UsesThirtyFourPixelLogicalFloorToSurviveResizeRounding()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "PowerModeStripControl.xaml");
+        foreach (var name in new[] { "AutoModeButton", "SaverModeButton", "BalancedEfficientModeButton", "BalancedPerformanceModeButton", "PerformanceModeButton", "UltraModeButton" })
+            Assert.Matches($"x:Name=\\\"{name}\\\"[^>]*MinHeight=\\\"34\\\"", xaml);
+    }
+    [Fact]
     public void Header_EmbedsModeStripFromCompactUpwardAndForwardsRequests()
     {
         var xaml = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml");

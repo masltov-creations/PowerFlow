@@ -8,7 +8,7 @@
         <Grid Margin="10,8,10,8">
             <Canvas x:Name="ChartCanvas" SizeChanged="OnChartSizeChanged"/>
             <Border x:Name="EmptyMessage" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,7" CornerRadius="7" Background="{ThemeResource PowerFlowHoverBrush}">
-                <TextBlock Text="Run BASELINE MACHINE to build the comparison curves." FontSize="11" Opacity="0.66"/>
+                <TextBlock Text="Run BASELINE MACHINE to build the comparison curves." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
             </Border>
         </Grid>
         <StackPanel x:Name="LegendPanel" Grid.Row="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center"/>

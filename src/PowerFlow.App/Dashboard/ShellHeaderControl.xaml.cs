@@ -124,15 +124,23 @@ public sealed partial class ShellHeaderControl : UserControl
     private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
     private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
+    public void ApplyBrandMorph(double progress)
+    {
+        var opacity = Math.Clamp(progress, 0d, 1d);
+        foreach (var element in new UIElement[] { MinimalBrandIcon, MinimalBrandText, CompactBrandIcon, CompactBrandText, SystemBrandIcon, SystemBrandText })
+        {
+            element.Visibility = opacity <= 0d ? Visibility.Collapsed : Visibility.Visible;
+            element.Opacity = opacity;
+        }
+    }
     private void ApplyBrandVisibility()
     {
         var visibility = ShowBrand ? Visibility.Visible : Visibility.Collapsed;
-        MinimalBrandIcon.Visibility = visibility;
-        MinimalBrandText.Visibility = visibility;
-        CompactBrandIcon.Visibility = visibility;
-        CompactBrandText.Visibility = visibility;
-        SystemBrandIcon.Visibility = visibility;
-        SystemBrandText.Visibility = visibility;
+        foreach (var element in new UIElement[] { MinimalBrandIcon, MinimalBrandText, CompactBrandIcon, CompactBrandText, SystemBrandIcon, SystemBrandText })
+        {
+            element.Visibility = visibility;
+            element.Opacity = 1d;
+        }
     }
     private void ApplyPreviewMode()
     {

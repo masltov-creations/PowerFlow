@@ -9,12 +9,12 @@
         <Grid ColumnSpacing="14">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Spacing="2">
-                <TextBlock Text="MACHINE BASELINE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="150" Opacity="0.66"/>
+                <TextBlock Text="MACHINE BASELINE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="150" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                 <TextBlock Text="Find this CPU's efficient operating point" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock Text="One run compares native Windows Saver + Balanced against PowerFlow SAVER, BAL-E, BAL-P, Performance, ULTRA and Auto. Each mode gets 5 minutes: settle, idle measurement, then the same 1 / 2 / 4 / 8 / 16-thread synthetic CPU curve." FontSize="11" Opacity="0.56" TextWrapping="Wrap" MaxWidth="900"/>
+                <TextBlock Text="One run compares native Windows Saver + Balanced against PowerFlow SAVER, BAL-E, BAL-P, PERF and ULTRA. Each mode gets 5 minutes: settle, idle measurement, then the same 1 / 2 / 4 / 8 / 16-thread synthetic CPU curve." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap" MaxWidth="900"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                <Button x:Name="RunBaselineButton" Content="BASELINE MACHINE  ·  35 MIN" Padding="14,7" FontWeight="SemiBold" Click="OnRunBaseline" AutomationProperties.Name="Baseline machine for 40 minutes"/>
+                <Button x:Name="RunBaselineButton" Content="BASELINE MACHINE  ·  35 MIN" Padding="14,7" FontWeight="SemiBold" Click="OnRunBaseline" AutomationProperties.Name="Baseline machine for 35 minutes"/>
                 <Button x:Name="CancelButton" Content="CANCEL" Padding="10,7" IsEnabled="False" Click="OnCancel"/>
             </StackPanel>
         </Grid>
@@ -25,11 +25,11 @@
                 <StackPanel Spacing="4">
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBlock x:Name="BaselineProgressText" Text="Ready - 7 modes x 5 minutes" FontSize="11" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="BaselineRemainingText" Grid.Column="1" Text="30:00" FontSize="11" Opacity="0.62"/>
+                        <TextBlock x:Name="BaselineRemainingText" Grid.Column="1" Text="30:00" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                     </Grid>
                     <ProgressBar x:Name="BaselineProgressBar" Minimum="0" Maximum="100" Value="0" Height="6"/>
                 </StackPanel>
-                <TextBlock x:Name="BaselineStatusText" Grid.Column="1" Margin="10,0,0,0" Text="WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA / AUTO" FontSize="11" Opacity="0.48" VerticalAlignment="Center"/>
+                <TextBlock x:Name="BaselineStatusText" Grid.Column="1" Margin="10,0,0,0" Text="WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -39,14 +39,14 @@
                     <Grid ColumnSpacing="16">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="1.45*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
                         <StackPanel Spacing="3">
-                            <TextBlock Text="RECOMMENDATION" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
+                            <TextBlock Text="RECOMMENDATION" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                             <TextBlock x:Name="RecommendationText" Text="Run the baseline to let PowerFlow recommend the best measured envelope." FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="RecommendationReasonText" Text="The recommendation favors the lowest idle power among modes that still deliver at least 95% of the machine's measured maximum synthetic CPU throughput." FontSize="11" Opacity="0.58" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="RecommendationReasonText" Text="The recommendation favors the lowest idle power among modes that still deliver at least 95% of the machine's measured maximum synthetic CPU throughput." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
                         </StackPanel>
                         <Grid Grid.Column="1" ColumnSpacing="12">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <StackPanel Spacing="2"><TextBlock Text="BEST 1T" FontSize="11" Opacity="0.50"/><TextBlock x:Name="BestSingleThreadText" Text="—" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="LATENCY / LIGHT WORK" FontSize="11" Opacity="0.42"/></StackPanel>
-                            <StackPanel Grid.Column="1" Spacing="2"><TextBlock Text="BEST EFFICIENCY" FontSize="11" Opacity="0.50"/><TextBlock x:Name="BestEfficiencyText" Text="—" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="THROUGHPUT / WATT" FontSize="11" Opacity="0.42"/></StackPanel>
+                            <StackPanel Spacing="2"><TextBlock Text="BEST 1T" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/><TextBlock x:Name="BestSingleThreadText" Text="—" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="LATENCY / LIGHT WORK" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/></StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="2"><TextBlock Text="BEST EFFICIENCY" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/><TextBlock x:Name="BestEfficiencyText" Text="—" FontSize="13" FontWeight="SemiBold"/><TextBlock Text="THROUGHPUT / WATT" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/></StackPanel>
                         </Grid>
                     </Grid>
                 </Border>
@@ -56,7 +56,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="290"/></Grid.RowDefinitions>
                         <Grid ColumnSpacing="10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Spacing="1"><TextBlock Text="OVERLAID CPU CURVES" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/><TextBlock x:Name="ComparisonSummaryText" Text="All modes use the same synthetic workload so the shape and knee are directly comparable." FontSize="11" Opacity="0.52"/></StackPanel>
+                            <StackPanel Spacing="1"><TextBlock Text="OVERLAID CPU CURVES" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/><TextBlock x:Name="ComparisonSummaryText" Text="All modes use the same synthetic workload so the shape and knee are directly comparable." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/></StackPanel>
                             <ComboBox x:Name="ComparisonMetricBox" Grid.Column="1" SelectedIndex="0" MinWidth="180" SelectionChanged="OnComparisonMetricChanged" AutomationProperties.Name="Comparison curve metric"><ComboBoxItem Content="THROUGHPUT"/><ComboBoxItem Content="THROUGHPUT / WATT"/><ComboBoxItem Content="BENCHMARK POWER"/></ComboBox>
                             <ComboBox x:Name="SavedBaselineBox" Grid.Column="2" PlaceholderText="Saved baseline run" SelectionChanged="OnSavedBaselineChanged" AutomationProperties.Name="Saved machine baselines"/>
                         </Grid>
@@ -68,7 +68,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="0.8*"/><ColumnDefinition Width="1.2*"/></Grid.ColumnDefinitions>
                     <Border Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
                         <StackPanel Spacing="7">
-                            <TextBlock Text="IDLE COST" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
+                            <TextBlock Text="IDLE COST" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                             <ItemsRepeater x:Name="IdleComparisonRepeater">
                                 <ItemsRepeater.Layout><StackLayout Spacing="6"/></ItemsRepeater.Layout>
                                 <ItemsRepeater.ItemTemplate><DataTemplate><Grid ColumnSpacing="7"><Grid.ColumnDefinitions><ColumnDefinition Width="112"/><ColumnDefinition Width="*"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/><ProgressBar Grid.Column="1" Value="{Binding RelativePercent}" Maximum="100" Height="6" VerticalAlignment="Center"/><TextBlock Grid.Column="2" Text="{Binding WattsLabel}" FontSize="11" TextAlignment="Right" VerticalAlignment="Center"/></Grid></DataTemplate></ItemsRepeater.ItemTemplate>
@@ -77,7 +77,7 @@
                     </Border>
                     <Border Grid.Column="1" Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
                         <StackPanel Spacing="7">
-                            <TextBlock Text="RESULTS / KNEE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Opacity="0.58"/>
+                            <TextBlock Text="RESULTS / KNEE" FontSize="11" FontWeight="SemiBold" CharacterSpacing="120" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                             <Grid ColumnSpacing="8" Opacity="0.48"><Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="65"/><ColumnDefinition Width="65"/><ColumnDefinition Width="65"/><ColumnDefinition Width="90"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="MODE" FontSize="11"/><TextBlock Grid.Column="1" Text="IDLE" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="2" Text="1T" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="3" Text="KNEE" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="4" Text="MAX" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="5" Text="BEST M/W" FontSize="11" TextAlignment="Right"/></Grid>
                             <ItemsRepeater x:Name="ModeResultsRepeater"><ItemsRepeater.Layout><StackLayout Spacing="5"/></ItemsRepeater.Layout><ItemsRepeater.ItemTemplate><DataTemplate><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="65"/><ColumnDefinition Width="65"/><ColumnDefinition Width="65"/><ColumnDefinition Width="90"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold"/><TextBlock Grid.Column="1" Text="{Binding IdleLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="2" Text="{Binding SingleLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="3" Text="{Binding KneeLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="4" Text="{Binding MaxLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="5" Text="{Binding EfficiencyLabel}" FontSize="11" TextAlignment="Right"/></Grid></DataTemplate></ItemsRepeater.ItemTemplate></ItemsRepeater>
                         </StackPanel>
@@ -87,16 +87,16 @@
                 <Expander Header="PROFILE CURRENT MODE  ·  ADVANCED" IsExpanded="False">
                     <Border Style="{StaticResource PowerFlowInstrumentCardStyle}" Padding="12,9">
                         <StackPanel Spacing="8">
-                            <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Spacing="1"><TextBlock Text="QUICK SINGLE-MODE PROFILE" FontSize="11" FontWeight="SemiBold"/><TextBlock Text="Short probe of the currently active envelope. Useful between full baselines." FontSize="11" Opacity="0.50"/></StackPanel><ComboBox x:Name="SavedProfileBox" Grid.Column="1" SelectionChanged="OnSavedProfileChanged"/><Button x:Name="RunProfileButton" Grid.Column="2" Content="PROFILE CURRENT MODE" Padding="11,5" Click="OnRunProfile"/></Grid>
-                            <TextBlock x:Name="ProfileProgressText" Text="Idle" FontSize="11" Opacity="0.55"/>
+                            <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Spacing="1"><TextBlock Text="QUICK SINGLE-MODE PROFILE" FontSize="11" FontWeight="SemiBold"/><TextBlock Text="Short probe of the currently active envelope. Useful between full baselines." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/></StackPanel><ComboBox x:Name="SavedProfileBox" Grid.Column="1" SelectionChanged="OnSavedProfileChanged"/><Button x:Name="RunProfileButton" Grid.Column="2" Content="PROFILE CURRENT MODE" Padding="11,5" Click="OnRunProfile"/></Grid>
+                            <TextBlock x:Name="ProfileProgressText" Text="Idle" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}"/>
                             <TextBlock x:Name="ProfileSummaryText" Text="No current-mode profile selected." FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            <TextBlock x:Name="ProfileDetailText" FontSize="11" Opacity="0.52" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="ProfileDetailText" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
                             <ItemsRepeater x:Name="ProfilePointsRepeater"><ItemsRepeater.Layout><StackLayout Spacing="5"/></ItemsRepeater.Layout><ItemsRepeater.ItemTemplate><DataTemplate><Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="50"/><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="{Binding ThreadLabel}" FontSize="11" FontWeight="SemiBold"/><Grid Grid.Column="1"><ProgressBar Value="{Binding RelativeThroughputPercent}" Maximum="100" Height="6" VerticalAlignment="Center"/><TextBlock Text="{Binding ThroughputLabel}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Top"/></Grid><TextBlock Grid.Column="2" Text="{Binding PowerLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="3" Text="{Binding SpeedLabel}" FontSize="11" TextAlignment="Right"/><TextBlock Grid.Column="4" Text="{Binding EfficiencyLabel}" FontSize="11" TextAlignment="Right"/></Grid></DataTemplate></ItemsRepeater.ItemTemplate></ItemsRepeater>
                         </StackPanel>
                     </Border>
                 </Expander>
 
-                <TextBlock Text="Synthetic throughput is a controlled CPU scaling workload, not an application score. PowerFlow uses it to learn where this specific machine gains useful throughput, where the curve bends, and what that extra performance costs in watts." FontSize="11" Opacity="0.45" TextWrapping="Wrap"/>
+                <TextBlock Text="Synthetic throughput is a controlled CPU scaling workload, not an application score. PowerFlow uses it to learn where this specific machine gains useful throughput, where the curve bends, and what that extra performance costs in watts." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

@@ -32,14 +32,17 @@ public sealed class ShellDpiScalingContractTests
     }
 
     [Fact]
-    public void MainWindowFeedsLogicalSizesIntoEveryAnimatedLayoutFrame()
+    public void MainWindowResolvesLogicalEndpointsOnceAndMorphsTheExistingShellContinuously()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("var frameLogical = LogicalSize(rect)", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellLayout(layoutState, frameLogical.Width, frameLogical.Height)", code, StringComparison.Ordinal);
+        Assert.Contains("var fromLogical = LogicalSize(start)", code, StringComparison.Ordinal);
+        Assert.Contains("var toLogical = LogicalSize(target)", code, StringComparison.Ordinal);
+        Assert.Contains("ShellTransitionGeometry.Interpolate(start, target, eased)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellGeometryMorph(fromProfile, toProfile, eased)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellTransitionFrame(fromProfile, toProfile, eased", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellLayout(layoutState", code, StringComparison.Ordinal);
         Assert.Contains("ShellCoordinateProjection.ToPhysicalSize", code, StringComparison.Ordinal);
     }
-
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

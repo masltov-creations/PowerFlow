@@ -70,29 +70,73 @@ public sealed partial class PerformanceTimelineControl : UserControl
         if (_presentationApplied && Presentation == presentation) return;
         _presentationApplied = true;
         Presentation = presentation;
+        ApplyPresentationMetrics(PresentationMetrics.For(presentation));
         var glance = presentation == TimelinePresentation.Glance;
         TimelineHeader.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
         LaneLabels.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        var labelWidth = glance ? 0d : presentation == TimelinePresentation.Compact ? 92d : 104d;
-        LaneLabelColumn.Width = new GridLength(labelWidth);
-        TimelineFooter.Margin = new Thickness(glance ? 0d : labelWidth + 8d, 0, 0, 0);
-        TimelineRoot.MinHeight = presentation switch
-        {
-            TimelinePresentation.Glance => 72,
-            TimelinePresentation.Compact => 156,
-            TimelinePresentation.Expanded => 230,
-            _ => 280
-        };
-        TimelinePlotHost.MinHeight = presentation switch
-        {
-            TimelinePresentation.Glance => 58,
-            TimelinePresentation.Compact => 120,
-            TimelinePresentation.Expanded => 190,
-            _ => 235
-        };
+        TimelineHeader.Opacity = GlanceSummary.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
         RequestRedraw();
+    }
+
+    public void ApplyMorph(TimelinePresentation from, TimelinePresentation to, double progress, bool reducedMotion)
+    {
+        var t = Math.Clamp(progress, 0d, 1d);
+        if (reducedMotion || from == to || t >= 1d)
+        {
+            SetPresentation(to);
+            return;
+        }
+        if (t <= 0d)
+        {
+            SetPresentation(from);
+            return;
+        }
+
+        _presentationApplied = false;
+        ApplyPresentationMetrics(PresentationMetrics.Lerp(PresentationMetrics.For(from), PresentationMetrics.For(to), t));
+        var fromGlance = from == TimelinePresentation.Glance;
+        var toGlance = to == TimelinePresentation.Glance;
+        if (fromGlance != toGlance)
+        {
+            TimelineHeader.Visibility = GlanceSummary.Visibility = LaneLabels.Visibility = TimelineFooter.Visibility = Visibility.Visible;
+            var detail = toGlance ? 1d - t : t;
+            TimelineHeader.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = detail;
+            GlanceSummary.Opacity = 1d - detail;
+        }
+        else
+        {
+            var glance = fromGlance && toGlance;
+            TimelineHeader.Visibility = LaneLabels.Visibility = TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
+            GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
+            TimelineHeader.Opacity = GlanceSummary.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
+        }
+        RequestRedraw();
+    }
+
+    private void ApplyPresentationMetrics(PresentationMetrics metrics)
+    {
+        LaneLabelColumn.Width = new GridLength(metrics.LabelWidth);
+        TimelineFooter.Margin = new Thickness(metrics.LabelWidth <= 0 ? 0 : metrics.LabelWidth + 8d, 0, 0, 0);
+        TimelineRoot.MinHeight = metrics.RootMinHeight;
+        TimelinePlotHost.MinHeight = metrics.PlotMinHeight;
+    }
+
+    private readonly record struct PresentationMetrics(double LabelWidth, double RootMinHeight, double PlotMinHeight)
+    {
+        public static PresentationMetrics For(TimelinePresentation presentation) => presentation switch
+        {
+            TimelinePresentation.Glance => new(0, 72, 58),
+            TimelinePresentation.Compact => new(92, 156, 120),
+            TimelinePresentation.Expanded => new(104, 230, 190),
+            _ => new(104, 280, 235)
+        };
+
+        public static PresentationMetrics Lerp(PresentationMetrics a, PresentationMetrics b, double t)
+            => new(LerpValue(a.LabelWidth, b.LabelWidth, t), LerpValue(a.RootMinHeight, b.RootMinHeight, t), LerpValue(a.PlotMinHeight, b.PlotMinHeight, t));
+
+        private static double LerpValue(double a, double b, double t) => a + (b - a) * Math.Clamp(t, 0d, 1d);
     }
     public event EventHandler<TimelineCursorChangedEventArgs>? CursorChanged;
     public event EventHandler<TimelineSelectionChangedEventArgs>? SelectionChanged;

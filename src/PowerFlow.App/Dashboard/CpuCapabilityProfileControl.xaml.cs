@@ -110,7 +110,7 @@ public sealed partial class CpuCapabilityProfileControl : UserControl
         RunProfileButton.IsEnabled = !snapshot.IsRunning && _quickCts is null;
         CancelButton.IsEnabled = snapshot.IsRunning || _quickCts is not null;
         BaselineProgressText.Text = snapshot.Progress?.Message ?? snapshot.Status;
-        BaselineStatusText.Text = snapshot.Error ?? (snapshot.Progress is { } p ? $"MODE {p.ModeIndex}/{p.ModeCount} / {p.Mode} / {p.Stage}" : "WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA / AUTO");
+        BaselineStatusText.Text = snapshot.Error ?? (snapshot.Progress is { } p ? $"MODE {p.ModeIndex}/{p.ModeCount} / {p.Mode} / {p.Stage}" : "WINDOWS SAVER / WINDOWS BALANCED / PF SAVER / BAL-E / BAL-P / PERF / ULTRA");
         if (snapshot.LastCompletedRun is { } run)
         {
             UpsertBaseline(run);

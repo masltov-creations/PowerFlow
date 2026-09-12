@@ -15,17 +15,19 @@ public sealed class SemanticMorphContractTests
     }
 
     [Fact]
-    public void MainWindow_DrivesTimelineDensityFromTheExistingBoundsAnimationFrame()
+    public void MainWindow_DrivesAllSemanticMorphsFromOneBoundsAnimationProgress()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("ApplyShellTransitionFrame", code, StringComparison.Ordinal);
-        Assert.Contains("SystemHeaderHost.ApplyMorph", code, StringComparison.Ordinal);
-        Assert.Contains("PerformanceTimeline.SetPresentation", code, StringComparison.Ordinal);
-        Assert.Contains("ShellMotionPolicy.NavigationProgress", code, StringComparison.Ordinal);
+        Assert.Contains("SystemHeaderHost.ApplyMorph(from.Header, to.Header, t", code, StringComparison.Ordinal);
+        Assert.Contains("PerformanceTimeline.ApplyMorph(from.Timeline, to.Timeline, t", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyNavigationMorph(from.Navigation, to.Navigation, t)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyPresentationActionsMorph(from.State, to.State, t)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellMotionPolicy.NavigationProgress", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellMotionPolicy.ModeMorphProgress", code, StringComparison.Ordinal);
         Assert.DoesNotContain("ControlContextBandHost", code, StringComparison.Ordinal);
         Assert.DoesNotContain("SecondaryOperationalRow", code, StringComparison.Ordinal);
     }
-
     [Fact]
     public void Morphing_DoesNotCrossfadeTheWholeDashboard()
     {

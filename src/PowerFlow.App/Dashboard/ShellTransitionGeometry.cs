@@ -51,6 +51,19 @@ public static class ShellTransitionGeometry
             Lerp(start.Height, end.Height, p));
     }
 
+    public static ShellGeometry InterpolateGeometry(ShellGeometry start, ShellGeometry end, double progress)
+    {
+        var p = Math.Clamp(progress, 0d, 1d);
+        return new ShellGeometry(
+            Lerp(start.NavigationWidth, end.NavigationWidth, p),
+            Lerp(start.ContentPadding, end.ContentPadding, p),
+            Lerp(start.Gap, end.Gap, p),
+            Lerp(start.HeaderHeight, end.HeaderHeight, p),
+            Lerp(start.ControlBandHeight, end.ControlBandHeight, p));
+    }
+
+    private static double Lerp(double start, double end, double progress)
+        => start + (end - start) * progress;
     private static int Lerp(int start, int end, double progress)
         => (int)Math.Round(start + (end - start) * progress, MidpointRounding.AwayFromZero);
 }
