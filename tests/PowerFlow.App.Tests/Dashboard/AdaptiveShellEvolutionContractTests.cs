@@ -14,7 +14,7 @@ public sealed class AdaptiveShellEvolutionContractTests
         Assert.Contains("x:Name=\"AdaptiveControlRegion\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"MachineEnvelopePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SelectedActorPanel\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("MACHINE ENVELOPE", xaml, StringComparison.Ordinal);
+        Assert.Contains("GOVERNOR MODELS", xaml, StringComparison.Ordinal);
         Assert.Contains("CURRENT ACTOR", xaml, StringComparison.Ordinal);
         Assert.Contains("PerformanceTimeline.Apply", code, StringComparison.Ordinal);
         Assert.Contains("EnvelopeCalibration.Calibrate", code, StringComparison.Ordinal);

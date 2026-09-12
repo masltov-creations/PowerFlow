@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Telemetry;
@@ -58,6 +59,7 @@ public sealed partial class MainWindow : Window
     private readonly MachineBaselineSessionRuntime? _machineBaselineSession;
     private readonly Func<PowerFlowOperatingMode?>? _currentProfileProvider;
     private readonly Func<TensionShadowEvaluation?>? _tensionShadowProvider;
+    private int _tensionChangeVersion;
 
     public PowerFlowShellState ShellState => _shellState;
     public ShellActivationMode ActivationMode => _activationMode;
@@ -79,6 +81,8 @@ public sealed partial class MainWindow : Window
         _tensionShadowProvider = tensionShadowProvider;
         _config = config;
         _applyConfig = applyConfig;
+        GovernorTensionSlider.Value = config.EffectiveGovernorTensionPercent;
+        GovernorTensionSlider.ValueChanged += OnGovernorTensionChanged;
         _dispatcher = DispatcherQueue.GetForCurrentThread();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         try
@@ -364,6 +368,8 @@ public sealed partial class MainWindow : Window
             _ => new GridLength(Math.Max(132, profile.Geometry.ControlBandHeight + 18))
         };
         AdaptiveControlRegion.Visibility = profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
+        GovernorDetailPanel.Visibility = profile.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep ? Visibility.Visible : Visibility.Collapsed;
+        GovernorDetailPanel.Opacity = GovernorDetailPanel.Visibility == Visibility.Visible ? 1d : 0d;
         SelectedActorPanel.Visibility = profile.GovernorControls == GovernorControlPresentation.Bias && width < 680 ? Visibility.Collapsed : Visibility.Visible;
         FooterRowDefinition.Height = state == PowerFlowShellState.FullScreen || _layoutDensity == ShellDensity.Expanded ? GridLength.Auto : new GridLength(0);
     }
@@ -481,6 +487,9 @@ public sealed partial class MainWindow : Window
 
         if (from.GovernorControls != GovernorControlPresentation.Summary || to.GovernorControls != GovernorControlPresentation.Summary)
             AdaptiveControlRegion.Visibility = Visibility.Visible;
+        var fromDetail = from.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
+        var toDetail = to.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
+        if (fromDetail || toDetail) GovernorDetailPanel.Visibility = Visibility.Visible;
         if (ShowsFooter(from) || ShowsFooter(to)) FooterRowDefinition.Height = GridLength.Auto;
     }
 
@@ -498,6 +507,9 @@ public sealed partial class MainWindow : Window
         var fromControls = from.GovernorControls != GovernorControlPresentation.Summary;
         var toControls = to.GovernorControls != GovernorControlPresentation.Summary;
         AdaptiveControlRegion.Opacity = fromControls == toControls ? 1d : toControls ? t : 1d - t;
+        var fromDetail = from.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
+        var toDetail = to.GovernorControls is GovernorControlPresentation.Contextual or GovernorControlPresentation.Deep;
+        GovernorDetailPanel.Opacity = fromDetail == toDetail ? (toDetail ? 1d : 0d) : toDetail ? t : 1d - t;
 
         var fromFooter = ShowsFooter(from);
         var toFooter = ShowsFooter(to);
@@ -655,23 +667,47 @@ public sealed partial class MainWindow : Window
         var learningModel = _config.EffectiveAdaptiveGovernorSettings.ResolveLearningModel(calibration);
         var latestObservation = ViewModel.OperatingHistory.LastOrDefault();
         var modelEntitlement = ResolveModelEntitlement(latestObservation, snapshot);
+        var configuredTension = _config.EffectiveGovernorTensionPercent;
+        var shadowPolicy = GovernorTensionPolicy.Resolve(configuredTension, learningModel.Envelope, modelEntitlement);
+        var shadowEvaluation = _tensionShadowProvider?.Invoke();
+
         PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
         PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
         PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
         PerformanceTimeline.SetCoreActuatorStatus(_coreActuatorStatusProvider?.Invoke());
         PerformanceTimeline.SetPolicyContext(learningModel.Envelope, modelEntitlement, EnvelopeTuning.Learned);
+        PerformanceTimeline.SetShadowPolicyContext(shadowPolicy.EffectiveEnvelope);
         PerformanceTimeline.SetTuneMode(false);
+
         ModelConfidenceText.Text = learningModel.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
             : $"{learningModel.Confidence.ToString().ToUpperInvariant()} CONFIDENCE";
-        EnvelopeSummaryText.Text = learningModel.Envelope.EfficientPowerFrontierWatts is double frontier
-            ? $"{ViewModel.GovernorModelLabel} · frontier near {frontier:0} W · {ViewModel.GovernorModelExplanation}"
-            : $"{ViewModel.GovernorModelLabel} · {ViewModel.GovernorModelExplanation}";
 
         var actor = ShortActor(snapshot.TriggerApplication);
         SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;
         var manualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
         var currentProfile = _currentProfileProvider?.Invoke();
+        var baseline = _config.EffectiveMachineBaselineRuns.OrderByDescending(run => run.CapturedAt).FirstOrDefault();
+        var comparison = GovernorComparisonProjection.Create(ViewModel.LatestGovernorDecision, currentProfile, manualAuthority, shadowEvaluation, baseline);
+
+        CurrentAutoStateText.Text = comparison.CurrentStateText;
+        CurrentAutoDetailText.Text = comparison.CurrentDetailText;
+        TensionShadowStateText.Text = $"SHADOW · T{configuredTension:0.#}";
+        TensionShadowDetailText.Text = comparison.ShadowDetailText;
+        GovernorTensionValueText.Text = $"T{configuredTension:0.#}";
+        GovernorReferenceText.Text = shadowPolicy.Reference switch
+        {
+            GovernorTensionReference.SaverBias => "SAVER BIAS",
+            GovernorTensionReference.BalancedEfficient => "BAL-E",
+            GovernorTensionReference.BalancedPerformance => "BAL-P",
+            GovernorTensionReference.PerformanceBias => "PERF BIAS",
+            _ => "BAL-E"
+        };
+        CurrentEvidenceText.Text = comparison.CurrentEvidenceText;
+        ShadowEvidenceText.Text = comparison.ShadowEvidenceText;
+        ToolTipService.SetToolTip(GovernorTensionSlider,
+            $"Shadow only. {comparison.ScaleBehaviorText}; {comparison.SustainBehaviorText}; {comparison.SettleBehaviorText}. Current AUTO remains applied.");
+
         if (snapshot.IsLatched && !manualAuthority)
             DecisionStateText.Text = (snapshot.LatchType ?? "LOCK").ToUpperInvariant();
         else if (currentProfile is PowerFlowOperatingMode profile)
@@ -702,6 +738,26 @@ public sealed partial class MainWindow : Window
         PowerFlowOperatingMode.Ultra => "ULTRA",
         _ => mode.ToString().ToUpperInvariant()
     };
+    private async void OnGovernorTensionChanged(object sender, RangeBaseValueChangedEventArgs e)
+    {
+        var value = Math.Clamp(e.NewValue, 0d, 100d);
+        if (Math.Abs(_config.EffectiveGovernorTensionPercent - value) < .01d) return;
+
+        _config = _config with { GovernorTensionPercent = value };
+        ViewModel.Configure(_config);
+        ApplyVisualState(_controller.Snapshot);
+        var version = Interlocked.Increment(ref _tensionChangeVersion);
+        try
+        {
+            await Task.Delay(250);
+            if (version != Volatile.Read(ref _tensionChangeVersion)) return;
+            await ApplyConfigFromPageAsync(_config with { GovernorTensionPercent = value });
+        }
+        catch (Exception ex)
+        {
+            TensionShadowDetailText.Text = $"SHADOW UPDATE FAILED · {ex.Message}";
+        }
+    }
     private async void OnModeRequested(object? sender, PowerModeRequestedEventArgs e)
     {
         try
