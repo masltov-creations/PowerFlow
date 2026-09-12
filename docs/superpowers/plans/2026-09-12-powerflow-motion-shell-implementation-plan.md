@@ -308,19 +308,19 @@ Reduced motion reaches identical target geometry with zero overshoot. Mid-flight
 - Frame cache owns reusable HICON handles and exposes no background timer.
 - Tray icon rectangle remains the source origin for Peek.
 
-- [ ] **Step 1: Write RED finite-animation tests**
+- [x] **Step 1: Write RED finite-animation tests**
 
 Assert no animation for equivalent settled snapshots, finite animation for zone/profile change, distinct held/manual intent, and no repeating timer requirement.
 
-- [ ] **Step 2: Implement cached short-frame animation**
+- [x] **Step 2: Implement cached short-frame animation**
 
 Reuse the existing PowerFlow icon artwork and derive/carry a small finite set of swoop-state frames. Animate at 8–12 fps for 350–700 ms only when policy state changes. Stop the timer and leave a static final icon.
 
-- [ ] **Step 3: Make Tray→Peek motion originate at actual `Shell_NotifyIconGetRect` bounds**
+- [x] **Step 3: Make Tray→Peek motion originate at actual `Shell_NotifyIconGetRect` bounds**
 
 Fallback to the observed hover rectangle only when the shell rectangle is unavailable.
 
-- [ ] **Step 4: Run tray policy/integration tests; commit**
+- [x] **Step 4: Run tray policy/integration tests; commit**
 
 `git commit -am "Animate PowerFlow tray state and anchor Peek"`
 

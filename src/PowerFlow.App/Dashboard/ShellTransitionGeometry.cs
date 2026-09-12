@@ -14,10 +14,11 @@ public static class ShellTransitionGeometry
 
         if (target == PowerFlowShellState.Hidden)
         {
-            const int hiddenSize = 1;
-            var hiddenX = Math.Clamp(tray.Left + tray.Width / 2, workArea.Left, workArea.Right - hiddenSize);
-            var hiddenY = Math.Clamp(tray.Top + tray.Height / 2, workArea.Top, workArea.Bottom - hiddenSize);
-            return new RectInt32(hiddenX, hiddenY, hiddenSize, hiddenSize);
+            var hiddenWidth = Math.Min(Math.Max(1, tray.Width), Math.Max(1, workArea.Width));
+            var hiddenHeight = Math.Min(Math.Max(1, tray.Height), Math.Max(1, workArea.Height));
+            var x = Math.Clamp(tray.Left, workArea.Left, Math.Max(workArea.Left, workArea.Right - hiddenWidth));
+            var y = Math.Clamp(tray.Top, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - hiddenHeight));
+            return new RectInt32(x, y, hiddenWidth, hiddenHeight);
         }
 
         var logical = target switch

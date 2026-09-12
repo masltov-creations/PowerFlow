@@ -14,6 +14,8 @@ public sealed class TrayIconHost : IDisposable
     private const uint WmLButtonDblClk = 0x0203;
     private const uint WmContextMenu = 0x007B;
     private const uint WmCommand = 0x0111;
+    private const uint WmTimer = 0x0113;
+    private const nuint TrayMotionTimerId = 1;
     private const uint NifMessage = 0x00000001;
     private const uint NifIcon = 0x00000002;
     private const uint NifTip = 0x00000004;
@@ -43,11 +45,17 @@ public sealed class TrayIconHost : IDisposable
     private ControllerSnapshot _snapshot;
     private PowerFlowOperatingMode? _manualMode;
     private TrayRect? _observedHoverRect;
+    private readonly TrayIconFrameCache _frameCache;
+    private TrayIconMotionPlan _motionPlan = TrayIconMotionPlan.None;
+    private int _motionFrameIndex = -1;
+    private int _settledFrame;
 
     public TrayIconHost(ControllerSnapshot initialSnapshot, PowerFlowOperatingMode? manualMode = null)
     {
         _snapshot = initialSnapshot;
         _manualMode = manualMode;
+        _frameCache = new TrayIconFrameCache(AppContext.BaseDirectory);
+        _settledFrame = TrayIconMotionPolicy.SettledFrame(initialSnapshot, manualMode);
         _windowProc = WndProc;
         _instance = GetModuleHandle(null);
         _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
@@ -61,13 +69,22 @@ public sealed class TrayIconHost : IDisposable
 
     public void Update(ControllerSnapshot snapshot, PowerFlowOperatingMode? manualMode = null)
     {
+        var plan = TrayIconMotionPolicy.Decide(_snapshot, snapshot, _manualMode, manualMode);
         _snapshot = snapshot;
         _manualMode = manualMode;
-        AddOrUpdateIcon(add: false);
+        _settledFrame = TrayIconMotionPolicy.SettledFrame(snapshot, manualMode);
+        if (plan.Kind == TrayIconMotionKind.None)
+        {
+            StopMotionAnimation(updateIcon: false);
+            AddOrUpdateIcon(add: false);
+            return;
+        }
+        StartMotionAnimation(plan);
     }
 
     public void Dispose()
     {
+        StopMotionAnimation(updateIcon: false);
         if (_window != IntPtr.Zero && _iconAdded)
         {
             var data = CreateNotifyData();
@@ -84,6 +101,7 @@ public sealed class TrayIconHost : IDisposable
             UnregisterClass(_className, _instance);
             _classAtom = 0;
         }
+        _frameCache.Dispose();
         GC.KeepAlive(_windowProc);
     }
 
@@ -107,6 +125,12 @@ public sealed class TrayIconHost : IDisposable
         if (msg == _taskbarCreatedMessage)
         {
             AddOrUpdateIcon(add: true);
+            return IntPtr.Zero;
+        }
+
+        if (msg == WmTimer && unchecked((nuint)wParam.ToInt64()) == TrayMotionTimerId)
+        {
+            AdvanceMotionFrame();
             return IntPtr.Zero;
         }
 
@@ -226,6 +250,55 @@ public sealed class TrayIconHost : IDisposable
         }
     }
 
+    private void StartMotionAnimation(TrayIconMotionPlan plan)
+    {
+        StopMotionAnimation(updateIcon: false);
+        _motionPlan = plan;
+        _motionFrameIndex = 0;
+        AddOrUpdateIcon(add: false);
+        if (_window == IntPtr.Zero || plan.FrameIndices.Count <= 1)
+        {
+            StopMotionAnimation(updateIcon: true);
+            return;
+        }
+        var interval = (uint)Math.Clamp((int)Math.Round(plan.FrameInterval.TotalMilliseconds), 80, 125);
+        if (SetTimer(_window, TrayMotionTimerId, interval, IntPtr.Zero) == 0)
+            StopMotionAnimation(updateIcon: true);
+    }
+
+    private void AdvanceMotionFrame()
+    {
+        if (_motionPlan.Kind == TrayIconMotionKind.None || _motionPlan.FrameIndices.Count == 0)
+        {
+            StopMotionAnimation(updateIcon: true);
+            return;
+        }
+        _motionFrameIndex++;
+        if (_motionFrameIndex >= _motionPlan.FrameIndices.Count)
+        {
+            StopMotionAnimation(updateIcon: true);
+            return;
+        }
+        AddOrUpdateIcon(add: false);
+    }
+
+    private void StopMotionAnimation(bool updateIcon)
+    {
+        if (_window != IntPtr.Zero) KillTimer(_window, TrayMotionTimerId);
+        _motionPlan = TrayIconMotionPlan.None;
+        _motionFrameIndex = -1;
+        if (updateIcon && _window != IntPtr.Zero && _iconAdded) AddOrUpdateIcon(add: false);
+    }
+
+    private IntPtr CurrentIcon()
+    {
+        var frame = _settledFrame;
+        if (_motionPlan.Kind != TrayIconMotionKind.None && _motionFrameIndex >= 0 && _motionFrameIndex < _motionPlan.FrameIndices.Count)
+            frame = _motionPlan.FrameIndices[_motionFrameIndex];
+        var icon = _frameCache.GetFrame(frame);
+        return icon != IntPtr.Zero ? icon : LoadStateIcon(_snapshot);
+    }
+
     private void RaiseCommand(int commandId) => CommandInvoked?.Invoke(this, new TrayCommandInvokedEventArgs(commandId));
 
     private void AddOrUpdateIcon(bool add)
@@ -255,7 +328,7 @@ public sealed class TrayIconHost : IDisposable
             UId = 1,
             UFlags = NifMessage | NifIcon | NifTip,
             UCallbackMessage = WmTray,
-            HIcon = LoadStateIcon(_snapshot),
+            HIcon = CurrentIcon(),
             SzTip = TrimTooltip($"PowerFlow · {model.StatusText}")
         };
     }
@@ -348,6 +421,8 @@ public sealed class TrayIconHost : IDisposable
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr hwnd);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern nuint SetTimer(IntPtr hwnd, nuint idEvent, uint elapse, IntPtr timerProc);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool KillTimer(IntPtr hwnd, nuint idEvent);
     [DllImport("user32.dll")] private static extern IntPtr LoadIcon(IntPtr instance, IntPtr iconName);
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect { public int Left; public int Top; public int Right; public int Bottom; }

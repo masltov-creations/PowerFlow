@@ -24,5 +24,6 @@
   <ItemGroup>
     <Content Include="Assets\PowerFlow.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\PowerFlow.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Tray\*.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
