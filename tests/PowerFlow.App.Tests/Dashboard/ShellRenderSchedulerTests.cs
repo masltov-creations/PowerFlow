@@ -58,7 +58,7 @@ public sealed class ShellRenderSchedulerTests
 public sealed class ShellResizeContractTests
 {
     [Fact]
-    public void NativeResizeEvent_OnlySubmitsLatestSizeToRenderScheduler()
+    public void NativeResizeEvent_CoalescesFramesAndUsesSameProjectionAsSettledCommit()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         var body = MethodBody(code, "private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)");
@@ -69,15 +69,31 @@ public sealed class ShellResizeContractTests
     }
 
     [Fact]
-    public void ResizeLoop_HasSeparateInteractiveFrameAndSettledSemanticCommit()
+    public void ResizeLoop_UsesOneSemanticLayerAndSharedProjectionDuringDragAndSettle()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("ApplyInteractiveResizeFrame", code, StringComparison.Ordinal);
-        Assert.Contains("CommitResizePresentation", code, StringComparison.Ordinal);
-        Assert.Contains("TimeSpan.FromMilliseconds(16)", code, StringComparison.Ordinal);
-        Assert.Contains("ShouldCommit(DateTimeOffset.UtcNow)", code, StringComparison.Ordinal);
+        Assert.Contains("_resizeFrameTimer", code, StringComparison.Ordinal);
+        Assert.Contains("OnResizeFrameTick", code, StringComparison.Ordinal);
+        var interactive = MethodBody(code, "private void ApplyInteractiveResizeFrame");
+        var commit = MethodBody(code, "private void CommitResizePresentation");
+        Assert.Contains("ShellManualResizePolicy.Resolve", interactive, StringComparison.Ordinal);
+        Assert.Contains("ShellManualResizePolicy.Resolve", commit, StringComparison.Ordinal);
+        Assert.Contains("ApplyDisclosureProgress", interactive, StringComparison.Ordinal);
+        Assert.Contains("ApplyCockpitGeometry", interactive, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellGeometryMorph", interactive, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellTransitionFrame", interactive, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyMorph(", interactive, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ManualResize_UsesEndpointVisibilityWhileAutomaticMotionKeepsTransientLayersAlive()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var interactive = MethodBody(code, "private void ApplyInteractiveResizeFrame");
+        var automatic = MethodBody(code, "private void ApplyMotionFrame");
+        Assert.Contains("ApplyDisclosureProgress(projection.Disclosure, settled: true)", interactive, StringComparison.Ordinal);
+        Assert.Contains("settled: false", automatic, StringComparison.Ordinal);
+    }
     private static string MethodBody(string source, string signature)
     {
         var start = source.IndexOf(signature, StringComparison.Ordinal);

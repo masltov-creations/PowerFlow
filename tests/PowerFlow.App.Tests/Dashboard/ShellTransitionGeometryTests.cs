@@ -114,4 +114,15 @@ public sealed class ShellTransitionGeometryTests
         var target = ShellTransitionGeometry.TargetBounds(tray, work, moved, PowerFlowShellState.Glance);
         Assert.True(target.X > 1400);
         Assert.True(target.Y + target.Height <= tray.Top);
+    }
+    [Fact]
+    public void VisibleTraySeed_AnchorsRealMinimumWindowAboveIcon()
+    {
+        var tray = new PowerFlow.App.Tray.TrayRect(2200, 1300, 2240, 1340);
+        var work = new PowerFlow.App.Tray.TrayRect(0, 0, 2560, 1400);
+        var seed = ShellTransitionGeometry.TraySeedBounds(tray, work, 136, 60);
+        Assert.Equal(2240 - 136, seed.X);
+        Assert.Equal(1300 - 10 - 60, seed.Y);
+        Assert.Equal(136, seed.Width);
+        Assert.Equal(60, seed.Height);
     }}

@@ -48,14 +48,31 @@ public sealed class MotionShellProgressiveContractTests
     }
 
     [Fact]
-    public void AutomaticAndManualResizePathsBothDriveDisclosureContinuously()
+    public void AutomaticMotionAndManualResizeUseContinuousDisclosureButOnlyAutomaticMotionCrossfadesSemanticLayers()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("ApplyDisclosureProgress", MethodBody(code, "private void ApplyMotionFrame"), StringComparison.Ordinal);
-        Assert.Contains("ApplyDisclosureProgress", MethodBody(code, "private void ApplyInteractiveResizeFrame"), StringComparison.Ordinal);
-        Assert.Contains("ApplyDisclosureProgress", MethodBody(code, "private void ApplyResponsiveResizeMorph"), StringComparison.Ordinal);
+        var interactive = MethodBody(code, "private void ApplyInteractiveResizeFrame");
+        Assert.Contains("ApplyDisclosureProgress", interactive, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellTransitionFrame", interactive, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellGeometryMorph", interactive, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout", MethodBody(code, "private void CommitResizePresentation"), StringComparison.Ordinal);
     }
 
+
+    [Fact]
+    public void CompactOverflowAlwaysProvidesEveryPrimaryPageIncludingLive()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml");
+        foreach (var page in new[] { "LIVE", "WORKLOADS", "BASELINE", "SETTINGS" })
+            Assert.Contains($"Text=\"{page}\"", xaml, StringComparison.Ordinal);
+        var code = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml.cs");
+        Assert.Contains("LiveRequested", code, StringComparison.Ordinal);
+        Assert.Contains("BaselineRequested", code, StringComparison.Ordinal);
+        var window = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        Assert.Contains("OnHeaderLiveRequested", window, StringComparison.Ordinal);
+        Assert.Contains("OnHeaderBaselineRequested", window, StringComparison.Ordinal);
+    }
     [Fact]
     public void SectionNavigationChangesVisibilityOnlyNeverNativeGeometry()
     {

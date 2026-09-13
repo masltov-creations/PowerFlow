@@ -53,7 +53,7 @@ public sealed class AdaptiveGovernorRuntime
             .FirstOrDefault();
         var observation = new OperatingObservation(
             snapshot.At,
-            snapshot.CpuPercent,
+            GovernorPressureProjection.Current(snapshot, latestRich),
             packageWatts: null,
             effectiveClockMhz: null,
             activeCores: null,
@@ -80,7 +80,7 @@ public sealed class AdaptiveGovernorRuntime
 
     private static OperatingObservation ToObservation(ContinuitySample sample) => new(
         sample.At,
-        sample.CpuPercent,
+        GovernorPressureProjection.FromSample(sample),
         sample.PackageWatts,
         sample.AverageMhz,
         sample.ActiveCores,

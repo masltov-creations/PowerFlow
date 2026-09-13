@@ -39,8 +39,10 @@ public sealed class ShellFrameAuthorityTests
         Assert.Contains("x:Name=\"DragSurface\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"DragHandle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Move PowerFlow window\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("DragSurface.Height = compactMoveStrip ? 10d : 16d", code, StringComparison.Ordinal);
-        Assert.Contains("SystemHeaderHost.Margin = new Thickness(0, headerTopInset, 0, 0)", code, StringComparison.Ordinal);
+        Assert.Contains("DragStripRowDefinition.Height = new GridLength(headerTopInset)", code, StringComparison.Ordinal);
+        Assert.Contains("DragSurface.Height = headerTopInset", code, StringComparison.Ordinal);
+        Assert.Contains("SystemHeaderHost.Margin = new Thickness(0)", code, StringComparison.Ordinal);
+        Assert.Contains("PresentationActions.Margin = new Thickness(0)", code, StringComparison.Ordinal);
         Assert.Contains("ExtendsContentIntoTitleBar = true", code, StringComparison.Ordinal);
         Assert.Contains("SetTitleBar(DragSurface)", code, StringComparison.Ordinal);
         Assert.Contains("ConfigureCustomTitleBar", code, StringComparison.Ordinal);

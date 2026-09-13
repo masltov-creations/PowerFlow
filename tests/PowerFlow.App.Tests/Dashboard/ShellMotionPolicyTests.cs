@@ -8,7 +8,7 @@ public sealed class ShellMotionPolicyTests
     [Fact]
     public void Duration_UsesFastBoundedGrowthTimings()
     {
-        Assert.InRange(ShellMotionPolicy.Duration(PowerFlowShellState.Hidden, PowerFlowShellState.Glance, false).TotalMilliseconds, 110, 150);
+        Assert.InRange(ShellMotionPolicy.Duration(PowerFlowShellState.Hidden, PowerFlowShellState.Glance, false).TotalMilliseconds, 220, 300);
         Assert.InRange(ShellMotionPolicy.Duration(PowerFlowShellState.Glance, PowerFlowShellState.Compact, false).TotalMilliseconds, 220, 320);
         Assert.InRange(ShellMotionPolicy.Duration(PowerFlowShellState.Compact, PowerFlowShellState.Expanded, false).TotalMilliseconds, 280, 420);
     }

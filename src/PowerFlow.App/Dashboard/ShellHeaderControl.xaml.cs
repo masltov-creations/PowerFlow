@@ -14,7 +14,9 @@ public sealed partial class ShellHeaderControl : UserControl
         ApplyPreviewMode();
     }
 
+    public event EventHandler? LiveRequested;
     public event EventHandler? RulesRequested;
+    public event EventHandler? BaselineRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler<PowerModeRequestedEventArgs>? ModeRequested;
 
@@ -92,14 +94,14 @@ public sealed partial class ShellHeaderControl : UserControl
             layer.Visibility = Visibility.Collapsed;
             layer.Opacity = 1d;
             layer.IsHitTestVisible = false;
-            ElementCompositionPreview.GetElementVisual(layer).Offset = Vector3.Zero;
+            layer.Translation = Vector3.Zero;
         }
         source.Visibility = Visibility.Visible;
         target.Visibility = Visibility.Visible;
         source.Opacity = 1d - t;
         target.Opacity = t;
-        ElementCompositionPreview.GetElementVisual(source).Offset = new Vector3(0, -travel * (float)t, 0);
-        ElementCompositionPreview.GetElementVisual(target).Offset = new Vector3(0, travel * (float)(1d - t), 0);
+        source.Translation = new Vector3(0, -travel * (float)t, 0);
+        target.Translation = new Vector3(0, travel * (float)(1d - t), 0);
     }
 
     private void ResetLayers(HeaderPresentation selected)
@@ -110,7 +112,7 @@ public sealed partial class ShellHeaderControl : UserControl
             layer.Visibility = ReferenceEquals(layer, chosen) ? Visibility.Visible : Visibility.Collapsed;
             layer.Opacity = 1d;
             layer.IsHitTestVisible = ReferenceEquals(layer, chosen);
-            ElementCompositionPreview.GetElementVisual(layer).Offset = Vector3.Zero;
+            layer.Translation = Vector3.Zero;
         }
     }
 
@@ -121,7 +123,9 @@ public sealed partial class ShellHeaderControl : UserControl
     }
 
     private void OnModeRequested(object sender, PowerModeRequestedEventArgs e) => ModeRequested?.Invoke(this, e);
+    private void OnLiveClicked(object sender, RoutedEventArgs e) => LiveRequested?.Invoke(this, EventArgs.Empty);
     private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
+    private void OnBaselineClicked(object sender, RoutedEventArgs e) => BaselineRequested?.Invoke(this, EventArgs.Empty);
     private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
 
     public void ApplyBrandMorph(double progress)

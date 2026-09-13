@@ -21,17 +21,23 @@
                 <NavigationView.FooterMenuItems><NavigationViewItem Content="Settings" Tag="settings"><NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon></NavigationViewItem></NavigationView.FooterMenuItems>
                 <Grid x:Name="SectionHost">
                     <Grid.RowDefinitions><RowDefinition x:Name="SystemHeaderRowDefinition" Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-<Grid x:Name="SystemHeaderRow" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <Border x:Name="DragSurface" Grid.ColumnSpan="2" Height="10" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent" AutomationProperties.Name="Move PowerFlow window" ToolTipService.ToolTip="Drag to move PowerFlow">
+<Grid x:Name="SystemHeaderRow">
+                            <Grid.RowDefinitions>
+                                <RowDefinition x:Name="DragStripRowDefinition" Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Border x:Name="DragSurface" Grid.Row="0" Height="10" VerticalAlignment="Top" HorizontalAlignment="Stretch" Background="Transparent" AutomationProperties.Name="Move PowerFlow window" ToolTipService.ToolTip="Drag to move PowerFlow">
                                 <Border x:Name="DragHandle" Width="42" Height="3" CornerRadius="2" Background="{ThemeResource PowerFlowTextMutedBrush}" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
                             </Border>
-                            <dash:ShellHeaderControl x:Name="SystemHeaderHost" Margin="0,10,0,0" RulesRequested="OnHeaderRulesRequested" SettingsRequested="OnHeaderSettingsRequested"/>
-                            <StackPanel x:Name="PresentationActions" Grid.Column="1" Margin="0,10,0,0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" MinHeight="34" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" MinHeight="34" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
+                            <Grid x:Name="HeaderContentRow" Grid.Row="1" ColumnSpacing="10">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <dash:ShellHeaderControl x:Name="SystemHeaderHost" LiveRequested="OnHeaderLiveRequested" RulesRequested="OnHeaderRulesRequested" BaselineRequested="OnHeaderBaselineRequested" SettingsRequested="OnHeaderSettingsRequested"/>
+                                <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" MinHeight="34" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" MinHeight="34" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
+                            </Grid>
                         </Grid>
                     <Grid x:Name="SectionContentHost" Grid.Row="1">
 <Grid x:Name="CockpitSurface" Padding="16" RowSpacing="12" Background="{ThemeResource PowerFlowSurfaceBrush}">
-                        <Grid.RowDefinitions><RowDefinition x:Name="TimelineRowDefinition" Height="*"/><RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/><RowDefinition x:Name="FooterRowDefinition" Height="Auto"/></Grid.RowDefinitions>
+                        <Grid.RowDefinitions><RowDefinition x:Name="TimelineRowDefinition" Height="*" MinHeight="156"/><RowDefinition x:Name="AdaptiveControlRowDefinition" Height="Auto"/><RowDefinition x:Name="FooterRowDefinition" Height="Auto"/></Grid.RowDefinitions>
 
                         <Grid x:Name="AnalyticalInstrumentHost" Grid.Row="0"><dash:PerformanceTimelineControl x:Name="PerformanceTimeline"/></Grid>
                         <Grid x:Name="AdaptiveControlRegion" Grid.Row="1" ColumnSpacing="10">

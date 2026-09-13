@@ -50,7 +50,7 @@ public sealed class ShellResponsiveDensityTests
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
         Assert.Contains("_layoutDensity", code, StringComparison.Ordinal);
-        Assert.Contains("ShellResponsiveDensity.Resolve", code, StringComparison.Ordinal);
+        Assert.Contains("ShellManualResizePolicy.Resolve", code, StringComparison.Ordinal);
         Assert.DoesNotContain("_shellState = logical.Width >=", code, StringComparison.Ordinal);
         Assert.DoesNotContain("if (profile.State != state && state == PowerFlowShellState.Compact) _shellState", code, StringComparison.Ordinal);
     }
@@ -66,16 +66,15 @@ public sealed class ShellResponsiveDensityTests
     }
 
     [Fact]
-    public void MainWindowResizeHandler_BlendsCompactAndExpandedPresentationsInsteadOfSnappingAtDensityFlip()
+    public void MainWindowResizeHandler_UsesSingleLayerLiveDisclosureWithoutSemanticCrossfade()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-
-        Assert.Contains("ApplyResponsiveResizeMorph", code, StringComparison.Ordinal);
-        Assert.Contains("ShellResponsiveDensity.MorphProgress", code, StringComparison.Ordinal);
-        Assert.Contains("ShellDensity.Compact", code, StringComparison.Ordinal);
-        Assert.Contains("ShellDensity.Expanded", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellGeometryMorph(compactProfile, expandedProfile", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellTransitionFrame(compactProfile, expandedProfile", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyResponsiveResizeMorph", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyInteractiveResizeFrame", code, StringComparison.Ordinal);
+        var body = code[code.IndexOf("private void ApplyInteractiveResizeFrame", StringComparison.Ordinal)..];
+        Assert.DoesNotContain("ApplyShellGeometryMorph", body[..body.IndexOf("private void CommitResizePresentation", StringComparison.Ordinal)], StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellTransitionFrame", body[..body.IndexOf("private void CommitResizePresentation", StringComparison.Ordinal)], StringComparison.Ordinal);
+        Assert.Contains("ApplyDisclosureProgress", body, StringComparison.Ordinal);
     }
     [Fact]
     public void ResizeMorph_AllowsNavigationRailToCollapseContinuouslyToZeroWidth()
@@ -84,6 +83,25 @@ public sealed class ShellResponsiveDensityTests
 
         Assert.Contains("var paneWidth = Math.Max(0d, geometry.NavigationWidth)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Math.Max(NavigationRail.CompactPaneLength, geometry.NavigationWidth)", code, StringComparison.Ordinal);
+    }
+    [Fact]
+    public void ManualResizePolicy_UsesHysteresisAndSameDisclosureAtInteractiveAndSettledEndpoints()
+    {
+        var expanded = ShellManualResizePolicy.Resolve(new ShellLogicalSize(900, 560), ShellDensity.Compact, PowerFlowShellState.Compact);
+        Assert.Equal(ShellDensity.Expanded, expanded.Density);
+        Assert.Equal(PowerFlowShellState.Expanded, expanded.State);
+        Assert.Equal(ShellDisclosurePolicy.Progress(new ShellLogicalSize(900, 560), PowerFlowShellState.Expanded), expanded.Disclosure, 6);
+
+        var held = ShellManualResizePolicy.Resolve(new ShellLogicalSize(880, 540), expanded.Density, expanded.State);
+        Assert.Equal(ShellDensity.Expanded, held.Density);
+        Assert.Equal(PowerFlowShellState.Expanded, held.State);
+
+        var compact = ShellManualResizePolicy.Resolve(new ShellLogicalSize(850, 510), held.Density, held.State);
+        Assert.Equal(ShellDensity.Compact, compact.Density);
+        Assert.Equal(PowerFlowShellState.Compact, compact.State);
+
+        var workspace = ShellManualResizePolicy.Resolve(new ShellLogicalSize(1320, 820), expanded.Density, expanded.State);
+        Assert.Equal(PowerFlowShellState.Workspace, workspace.State);
     }
     private static string Read(params string[] parts)
     {

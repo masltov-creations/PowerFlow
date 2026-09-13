@@ -22,6 +22,18 @@ public static class ShellDisclosurePolicy
     public static double DeepProgress(double disclosure)
         => SmoothWindow(disclosure, .72d, 1d);
 
+    public static double SettledContextProgress(double disclosure)
+    {
+        var context = ContextProgress(disclosure);
+        return context < .86d ? 0d : context;
+    }
+
+    public static double SettledFooterProgress(double disclosure)
+    {
+        var footer = FooterProgress(disclosure);
+        return footer < .80d ? 0d : footer;
+    }
+
     private static double Piecewise(double value, double compact, double threshold, double dashboard, double compactValue, double thresholdValue, double dashboardValue)
     {
         if (value <= compact) return compactValue;

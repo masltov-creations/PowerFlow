@@ -60,6 +60,34 @@ public sealed class AdaptiveGovernorRuntimeTests
     }
 
     [Fact]
+    public void Evaluate_UsesRichDemandPressureInsteadOfRawCpuWhenAvailable()
+    {
+        var pressure = new DemandPressureTelemetry(70, 65, 95, 70, 0, 0, 8, 16, "SATURATION");
+        var history = Enumerable.Range(0, 30)
+            .Select(i => new ContinuitySample(
+                T0.AddSeconds(-145 + i * 5),
+                CpuPercent: 10,
+                PackageWatts: 60,
+                AverageMhz: 3200,
+                State: PowerState.Balanced,
+                Reason: "load",
+                IsLatched: false,
+                LatchType: null,
+                ThresholdProgress: 0,
+                TriggerApplication: null,
+                TotalCores: 16,
+                DemandPressure: pressure))
+            .ToArray();
+        var runtime = new AdaptiveGovernorRuntime();
+        var tuning = new EnvelopeTuning(EnvelopeTuningLayer.Override, 20, 50, 80);
+
+        var result = runtime.Evaluate(Snapshot(1, 10, null), history, PowerFlowConfig.Default, tuning);
+
+        Assert.NotNull(result);
+        Assert.Equal(EnvelopeZone.Responsive, result!.Decision.RequestedZone);
+        Assert.Equal(EnvelopeZone.Responsive, result.Decision.AllowedZone);
+    }
+    [Fact]
     public void AppSource_WiresRuntimeDecisionIntoExistingGuardedControllerBridge()
     {
         var code = Read("src", "PowerFlow.App", "App.xaml.cs");

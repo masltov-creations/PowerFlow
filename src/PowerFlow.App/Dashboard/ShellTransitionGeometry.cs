@@ -46,6 +46,21 @@ public static class ShellTransitionGeometry
         var yClamped = Math.Clamp(desiredY, workArea.Top, Math.Max(workArea.Top, maxY));
         return new RectInt32(xClamped, yClamped, width, height);
     }
+
+    public static RectInt32 TraySeedBounds(TrayRect tray, TrayRect workArea, int width, int height)
+    {
+        var seedWidth = Math.Min(Math.Max(1, width), Math.Max(1, workArea.Width));
+        var seedHeight = Math.Min(Math.Max(1, height), Math.Max(1, workArea.Height));
+        var desiredX = tray.Right - seedWidth;
+        var desiredY = tray.Top - TrayGap - seedHeight;
+        var maxX = workArea.Right - seedWidth;
+        var maxY = workArea.Bottom - seedHeight;
+        return new RectInt32(
+            Math.Clamp(desiredX, workArea.Left, Math.Max(workArea.Left, maxX)),
+            Math.Clamp(desiredY, workArea.Top, Math.Max(workArea.Top, maxY)),
+            seedWidth,
+            seedHeight);
+    }
     public static RectInt32 Interpolate(RectInt32 start, RectInt32 end, double progress)
     {
         var p = Math.Clamp(progress, 0, 1);

@@ -54,6 +54,9 @@ public static class GovernorComparisonProjection
         var shadowState = $"SHADOW · T{shadow.TensionPercent:0.#}";
         var shadowDetail = $"WOULD USE {ProfileLabel(shadow.WouldUseMode)} · {ZoneLabel(shadow.Decision.AllowedZone)}";
         var behavior = Behavior(shadow.TensionPercent);
+        var shadowEvidence = appliedProfile is PowerFlowOperatingMode appliedMode && appliedMode == shadow.WouldUseMode
+            ? "SAME PROFILE · shares applied evidence"
+            : EvidenceFor(shadow.WouldUseMode, baseline);
         return new GovernorComparisonView(
             currentState,
             currentDetail,
@@ -64,7 +67,7 @@ public static class GovernorComparisonProjection
             behavior.Sustain,
             behavior.Settle,
             currentEvidence,
-            EvidenceFor(shadow.WouldUseMode, baseline));
+            shadowEvidence);
     }
 
     private static (string Scale, string Sustain, string Settle) Behavior(double tension)

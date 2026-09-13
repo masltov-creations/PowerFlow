@@ -64,12 +64,18 @@ public sealed class ShellMotionIntegrationTests
     }
 
     [Fact]
-    public void MainWindow_UsesOneCoordinatorAndRenderFrameClockForAutomaticMotion()
+    public void MainWindow_UsesOneCoordinatorAndDedicated16MsClockForAutomaticMotion()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("private readonly ShellMotionCoordinator _motionCoordinator", code, StringComparison.Ordinal);
-        Assert.Contains("CompositionTarget.Rendering += OnShellMotionRendering", code, StringComparison.Ordinal);
-        Assert.Contains("CompositionTarget.Rendering -= OnShellMotionRendering", code, StringComparison.Ordinal);
+        Assert.Contains("private DispatcherQueueTimer? _motionFrameTimer", code, StringComparison.Ordinal);
+        Assert.Contains("private bool _motionClockActive", code, StringComparison.Ordinal);
+        var startClock = MethodBody(code, "private void StartShellMotionClock");
+        Assert.Contains("_motionFrameTimer = _dispatcher.CreateTimer()", startClock, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(16)", startClock, StringComparison.Ordinal);
+        Assert.Contains("_motionFrameTimer.IsRepeating = true", startClock, StringComparison.Ordinal);
+        Assert.Contains("_motionFrameTimer.Tick += OnShellMotionTick", startClock, StringComparison.Ordinal);
+        Assert.DoesNotContain("CompositionTarget.Rendering", code, StringComparison.Ordinal);
         Assert.DoesNotContain("_presentationTimer", code, StringComparison.Ordinal);
 
         var animate = MethodBody(code, "private Task AnimateShellBoundsAsync");
@@ -82,7 +88,7 @@ public sealed class ShellMotionIntegrationTests
     public void OneMotionFrame_DrivesBoundsSemanticMorphAndMaterialResponse()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        var render = MethodBody(code, "private void OnShellMotionRendering");
+        var render = MethodBody(code, "private void OnShellMotionTick");
         var apply = MethodBody(code, "private void ApplyMotionFrame");
 
         Assert.Contains("_motionCoordinator.Sample", render, StringComparison.Ordinal);
@@ -103,7 +109,22 @@ public sealed class ShellMotionIntegrationTests
         Assert.Contains("if (transitionVersion != _transitionVersion) return", transition, StringComparison.Ordinal);
     }
 
-    private static string MethodBody(string source, string signature)
+
+    [Fact]
+    public void FirstVisibleTrayTransition_PrimesTheHiddenOriginBeforeStartingPhysicalMotion()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var transition = MethodBody(code, "public async Task TransitionToAsync");
+        var firstStart = transition.IndexOf("if (!_shellVisible)", StringComparison.Ordinal);
+        Assert.True(firstStart >= 0);
+        var firstShow = transition[firstStart..];
+        Assert.Contains("ApplyShellLayout(fromState, start.Width, start.Height)", firstShow, StringComparison.Ordinal);
+        var visible = firstShow.IndexOf("_shellVisible = true", StringComparison.Ordinal);
+        var barrier = firstShow.IndexOf("await WaitForPresenterLayoutAsync()", StringComparison.Ordinal);
+        var animate = firstShow.IndexOf("await AnimateShellBoundsAsync", StringComparison.Ordinal);
+        Assert.True(visible >= 0 && barrier > visible && animate > barrier,
+            "First show must become visible at its seed, finish initial XAML layout, and only then start the physical motion clock.");
+    }    private static string MethodBody(string source, string signature)
     {
         var start = source.IndexOf(signature, StringComparison.Ordinal);
         Assert.True(start >= 0, $"Missing method {signature}");

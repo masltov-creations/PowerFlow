@@ -35,7 +35,7 @@ public sealed class ShellDpiScalingContractTests
     public void MainWindowResolvesLogicalEndpointsOnceAndMorphsTheExistingShellContinuously()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("var effectiveStart = _motionRenderingAttached ? activeFrame.Bounds : start", code, StringComparison.Ordinal);
+        Assert.Contains("var effectiveStart = _motionClockActive ? activeFrame.Bounds : start", code, StringComparison.Ordinal);
         Assert.Contains("var fromLogical = LogicalSize(effectiveStart)", code, StringComparison.Ordinal);
         Assert.Contains("var toLogical = LogicalSize(target)", code, StringComparison.Ordinal);
         Assert.Contains("AppWindow.MoveAndResize(frame.Bounds)", code, StringComparison.Ordinal);

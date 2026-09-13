@@ -95,6 +95,43 @@ public sealed class EnvelopeGovernorTests
         Assert.Contains("confidence", decision.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Evaluate_HoldsResponsiveZoneThroughReleaseHysteresisBeforeDemoting()
+    {
+        var governor = new EnvelopeGovernor();
+        var entitlement = BoostEntitlement();
+
+        var promoted = governor.Evaluate(Observation(60, T0), Envelope, entitlement, T0);
+        var briefDip = governor.Evaluate(Observation(45, T0.AddSeconds(1)), Envelope, entitlement, T0.AddSeconds(1));
+        var stillHolding = governor.Evaluate(Observation(45, T0.AddSeconds(9)), Envelope, entitlement, T0.AddSeconds(9));
+        var released = governor.Evaluate(Observation(45, T0.AddSeconds(11)), Envelope, entitlement, T0.AddSeconds(11));
+
+        Assert.Equal(EnvelopeZone.Responsive, promoted.AllowedZone);
+        Assert.Equal(EnvelopeZone.Efficient, briefDip.RequestedZone);
+        Assert.Equal(EnvelopeZone.Responsive, briefDip.AllowedZone);
+        Assert.Contains("release hysteresis", briefDip.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EnvelopeZone.Responsive, stillHolding.AllowedZone);
+        Assert.Equal(EnvelopeZone.Efficient, released.AllowedZone);
+    }
+
+    [Fact]
+    public void Evaluate_ReboundToHeldZoneCancelsPendingDownshiftTimer()
+    {
+        var governor = new EnvelopeGovernor();
+        var entitlement = BoostEntitlement();
+
+        governor.Evaluate(Observation(60, T0), Envelope, entitlement, T0);
+        governor.Evaluate(Observation(45, T0.AddSeconds(1)), Envelope, entitlement, T0.AddSeconds(1));
+        var rebound = governor.Evaluate(Observation(60, T0.AddSeconds(5)), Envelope, entitlement, T0.AddSeconds(5));
+        var secondDip = governor.Evaluate(Observation(45, T0.AddSeconds(12)), Envelope, entitlement, T0.AddSeconds(12));
+        var beforeSecondRelease = governor.Evaluate(Observation(45, T0.AddSeconds(20)), Envelope, entitlement, T0.AddSeconds(20));
+        var afterSecondRelease = governor.Evaluate(Observation(45, T0.AddSeconds(23)), Envelope, entitlement, T0.AddSeconds(23));
+
+        Assert.Equal(EnvelopeZone.Responsive, rebound.AllowedZone);
+        Assert.Equal(EnvelopeZone.Responsive, secondDip.AllowedZone);
+        Assert.Equal(EnvelopeZone.Responsive, beforeSecondRelease.AllowedZone);
+        Assert.Equal(EnvelopeZone.Efficient, afterSecondRelease.AllowedZone);
+    }
     private static PerformanceEntitlement BoostEntitlement() => new(EnvelopeZone.Boost, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(10), true);
     private static OperatingObservation Observation(double pressure, DateTimeOffset at) => new(at, pressure, 60, 2800, null, 16, EnvelopeZone.Efficient, "work.exe", EnvelopeDecisionKind.None);
 }

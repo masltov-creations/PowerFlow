@@ -29,7 +29,9 @@
                 <FontIcon Glyph="&#xE712;" FontSize="14"/>
                 <Button.Flyout>
                     <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <MenuFlyoutItem Text="LIVE" Click="OnLiveClicked"/>
                         <MenuFlyoutItem Text="WORKLOADS" Click="OnRulesClicked"/>
+                        <MenuFlyoutItem Text="BASELINE" Click="OnBaselineClicked"/>
                         <MenuFlyoutItem Text="SETTINGS" Click="OnSettingsClicked"/>
                     </MenuFlyout>
                 </Button.Flyout>

@@ -7,7 +7,7 @@ public static class ShellMotionPolicy
         if (reducedMotion || from == to) return TimeSpan.Zero;
         return (from, to) switch
         {
-            (PowerFlowShellState.Hidden, PowerFlowShellState.Glance) => TimeSpan.FromMilliseconds(130),
+            (PowerFlowShellState.Hidden, PowerFlowShellState.Glance) => TimeSpan.FromMilliseconds(240),
             (PowerFlowShellState.Glance, PowerFlowShellState.Compact) => TimeSpan.FromMilliseconds(260),
             (PowerFlowShellState.Compact, PowerFlowShellState.Expanded) => TimeSpan.FromMilliseconds(340),
             (PowerFlowShellState.Expanded, PowerFlowShellState.Compact) => TimeSpan.FromMilliseconds(320),

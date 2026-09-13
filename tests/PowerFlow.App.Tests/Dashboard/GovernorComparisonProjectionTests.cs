@@ -76,7 +76,22 @@ public sealed class GovernorComparisonProjectionTests
         Assert.DoesNotContain("estimate", view.ShadowEvidenceText, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static GovernorDecision Decision(EnvelopeZone zone) =>
+
+    [Fact]
+    public void Create_SameAppliedAndShadowProfileDoesNotRepeatIdenticalMeasuredEvidence()
+    {
+        var baseline = Baseline(Result(MachineBaselineMode.BalancedEfficient, "BAL-E", 77.8, 7210));
+        var view = GovernorComparisonProjection.Create(
+            Decision(EnvelopeZone.Efficient),
+            PowerFlowOperatingMode.Balanced,
+            false,
+            Shadow(50, EnvelopeZone.Efficient, PowerFlowOperatingMode.Balanced),
+            baseline);
+
+        Assert.Equal("MEASURED · 77.8 W idle · 7210 Mops max", view.CurrentEvidenceText);
+        Assert.NotEqual(view.CurrentEvidenceText, view.ShadowEvidenceText);
+        Assert.Contains("SAME PROFILE", view.ShadowEvidenceText, StringComparison.OrdinalIgnoreCase);
+    }    private static GovernorDecision Decision(EnvelopeZone zone) =>
         new(zone, zone, EnvelopeDecisionKind.None, 0, null, "test", EnvelopeConfidence.High);
 
     private static TensionShadowEvaluation Shadow(double tension, EnvelopeZone zone, PowerFlowOperatingMode mode)

@@ -89,6 +89,34 @@ public sealed class TensionShadowRuntimeTests
         Assert.DoesNotContain("IPowerPlanController", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Evaluate_UsesSameRichDemandPressureAsCurrentAuto()
+    {
+        var pressure = new DemandPressureTelemetry(70, 65, 95, 70, 0, 0, 8, 16, "SATURATION");
+        var history = Enumerable.Range(0, 30)
+            .Select(i => new ContinuitySample(
+                T0.AddSeconds(-145 + i * 5),
+                CpuPercent: 10,
+                PackageWatts: 60,
+                AverageMhz: 3200,
+                State: PowerState.Balanced,
+                Reason: "load",
+                IsLatched: false,
+                LatchType: null,
+                ThresholdProgress: 0,
+                TriggerApplication: null,
+                TotalCores: 16,
+                DemandPressure: pressure))
+            .ToArray();
+        var snapshot = Snapshot(1, 10, null, false, null);
+        var current = new AdaptiveGovernorRuntime().Evaluate(snapshot, history, PowerFlowConfig.Default);
+        var result = new TensionShadowRuntime().Evaluate(snapshot, history, PowerFlowConfig.Default, 50);
+
+        Assert.NotNull(current);
+        Assert.NotNull(result);
+        Assert.NotEqual(EnvelopeZone.Eco, current!.Decision.RequestedZone);
+        Assert.Equal(current.Decision.RequestedZone, result!.Decision.RequestedZone);
+    }
     private static ControllerSnapshot Snapshot(long count, double cpu, string? actor, bool latched, string? latchType) =>
         new(PowerState.PowerSaver, "sample", latched, latchType, cpu, 0, null, actor, T0.AddSeconds(count * 2), [], count, 0);
 
