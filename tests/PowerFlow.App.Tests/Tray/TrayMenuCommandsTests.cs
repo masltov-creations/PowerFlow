@@ -18,7 +18,6 @@ public sealed class TrayMenuCommandsTests
         Assert.Equal("Performance Locked - Game", model.StatusText);
         Assert.True(model.AutoChecked);
         Assert.False(model.UltraChecked);
-        Assert.False(model.ReleaseLatchEnabled);
     }
 
     [Fact]
@@ -29,7 +28,6 @@ public sealed class TrayMenuCommandsTests
         Assert.True(model.PerformanceChecked);
         Assert.False(model.BalancedChecked);
         Assert.False(model.AutoChecked);
-        Assert.True(model.ReleaseLatchEnabled);
     }
 
     [Theory]
@@ -61,10 +59,36 @@ public sealed class TrayMenuCommandsTests
     }
 
     [Fact]
+    public void CurrentTrayContract_ContainsOnlySupportedCommandsAndModelState()
+    {
+        var commandNames = typeof(TrayMenuCommands)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(field => field.IsLiteral)
+            .Select(field => field.Name)
+            .OrderBy(name => name)
+            .ToArray();
+        Assert.Equal(new[]
+        {
+            "Auto", "Balanced", "BalancedPerformance", "Exit", "HighPerformance",
+            "OpenDashboard", "PowerSaver", "Settings", "Ultra"
+        }, commandNames);
+
+        var modelProperties = typeof(TrayMenuModel)
+            .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Select(property => property.Name)
+            .OrderBy(name => name)
+            .ToArray();
+        Assert.Equal(new[]
+        {
+            "AutoChecked", "BalancedChecked", "BalancedPerformanceChecked", "PerformanceChecked",
+            "SaverChecked", "StatusText", "UltraChecked"
+        }, modelProperties);
+    }
+    [Fact]
     public void CommandIds_AreUnique()
     {
         var ids = new[] { TrayMenuCommands.OpenDashboard, TrayMenuCommands.Auto, TrayMenuCommands.PowerSaver, TrayMenuCommands.Balanced,
-            TrayMenuCommands.BalancedPerformance, TrayMenuCommands.HighPerformance, TrayMenuCommands.Ultra, TrayMenuCommands.ReleaseLatch, TrayMenuCommands.Settings, TrayMenuCommands.Exit };
+            TrayMenuCommands.BalancedPerformance, TrayMenuCommands.HighPerformance, TrayMenuCommands.Ultra, TrayMenuCommands.Settings, TrayMenuCommands.Exit };
         Assert.Equal(ids.Length, ids.Distinct().Count());
     }
 }

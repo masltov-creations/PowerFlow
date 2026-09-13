@@ -322,7 +322,6 @@ public partial class App : Application
                 case TrayMenuCommands.BalancedPerformance: await ApplyOperatingModeAsync(PowerModeSelection.Responsive); break;
                 case TrayMenuCommands.HighPerformance: await ApplyOperatingModeAsync(PowerModeSelection.Boost); break;
                 case TrayMenuCommands.Ultra: await ApplyOperatingModeAsync(PowerModeSelection.Ultra); break;
-                case TrayMenuCommands.ReleaseLatch: await ApplyOperatingModeAsync(PowerModeSelection.Auto); break;
                 case TrayMenuCommands.Settings: await OpenDashboardAsync(true); break;
                 case TrayMenuCommands.Exit: await ShutdownAsync(true); break;
             }

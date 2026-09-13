@@ -63,7 +63,7 @@ public sealed class PowerPolicyEngineTests
     }
 
     [Fact]
-    public void GameTelemetryDroppingToZero_DoesNotReleaseLatch()
+    public void GameTelemetryDroppingToZero_DoesNotEndGameLatch()
     {
         var engine = NewEngine();
         engine.Evaluate(new GameStarted(T0, "game:42"));

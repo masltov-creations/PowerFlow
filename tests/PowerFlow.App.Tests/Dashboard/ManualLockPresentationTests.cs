@@ -19,7 +19,6 @@ public sealed class ManualLockPresentationTests
         var model = TrayMenuCommands.Build(Snapshot(PowerState.PowerSaver), PowerFlowOperatingMode.Saver);
         Assert.Equal("Saver - Manual", model.StatusText);
         Assert.True(model.SaverChecked);
-        Assert.True(model.ReleaseLatchEnabled);
     }
 
     [Fact]
