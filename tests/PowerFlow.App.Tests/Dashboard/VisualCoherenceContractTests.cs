@@ -22,6 +22,19 @@ public sealed class VisualCoherenceContractTests
     }
 
     [Fact]
+    public void SectionNavigation_ChangesContentWithoutChangingShellPresentation()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var start = code.IndexOf("private Task NavigateToSectionAsync", StringComparison.Ordinal);
+        var end = code.IndexOf("private void ApplySectionVisibility", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var navigation = code[start..end];
+        Assert.DoesNotContain("TransitionToAsync", navigation, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellSectionPolicy.MinimumState", navigation, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout(_shellState", navigation, StringComparison.Ordinal);
+        Assert.Contains("Task.CompletedTask", navigation, StringComparison.Ordinal);
+    }
+    [Fact]
     public void GrowthMotion_HasSoftStartAndSoftLanding()
     {
         var early = ShellMotionPolicy.Ease(PowerFlowShellState.Compact, PowerFlowShellState.Expanded, .01);

@@ -51,6 +51,10 @@ public sealed partial class MainWindow : Window
     private TaskCompletionSource? _presentationCompletion;
     private long _transitionGeneration;
     private int _resizeModeSyncSuppressionDepth;
+    private bool _headerDragActive;
+    private PointNative _headerDragPointerOrigin;
+    private PointInt32 _headerDragWindowOrigin;
+    private DispatcherQueueTimer? _headerDragTimer;
     private bool _suppressNavigationSelection;
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
@@ -97,6 +101,8 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Initialize(config, ApplyConfigFromPageAsync, ApplyTheme);
         CpuProfilePanel.Initialize(config.EffectiveCpuCapabilityProfiles, SaveCpuCapabilityProfileAsync, config.EffectiveMachineBaselineRuns, _machineBaselineSession);
         SystemHeaderHost.ModeRequested += OnModeRequested;
+        SystemHeaderHost.DragStarted += OnHeaderDragStarted;
+        SystemHeaderHost.DragCompleted += OnHeaderDragCompleted;
         controller.SnapshotChanged += OnSnapshotChanged;
         _recorder.ContinuityChanged += OnContinuityChanged;
         AppWindow.Closing += OnAppWindowClosing;
@@ -848,6 +854,42 @@ public sealed partial class MainWindow : Window
         SelectSection(section);
     }
 
+    private void OnHeaderDragStarted(object? sender, EventArgs e)
+    {
+        _headerDragActive = false;
+        if (!_shellVisible || _activationMode != ShellActivationMode.PinnedActive) return;
+        if (_shellState is PowerFlowShellState.Hidden or PowerFlowShellState.Glance or PowerFlowShellState.FullScreen) return;
+        if (!GetCursorPos(out _headerDragPointerOrigin)) return;
+        _headerDragWindowOrigin = AppWindow.Position;
+        _headerDragActive = true;
+        EnsureHeaderDragTimer();
+        _headerDragTimer!.Start();
+    }
+
+    private void EnsureHeaderDragTimer()
+    {
+        if (_headerDragTimer is not null) return;
+        _headerDragTimer = _dispatcher.CreateTimer();
+        _headerDragTimer.Interval = TimeSpan.FromMilliseconds(16);
+        _headerDragTimer.Tick += OnHeaderDragTimerTick;
+    }
+
+    private void OnHeaderDragTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        if (!_headerDragActive || !GetCursorPos(out var pointer)) return;
+        var deltaX = pointer.X - _headerDragPointerOrigin.X;
+        var deltaY = pointer.Y - _headerDragPointerOrigin.Y;
+        if (Math.Abs(deltaX) < 3 && Math.Abs(deltaY) < 3) return;
+        AppWindow.Move(new PointInt32(
+            _headerDragWindowOrigin.X + deltaX,
+            _headerDragWindowOrigin.Y + deltaY));
+    }
+
+    private void OnHeaderDragCompleted(object? sender, EventArgs e)
+    {
+        _headerDragActive = false;
+        _headerDragTimer?.Stop();
+    }
     private async void OnOpenRulesClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("rules");
     private async void OnOpenSettingsClicked(object sender, RoutedEventArgs e) => await OpenSectionAsync("settings");
     private async void OnHeaderRulesRequested(object? sender, EventArgs e) => await OpenSectionAsync("rules");
@@ -901,17 +943,14 @@ public sealed partial class MainWindow : Window
         await NavigateToSectionAsync(tag);
     }
 
-    private async Task NavigateToSectionAsync(string tag)
+    private Task NavigateToSectionAsync(string tag)
     {
-        var minimumState = ShellSectionPolicy.MinimumState(tag);
-        if (_shellVisible && ShellMotionPolicy.Rank(_shellState) < ShellMotionPolicy.Rank(minimumState))
-            await TransitionToAsync(minimumState, ShellActivationMode.PinnedActive, animate: true);
-
         _currentSection = tag;
         PerformanceTimeline.SetTuneMode(false);
         ApplySectionVisibility(tag);
         var logical = CurrentLogicalAppWindowSize();
         ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        return Task.CompletedTask;
     }
 
     private void ApplySectionVisibility(string tag)
@@ -948,6 +987,14 @@ public sealed partial class MainWindow : Window
         _controller.SnapshotChanged -= OnSnapshotChanged;
         _recorder.ContinuityChanged -= OnContinuityChanged;
         SystemHeaderHost.ModeRequested -= OnModeRequested;
+        SystemHeaderHost.DragStarted -= OnHeaderDragStarted;
+        SystemHeaderHost.DragCompleted -= OnHeaderDragCompleted;
+        if (_headerDragTimer is not null)
+        {
+            _headerDragTimer.Stop();
+            _headerDragTimer.Tick -= OnHeaderDragTimerTick;
+            _headerDragTimer = null;
+        }
         CpuProfilePanel.CancelActive();
         ReleaseDashboardVisibility();
     }

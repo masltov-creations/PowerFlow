@@ -2,6 +2,7 @@ using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Input;
 
 namespace PowerFlow.App.Dashboard;
 
@@ -10,10 +11,15 @@ public sealed partial class ShellHeaderControl : UserControl
     public ShellHeaderControl()
     {
         InitializeComponent();
+        PointerReleased += OnDragPointerReleased;
+        PointerCanceled += OnDragPointerCanceled;
+        PointerCaptureLost += OnDragPointerCaptureLost;
         ApplyPresentation();
         ApplyPreviewMode();
     }
 
+    public event EventHandler? DragStarted;
+    public event EventHandler? DragCompleted;
     public event EventHandler? RulesRequested;
     public event EventHandler? SettingsRequested;
     public event EventHandler<PowerModeRequestedEventArgs>? ModeRequested;
@@ -120,6 +126,46 @@ public sealed partial class ShellHeaderControl : UserControl
         SystemModeStrip.SetSelection(selection, manual, activationError);
     }
 
+    private uint? _dragPointerId;
+    private UIElement? _dragCaptureElement;
+
+    private void OnDragSurfacePointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not UIElement surface) return;
+        var point = e.GetCurrentPoint(surface);
+        if (!point.Properties.IsLeftButtonPressed || !surface.CapturePointer(e.Pointer)) return;
+        _dragCaptureElement = surface;
+        _dragPointerId = e.Pointer.PointerId;
+        DragStarted?.Invoke(this, EventArgs.Empty);
+        e.Handled = true;
+    }
+
+    private void OnDragPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (_dragPointerId != e.Pointer.PointerId) return;
+        _dragCaptureElement?.ReleasePointerCapture(e.Pointer);
+        EndDrag();
+        e.Handled = true;
+    }
+
+    private void OnDragPointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        if (_dragPointerId != e.Pointer.PointerId) return;
+        EndDrag();
+    }
+
+    private void OnDragPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_dragPointerId == e.Pointer.PointerId) EndDrag();
+    }
+
+    private void EndDrag()
+    {
+        if (_dragPointerId is null) return;
+        _dragPointerId = null;
+        _dragCaptureElement = null;
+        DragCompleted?.Invoke(this, EventArgs.Empty);
+    }
     private void OnModeRequested(object sender, PowerModeRequestedEventArgs e) => ModeRequested?.Invoke(this, e);
     private void OnRulesClicked(object sender, RoutedEventArgs e) => RulesRequested?.Invoke(this, EventArgs.Empty);
     private void OnSettingsClicked(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke(this, EventArgs.Empty);
