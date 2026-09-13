@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using PowerFlow.Core.Envelope;
 using PowerFlow.Core.Policy;
 using PowerFlow.Core.Profiling;
@@ -24,17 +25,24 @@ public sealed record PowerFlowConfig(
     AdaptiveGovernorSettings? AdaptiveGovernor = null,
     int TelemetryVisibleIntervalMs = 500,
     int TelemetryBackgroundIntervalMs = 5000,
-    IReadOnlyList<ServicePolicyRule>? ServiceRules = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ServicePolicyRule>? ServiceRules = null,
     IReadOnlyList<CpuCapabilityProfile>? CpuCapabilityProfiles = null,
     IReadOnlyList<MachineBaselineComparisonRun>? MachineBaselineRuns = null,
     double? GovernorTensionPercent = null)
 {
+    [JsonIgnore]
     public AdaptiveGovernorSettings EffectiveAdaptiveGovernorSettings => AdaptiveGovernor ?? AdaptiveGovernorSettings.Default;
+    [JsonIgnore]
     public TimeSpan EffectiveTelemetryVisibleInterval => TimeSpan.FromMilliseconds(Math.Clamp(TelemetryVisibleIntervalMs, 250, 5000));
+    [JsonIgnore]
     public TimeSpan EffectiveTelemetryBackgroundInterval => TimeSpan.FromMilliseconds(Math.Clamp(TelemetryBackgroundIntervalMs, 500, 10000));
+    [JsonIgnore]
     public IReadOnlyList<ServicePolicyRule> EffectiveServiceRules => ServiceRules ?? Array.Empty<ServicePolicyRule>();
+    [JsonIgnore]
     public IReadOnlyList<CpuCapabilityProfile> EffectiveCpuCapabilityProfiles => CpuCapabilityProfiles ?? Array.Empty<CpuCapabilityProfile>();
+    [JsonIgnore]
     public IReadOnlyList<MachineBaselineComparisonRun> EffectiveMachineBaselineRuns => MachineBaselineRuns ?? Array.Empty<MachineBaselineComparisonRun>();
+    [JsonIgnore]
     public double EffectiveGovernorTensionPercent => GovernorTensionPercent is double value && double.IsFinite(value) ? Math.Clamp(value, 0d, 100d) : 50d;
 
     public static PowerFlowConfig Default { get; } = new(

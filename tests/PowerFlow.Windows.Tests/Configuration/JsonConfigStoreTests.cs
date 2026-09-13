@@ -107,6 +107,33 @@ public sealed class JsonConfigStoreTests
     }
 
     [Fact]
+    public async Task SaveAsync_WritesCanonicalInputsWithoutComputedOrNullLegacyFields()
+    {
+        var dir = NewTemp();
+        try
+        {
+            var store = new JsonConfigStore(dir);
+            await store.SaveAsync(PowerFlowConfig.Default with { GovernorTensionPercent = 62 });
+
+            var node = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "config.json")))!.AsObject();
+            foreach (var name in new[]
+            {
+                "effectiveAdaptiveGovernorSettings",
+                "effectiveTelemetryVisibleInterval",
+                "effectiveTelemetryBackgroundInterval",
+                "effectiveServiceRules",
+                "effectiveCpuCapabilityProfiles",
+                "effectiveMachineBaselineRuns",
+                "effectiveGovernorTensionPercent"
+            })
+                Assert.False(node.ContainsKey(name), $"Computed property {name} must not be persisted.");
+
+            Assert.False(node.ContainsKey("serviceRules"));
+            Assert.Equal(62d, node["governorTensionPercent"]!.GetValue<double>());
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+    [Fact]
     public async Task PausedLearningWithoutFrozenModel_IsRejected()
     {
         var dir = NewTemp();
