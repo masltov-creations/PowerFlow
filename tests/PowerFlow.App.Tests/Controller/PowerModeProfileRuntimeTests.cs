@@ -23,6 +23,25 @@ public sealed class PowerModeProfileRuntimeTests
     }
 
     [Fact]
+    public void Apply_ProfileTransitionPreservesOriginalBaselineWithoutIntermediateRestore()
+    {
+        var initial = new ProcessorPolicySnapshot(Guid.NewGuid(), 100, 10, 2);
+        var fake = new FakePolicy(initial);
+        var sut = new PowerModeProfileRuntime(fake);
+
+        sut.Apply(PowerFlowOperatingProfiles.Balanced, liveWritesEnabled: true);
+        sut.Apply(PowerFlowOperatingProfiles.Performance, liveWritesEnabled: true);
+
+        Assert.Equal(2, fake.ApplyCount);
+        Assert.Equal(0, fake.RestoreCount);
+        Assert.Equal((uint)75, fake.Current.CoreParkingMinCoresPercent);
+        Assert.Equal((uint)10, fake.Current.EnergyPerformancePreferencePercent);
+
+        sut.Restore();
+        Assert.Equal(1, fake.RestoreCount);
+        Assert.Equal(initial, fake.Current);
+    }
+    [Fact]
     public void Preview_DoesNotWrite()
     {
         var initial = new ProcessorPolicySnapshot(Guid.NewGuid(), 10, 60, 2);
@@ -37,6 +56,7 @@ public sealed class PowerModeProfileRuntimeTests
     {
         public ProcessorPolicySnapshot Current { get; private set; } = initial;
         public int ApplyCount { get; private set; }
+        public int RestoreCount { get; private set; }
         public ProcessorPolicySnapshot CaptureActive() => Current;
         public ProcessorPolicyApplyResult Apply(ProcessorPolicyPatch patch)
         {
@@ -52,6 +72,7 @@ public sealed class PowerModeProfileRuntimeTests
         }
         public ProcessorPolicyApplyResult Restore(ProcessorPolicySnapshot snapshot)
         {
+            RestoreCount++;
             var before = Current;
             Current = snapshot;
             return new(true, before, Current);

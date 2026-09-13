@@ -43,4 +43,10 @@ public sealed class LaunchIntentTests
     [InlineData(new string[] { "PowerFlow.exe", "--dashboard" }, false)]
     public void PopupPreviewMode_IsExplicit(string[] args, bool expected)
         => Assert.Equal(expected, LaunchIntent.ShouldOpenPopupPreview(args));
+    [Theory]
+    [InlineData(new string[] { "PowerFlow.exe", "--shutdown" }, true)]
+    [InlineData(new string[] { "PowerFlow.exe", "--background" }, false)]
+    [InlineData(new string[] { "PowerFlow.exe", "--dashboard" }, false)]
+    public void ShutdownMode_IsExplicit(string[] args, bool expected)
+        => Assert.Equal(expected, LaunchIntent.ShouldShutdown(args));
 }

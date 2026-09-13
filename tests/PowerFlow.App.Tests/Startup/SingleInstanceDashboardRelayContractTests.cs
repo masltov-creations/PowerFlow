@@ -13,6 +13,9 @@ public sealed class SingleInstanceDashboardRelayContractTests
         Assert.Contains("SingleInstanceSignal.TrySignal", source, StringComparison.Ordinal);
         Assert.Contains("DrainDashboardOpenRequestAsync", source, StringComparison.Ordinal);
         Assert.Contains("LaunchIntent.ShouldOpenDashboard", source, StringComparison.Ordinal);
+        Assert.Contains("ShutdownSignalName", source, StringComparison.Ordinal);
+        Assert.Contains("LaunchIntent.ShouldShutdown", source, StringComparison.Ordinal);
+        Assert.Contains("OnShutdownSignal", source, StringComparison.Ordinal);
     }
 
     private static string RepoFile(params string[] parts)

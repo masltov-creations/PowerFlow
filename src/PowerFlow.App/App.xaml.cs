@@ -19,8 +19,10 @@ namespace PowerFlow.App;
 public partial class App : Application
 {
     private const string DashboardOpenSignalName = @"Local\PowerFlow.OpenDashboard.v1";
+    private const string ShutdownSignalName = @"Local\PowerFlow.Shutdown.v1";
     private SingleInstanceGuard? _instanceGuard;
     private SingleInstanceSignal? _dashboardOpenSignal;
+    private SingleInstanceSignal? _shutdownSignal;
     private int _dashboardOpenRequested;
     private int _dashboardFullScreenRequested;
     private int _runtimeReady;
@@ -54,13 +56,27 @@ public partial class App : Application
         _instanceGuard = SingleInstanceGuard.TryAcquire(@"Local\PowerFlow.Controller.v1");
         if (!_instanceGuard.IsPrimary)
         {
-            if (!_previewMode && LaunchIntent.ShouldOpenDashboard(launchArgs))
+            if (!_previewMode && LaunchIntent.ShouldShutdown(launchArgs))
+                SingleInstanceSignal.TrySignal(ShutdownSignalName, TimeSpan.FromSeconds(1));
+            else if (!_previewMode && LaunchIntent.ShouldOpenDashboard(launchArgs))
                 SingleInstanceSignal.TrySignal(DashboardOpenSignalName, TimeSpan.FromSeconds(1));
             Exit();
             return;
         }
 
-        if (!_previewMode) _dashboardOpenSignal = SingleInstanceSignal.Listen(DashboardOpenSignalName, OnDashboardOpenSignal);
+        if (LaunchIntent.ShouldShutdown(launchArgs))
+        {
+            _instanceGuard.Dispose();
+            _instanceGuard = null;
+            Exit();
+            return;
+        }
+
+        if (!_previewMode)
+        {
+            _dashboardOpenSignal = SingleInstanceSignal.Listen(DashboardOpenSignalName, OnDashboardOpenSignal);
+            _shutdownSignal = SingleInstanceSignal.Listen(ShutdownSignalName, OnShutdownSignal);
+        }
         try
         {
             var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PowerFlow");
@@ -125,6 +141,15 @@ public partial class App : Application
         }
     }
 
+    private void OnShutdownSignal()
+    {
+        if (_shuttingDown) return;
+        _dispatcher?.TryEnqueue(async () =>
+        {
+            try { await ShutdownAsync(true); }
+            catch (Exception ex) { await WriteStartupFailureAsync(ex); }
+        });
+    }
     private void OnDashboardOpenSignal()
     {
         Interlocked.Exchange(ref _dashboardOpenRequested, 1);
@@ -433,6 +458,7 @@ public partial class App : Application
             if (_tray is not null) { _tray.CommandInvoked -= OnTrayCommandInvoked; _tray.InteractionRequested -= OnTrayInteractionRequested; _tray.Dispose(); _tray = null; }
             _games?.Dispose(); _games = null;
             Volatile.Write(ref _runtimeReady, 0);
+            _shutdownSignal?.Dispose(); _shutdownSignal = null;
             _dashboardOpenSignal?.Dispose(); _dashboardOpenSignal = null;
             _instanceGuard?.Dispose(); _instanceGuard = null;
             _machineBaselineSession = null;

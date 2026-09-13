@@ -28,6 +28,15 @@ public sealed class WindowsProcessorPolicyControllerTests
     }
 
     [Fact]
+    public void Apply_WhenRequestedValuesAlreadyMatch_DoesNotWriteOrReactivate()
+    {
+        var native = new FakeNative { Active = PowerPlanIds.PowerSaver, CoreMin = 10, Epp = 60, BoostMode = 2 };
+        var result = new WindowsProcessorPolicyController(native).Apply(new ProcessorPolicyPatch(10, 60, 2));
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(0, native.WriteCount);
+        Assert.Equal(0, native.ReapplyCount);
+    }
+    [Fact]
     public void Apply_RevertsSnapshotWhenSecondWriteFails()
     {
         var native = new FakeNative { Active = PowerPlanIds.PowerSaver, CoreMin = 10, Epp = 60, FailEppWrite = true };
@@ -91,6 +100,7 @@ public sealed class WindowsProcessorPolicyControllerTests
         public uint BoostMode { get; set; } = 2;
         public bool FailEppWrite { get; set; }
         public int ReapplyCount { get; private set; }
+        public int WriteCount { get; private set; }
 
         public Guid GetActiveScheme() => Active;
         public uint ReadAcValue(Guid schemeId, Guid subgroupId, Guid settingId)
@@ -99,6 +109,7 @@ public sealed class WindowsProcessorPolicyControllerTests
                 : Epp;
         public int WriteAcValue(Guid schemeId, Guid subgroupId, Guid settingId, uint value)
         {
+            WriteCount++;
             if (settingId == ProcessorPolicySettingIds.EnergyPerformancePreference && FailEppWrite) return 5;
             if (settingId == ProcessorPolicySettingIds.CoreParkingMinCores) CoreMin = value;
             else if (settingId == ProcessorPolicySettingIds.ProcessorPerformanceBoostMode) BoostMode = value;

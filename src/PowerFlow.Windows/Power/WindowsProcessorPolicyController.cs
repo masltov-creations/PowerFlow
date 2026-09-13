@@ -35,13 +35,24 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
         var before = Capture(scheme);
         try
         {
-            if (patch.CoreParkingMinCoresPercent is uint cores)
+            var changed = false;
+            if (patch.CoreParkingMinCoresPercent is uint cores && cores != before.CoreParkingMinCoresPercent)
+            {
                 WriteVerified(scheme, ProcessorPolicySettingIds.CoreParkingMinCores, cores, "core parking minimum");
-            if (patch.EnergyPerformancePreferencePercent is uint epp)
+                changed = true;
+            }
+            if (patch.EnergyPerformancePreferencePercent is uint epp && epp != before.EnergyPerformancePreferencePercent)
+            {
                 WriteVerified(scheme, ProcessorPolicySettingIds.EnergyPerformancePreference, epp, "energy performance preference");
-            if (patch.ProcessorPerformanceBoostMode is uint boostMode)
+                changed = true;
+            }
+            if (patch.ProcessorPerformanceBoostMode is uint boostMode && boostMode != before.ProcessorPerformanceBoostMode)
+            {
                 WriteVerified(scheme, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, boostMode, "processor performance boost mode");
+                changed = true;
+            }
 
+            if (!changed) return new ProcessorPolicyApplyResult(true, before, before);
             ReactivateIfCurrent(scheme);
             var after = Capture(scheme);
             return new ProcessorPolicyApplyResult(true, before, after);
@@ -58,11 +69,25 @@ public sealed class WindowsProcessorPolicyController : IProcessorPolicyControlle
         ArgumentNullException.ThrowIfNull(snapshot);
         try
         {
-            WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.CoreParkingMinCores, snapshot.CoreParkingMinCoresPercent, "core parking minimum");
-            WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.EnergyPerformancePreference, snapshot.EnergyPerformancePreferencePercent, "energy performance preference");
-            WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, snapshot.ProcessorPerformanceBoostMode, "processor performance boost mode");
-            ReactivateIfCurrent(snapshot.SchemeId);
-            var after = Capture(snapshot.SchemeId);
+            var before = Capture(snapshot.SchemeId);
+            var changed = false;
+            if (before.CoreParkingMinCoresPercent != snapshot.CoreParkingMinCoresPercent)
+            {
+                WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.CoreParkingMinCores, snapshot.CoreParkingMinCoresPercent, "core parking minimum");
+                changed = true;
+            }
+            if (before.EnergyPerformancePreferencePercent != snapshot.EnergyPerformancePreferencePercent)
+            {
+                WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.EnergyPerformancePreference, snapshot.EnergyPerformancePreferencePercent, "energy performance preference");
+                changed = true;
+            }
+            if (before.ProcessorPerformanceBoostMode != snapshot.ProcessorPerformanceBoostMode)
+            {
+                WriteVerified(snapshot.SchemeId, ProcessorPolicySettingIds.ProcessorPerformanceBoostMode, snapshot.ProcessorPerformanceBoostMode, "processor performance boost mode");
+                changed = true;
+            }
+            if (changed) ReactivateIfCurrent(snapshot.SchemeId);
+            var after = changed ? Capture(snapshot.SchemeId) : before;
             var success = after.CoreParkingMinCoresPercent == snapshot.CoreParkingMinCoresPercent
                 && after.EnergyPerformancePreferencePercent == snapshot.EnergyPerformancePreferencePercent
                 && after.ProcessorPerformanceBoostMode == snapshot.ProcessorPerformanceBoostMode;

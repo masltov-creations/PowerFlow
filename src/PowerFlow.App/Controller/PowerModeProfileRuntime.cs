@@ -24,15 +24,21 @@ public sealed class PowerModeProfileRuntime
     public PowerModeProfileStatus Apply(PowerFlowOperatingProfile profile, bool liveWritesEnabled)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        Restore("Previous PowerFlow mode profile restored before applying the next mode.");
-        CurrentProfile = profile;
+        var previousProfile = CurrentProfile;
         if (!liveWritesEnabled)
         {
+            CurrentProfile = profile;
             Status = new(profile.Mode, false, false, $"Preview: would apply core floor {profile.CoreFloorPercent}%, EPP {profile.EnergyPerformancePreferencePercent}%, boost mode {profile.BoostMode}.", null, null);
             return Status;
         }
 
-        _baseline = _policy.CaptureActive();
+        var capturedBaseline = false;
+        if (_baseline is null)
+        {
+            _baseline = _policy.CaptureActive();
+            capturedBaseline = true;
+        }
+
         var result = _policy.Apply(new ProcessorPolicyPatch(
             CoreParkingMinCoresPercent: profile.CoreFloorPercent,
             EnergyPerformancePreferencePercent: profile.EnergyPerformancePreferencePercent,
@@ -40,12 +46,13 @@ public sealed class PowerModeProfileRuntime
         if (!result.Success)
         {
             var message = $"Failed to apply {profile.Mode} profile: {result.Error}";
-            _baseline = null;
-            CurrentProfile = null;
+            if (capturedBaseline) _baseline = null;
+            CurrentProfile = previousProfile;
             Status = new(profile.Mode, true, false, message, result.Before, result.After);
             return Status;
         }
 
+        CurrentProfile = profile;
         Status = new(profile.Mode, true, true,
             $"{profile.Mode}: floor {result.After.CoreParkingMinCoresPercent}%, EPP {result.After.EnergyPerformancePreferencePercent}%, boost {result.After.ProcessorPerformanceBoostMode}.",
             _baseline, result.After);
