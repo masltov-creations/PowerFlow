@@ -32,6 +32,12 @@ The Live dashboard shows recent CPU activity, active-core behavior, package powe
 
 The graph keeps a rolling recent history so you can see both what the machine is doing now and how it got there.
 
+PowerFlow projects **compute pressure** from demand, available-capacity saturation, and runnable-queue contention when rich telemetry is available. Auto consumes that projected pressure and falls back to ordinary CPU busy percentage when richer data is unavailable.
+
+The Live surface also includes **Tension Shadow**, a counterfactual governor view. Its tension control shows how a more relaxed or more responsive governor would interpret the same telemetry; it does not directly change the applied Windows profile.
+
+The dashboard is one persistent **Motion Shell** that moves through Glance, Compact, Expanded, Workspace, and Full Screen presentations. Automatic transitions use one physical motion clock; manual window resizing uses stable coalesced reflow so the semantic layout does not flicker between states.
+
 ## Workloads
 
 Apps can be assigned one of three importance levels:

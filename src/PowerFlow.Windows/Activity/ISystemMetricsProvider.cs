@@ -7,7 +7,8 @@ public sealed record LogicalProcessorTelemetry(
     double? UtilizationPercent = null,
     double? FrequencyMhz = null,
     double? PercentOfMaximumFrequency = null,
-    double? ProcessorPerformancePercent = null);
+    double? ProcessorPerformancePercent = null,
+    double? ProcessorUtilityPercent = null);
 
 public sealed record SystemMetricsSnapshot(
     double? MemoryUsedPercent,

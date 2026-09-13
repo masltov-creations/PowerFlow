@@ -103,10 +103,10 @@ public sealed class ShellMotionIntegrationTests
     public void InterruptedTransitions_AreVersionedSoSupersededAwaitersCannotFinalizeOldState()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-        Assert.Contains("_transitionVersion", code, StringComparison.Ordinal);
+        Assert.Contains("_transitionGeneration", code, StringComparison.Ordinal);
         var transition = MethodBody(code, "public async Task TransitionToAsync");
-        Assert.Contains("transitionVersion", transition, StringComparison.Ordinal);
-        Assert.Contains("if (transitionVersion != _transitionVersion) return", transition, StringComparison.Ordinal);
+        Assert.Contains("var generation = BeginShellTransition()", transition, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentTransition(generation)", transition, StringComparison.Ordinal);
     }
 
 

@@ -51,10 +51,14 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private bool _reducedMotion;
     private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
     private bool _redrawQueued;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _resizeRedrawTimer;
     private bool _presentationApplied;
     private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
     private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
     private GraduatedCapacityTimelineData _capacityTimeline = GraduatedCapacityTimelineData.Empty;
+    private bool _coreProjectionDirty = true;
+    private int _coreHistoryRelevantSampleCount;
+    private DateTimeOffset? _coreHistoryLatestRelevantAt;
     private GraduatedCoreActuatorStatus? _coreActuatorStatus;
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
 
@@ -145,12 +149,27 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     public void SetCoreThreadHistory(IReadOnlyList<ContinuitySample>? history)
     {
-        _coreThreadHistory = history?.ToArray() ?? Array.Empty<ContinuitySample>();
-        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        UpdateCoreStateLabel();
+        var source = history ?? Array.Empty<ContinuitySample>();
+        var relevantCount = 0;
+        DateTimeOffset? latestRelevantAt = null;
+        foreach (var sample in source)
+        {
+            if (!IsCoreTimelineRelevant(sample)) continue;
+            relevantCount++;
+            if (latestRelevantAt is null || sample.At > latestRelevantAt.Value) latestRelevantAt = sample.At;
+        }
+
+        if (relevantCount == _coreHistoryRelevantSampleCount && latestRelevantAt == _coreHistoryLatestRelevantAt) return;
+
+        _coreThreadHistory = source.ToArray();
+        _coreHistoryRelevantSampleCount = relevantCount;
+        _coreHistoryLatestRelevantAt = latestRelevantAt;
+        _coreProjectionDirty = true;
         RequestRedraw();
     }
+
+    private static bool IsCoreTimelineRelevant(ContinuitySample sample)
+        => sample.LogicalProcessors is { Count: > 0 } || sample.DemandPressure is not null;
 
     public void SetProcessorPolicySnapshot(ProcessorPolicySnapshot? snapshot)
     {
@@ -194,6 +213,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             ? []
             : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
         RedrawSelection();
+        RedrawLinkedHover();
     }
     public void SetHoveredObservationIndices(IEnumerable<int>? observationIndices)
     {
@@ -219,20 +239,48 @@ public sealed partial class PerformanceTimelineControl : UserControl
         double windowSeconds = 60,
         PerformanceTimelineMode mode = PerformanceTimelineMode.Stacked)
     {
-        _observations = observations?.ToArray() ?? Array.Empty<OperatingObservation>();
-        _envelope = envelope ?? DefaultEnvelope;
-        _windowSeconds = Math.Max(1, windowSeconds);
-        _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
-        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
-        WindowStartLabel.Text = $"-{_windowSeconds:0}s";
-        UpdateLiveLabels();
-        Redraw();
+        var incoming = observations ?? Array.Empty<OperatingObservation>();
+        var normalizedWindow = Math.Max(1, windowSeconds);
+        var observationsChanged = _observations.Count != incoming.Count || !_observations.SequenceEqual(incoming);
+        var projectionChanged = observationsChanged || Math.Abs(_windowSeconds - normalizedWindow) > double.Epsilon || _data.Mode != mode;
+        var nextEnvelope = envelope ?? DefaultEnvelope;
+        var envelopeChanged = !Equals(_envelope, nextEnvelope);
+
+        _envelope = nextEnvelope;
+        _windowSeconds = normalizedWindow;
+        if (projectionChanged)
+        {
+            _observations = incoming.ToArray();
+            _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
+            _coreProjectionDirty = true;
+            WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
+            WindowStartLabel.Text = $"-{_windowSeconds:0}s";
+            UpdateLiveLabels();
+        }
+
+        if (projectionChanged || envelopeChanged) RequestRedraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => RequestRedraw();
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        TimelinePlotHost.Clip = new RectangleGeometry
+        {
+            Rect = new Rect(0, 0, Math.Max(0, e.NewSize.Width), Math.Max(0, e.NewSize.Height))
+        };
+        if (_draggingPolicyHandle is null) HideCursor();
+        _resizeRedrawTimer ??= CreateResizeRedrawTimer();
+        _resizeRedrawTimer.Stop();
+        _resizeRedrawTimer.Start();
+    }
 
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer CreateResizeRedrawTimer()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(16);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => RequestRedraw();
+        return timer;
+    }
     private void RequestRedraw()
     {
         if (_redrawQueued) return;
@@ -246,8 +294,18 @@ public sealed partial class PerformanceTimelineControl : UserControl
         Redraw();
     }
 
+    private void RefreshCoreTimelines()
+    {
+        if (!_coreProjectionDirty) return;
+        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _coreProjectionDirty = false;
+        UpdateCoreStateLabel();
+    }
+
     private void Redraw()
     {
+        RefreshCoreTimelines();
         var width = GridLayer.ActualWidth;
         var height = GridLayer.ActualHeight;
         if (width < 80 || height < 80) return;
@@ -299,6 +357,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         RedrawPolicy();
         DrawDecisionEvents(height);
         RedrawSelection();
+        RedrawLinkedHover();
     }
 
     private void UpdateTracePath(int laneIndex, TimelineLaneProjection lane, double top, double height, Brush stroke)
@@ -976,7 +1035,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             ? $"{latest.CpuPressurePercent:0.0}%"
             : $"{observedPressure.PressurePercent:0}% {PressureDriverShort(observedPressure.Driver)}";
         if (observedPressure is not null)
-            ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, available-capacity saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, available capacity {observedPressure.AvailableCapacityPercent:0.0}%, saturation {observedPressure.CapacitySaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). Display-only for now; controller actuation still uses legacy CPU busy percent.");
+            ToolTipService.SetToolTip(CpuValueText, $"Observed pressure is the maximum of machine demand, available-capacity saturation, and runnable-queue contention. Demand {observedPressure.DemandPercent:0.0}%, available capacity {observedPressure.AvailableCapacityPercent:0.0}%, saturation {observedPressure.CapacitySaturationPercent:0.0}%, queue {observedPressure.QueueLength:0.##} ({observedPressure.QueuePressurePercent:0.0}% pressure). The adaptive governor uses this projected pressure when rich telemetry is available and falls back to CPU busy percent when it is not.");
         UpdatePressureContextLabel();
         PowerValueText.Text = current.PackageWatts is double watts ? $"{watts:0.0} W" : "-";
         ClockValueText.Text = current.ProcessorPerformancePercent is double performance ? $"{performance:0}%" : "-";

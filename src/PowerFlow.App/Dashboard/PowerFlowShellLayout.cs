@@ -32,7 +32,9 @@ public static class PowerFlowShellLayout
         if (requestedState is PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen)
             return Expanded(width, height, requestedState, fullDensity: true);
 
-        var effectiveDensity = density;
+        var effectiveDensity = string.Equals(section, "flow", StringComparison.OrdinalIgnoreCase)
+            ? density
+            : ShellDensity.Expanded;
 
         return effectiveDensity == ShellDensity.Compact
             ? Compact(requestedState)
@@ -50,7 +52,7 @@ public static class PowerFlowShellLayout
         HeaderPresentation.Compact,
         TimelinePresentation.Compact,
         GovernorControlPresentation.Bias,
-        new ShellGeometry(0, 10, 8, 50, 82));
+        new ShellGeometry(0, 10, 8, 74, 82));
 
     private static ShellPresentationProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
     {
@@ -61,7 +63,7 @@ public static class PowerFlowShellLayout
         var navigationWidth = 128 + 24 * widthProgress;
         var padding = 14 + 8 * fluid;
         var gap = 10 + 8 * fluid;
-        var headerHeight = 50 + 8 * fluid + (fullDensity ? 4 : 0);
+        var headerHeight = 44 + 8 * fluid + (fullDensity ? 4 : 0);
         var controlBandHeight = 108 + 32 * fluid + (fullDensity ? 12 : 0);
 
         return new ShellPresentationProfile(

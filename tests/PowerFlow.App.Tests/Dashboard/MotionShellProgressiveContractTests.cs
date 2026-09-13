@@ -52,14 +52,13 @@ public sealed class MotionShellProgressiveContractTests
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         Assert.Contains("ApplyDisclosureProgress", MethodBody(code, "private void ApplyMotionFrame"), StringComparison.Ordinal);
-        var interactive = MethodBody(code, "private void ApplyInteractiveResizeFrame");
-        Assert.Contains("ApplyDisclosureProgress", interactive, StringComparison.Ordinal);
-        Assert.DoesNotContain("ApplyShellTransitionFrame", interactive, StringComparison.Ordinal);
-        Assert.DoesNotContain("ApplyShellGeometryMorph", interactive, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellLayout", MethodBody(code, "private void CommitResizePresentation"), StringComparison.Ordinal);
+        var reflow = MethodBody(code, "private void ApplyResizeReflow");
+        Assert.Contains("ApplyDisclosureProgress", reflow, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout", reflow, StringComparison.Ordinal);
+        Assert.Contains("ResetSemanticMorphPresentation", reflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellTransitionFrame", reflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyShellGeometryMorph", reflow, StringComparison.Ordinal);
     }
-
-
     [Fact]
     public void CompactOverflowAlwaysProvidesEveryPrimaryPageIncludingLive()
     {

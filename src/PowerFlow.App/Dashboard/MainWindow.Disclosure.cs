@@ -27,13 +27,13 @@ public sealed partial class MainWindow
             ? new GridLength(0)
             : new GridLength(Math.Max(.02d, .95d * context), GridUnitType.Star);
         var actorVisual = ElementCompositionPreview.GetElementVisual(SelectedActorPanel);
-        SelectedActorPanel.Translation = new Vector3((float)(6d * (1d - context)), 0f, 0f);
+        SetLayoutTranslation(SelectedActorPanel, 6d * (1d - context), 0);
 
         GovernorDetailPanel.Visibility = showContext ? Visibility.Visible : Visibility.Collapsed;
         GovernorDetailPanel.Opacity = context;
         GovernorDetailPanel.MaxHeight = 46d * context;
         var governorVisual = ElementCompositionPreview.GetElementVisual(GovernorDetailPanel);
-        GovernorDetailPanel.Translation = new Vector3(0f, (float)(4d * (1d - context)), 0f);
+        SetLayoutTranslation(GovernorDetailPanel, 0, 4d * (1d - context));
 
         var showFooter = !settled || footer > .001d;
         StatusFooter.Visibility = showFooter ? Visibility.Visible : Visibility.Collapsed;
@@ -41,6 +41,6 @@ public sealed partial class MainWindow
         StatusFooter.IsHitTestVisible = footer >= .72d;
         FooterRowDefinition.Height = new GridLength(24d * footer);
         var footerVisual = ElementCompositionPreview.GetElementVisual(StatusFooter);
-        StatusFooter.Translation = new Vector3(0f, (float)(4d * (1d - footer)), 0f);
+        SetLayoutTranslation(StatusFooter, 0, 4d * (1d - footer));
     }
 }

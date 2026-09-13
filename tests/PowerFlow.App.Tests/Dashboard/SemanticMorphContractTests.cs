@@ -53,4 +53,18 @@ public sealed class SemanticMorphContractTests
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PowerFlow.sln"))) dir = dir.Parent;
         return dir?.FullName ?? throw new DirectoryNotFoundException();
     }
+    [Fact]
+    public void Morphing_UsesLayoutSafeTranslationInsteadOfCompositionVisualOffset()
+    {
+        var window = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var header = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml.cs");
+
+        Assert.Contains("TranslateTransform", window, StringComparison.Ordinal);
+        Assert.Contains("SetLayoutTranslation", window, StringComparison.Ordinal);
+        Assert.Contains("TranslateTransform", header, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetElementVisual(PresentationActions).Offset", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetElementVisual(NavigationRail).Offset", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("sectionVisual.Offset", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetElementVisual(layer).Offset", header, StringComparison.Ordinal);
+    }
 }

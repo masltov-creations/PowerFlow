@@ -69,7 +69,7 @@ public sealed class PowerFlowShellLayoutTests
         {
             var profile = PowerFlowShellLayout.Resolve(760, 440, PowerFlowShellState.Compact, section);
             Assert.Equal(PowerFlowShellState.Compact, profile.State);
-            Assert.Equal(NavigationPresentation.Overlay, profile.Navigation);
+            Assert.Equal(NavigationPresentation.Rail, profile.Navigation);
         }
     }
 }

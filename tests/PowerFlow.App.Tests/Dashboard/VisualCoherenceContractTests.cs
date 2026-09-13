@@ -22,6 +22,19 @@ public sealed class VisualCoherenceContractTests
     }
 
     [Fact]
+    public void SectionNavigation_ChangesContentWithoutChangingShellPresentation()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        var start = code.IndexOf("private Task NavigateToSectionAsync", StringComparison.Ordinal);
+        var end = code.IndexOf("private void ApplySectionVisibility", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var navigation = code[start..end];
+        Assert.DoesNotContain("TransitionToAsync", navigation, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellSectionPolicy.MinimumState", navigation, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout(_shellState", navigation, StringComparison.Ordinal);
+        Assert.Contains("Task.CompletedTask", navigation, StringComparison.Ordinal);
+    }
+    [Fact]
     public void GrowthMotion_HasSoftStartAndSoftLanding()
     {
         var early = ShellMotionPolicy.Ease(PowerFlowShellState.Compact, PowerFlowShellState.Expanded, .01);
@@ -177,5 +190,19 @@ public sealed class VisualCoherenceContractTests
         while (!File.Exists(Path.Combine(dir, "PowerFlow.sln")))
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException();
         return File.ReadAllText(Path.Combine(new[] { dir }.Concat(parts).ToArray()));
+    }
+    [Fact]
+    public void CompactHeader_SeparatesIdentityAndModeStripAcrossRows()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml");
+        var layout = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellLayout.cs");
+        var timeline = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+
+        Assert.Contains("x:Name=\"CompactHeader\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition Height=\"Auto\"/>", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CompactModeStrip\" Grid.Row=\"1\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("new ShellGeometry(0, 10, 8, 74, 82)", layout, StringComparison.Ordinal);
+        Assert.Contains("_resizeRedrawTimer.Stop()", timeline, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(16)", timeline, StringComparison.Ordinal);
     }
 }

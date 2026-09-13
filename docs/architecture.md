@@ -31,6 +31,8 @@ Manual profile selection bypasses the automatic zone-to-profile choice and appli
 
 The dashboard reads the retained history; telemetry collection is not recreated separately for each view.
 
+`DemandPressureTelemetry` derives a richer pressure signal from demand, available-capacity saturation, and runnable-queue contention. `GovernorPressureProjection` feeds that signal to `AdaptiveGovernorRuntime` and `TensionShadowRuntime` when available, with `ControllerSnapshot.CpuPercent` as the explicit fallback.
+
 ## Automatic policy
 
 `AdaptiveGovernorRuntime` evaluates recent observations against the current operating envelope. `EnvelopeGovernor` produces the semantic model zone and decision state. App importance contributes an entitlement that limits or accelerates access to higher performance.
@@ -43,6 +45,8 @@ The dashboard reads the retained history; telemetry collection is not recreated 
 - Boost -> PERF
 
 `PowerModeProfileRuntime` is the source of truth for the profile that has actually been applied.
+
+`TensionShadowRuntime` runs a parallel counterfactual evaluation over the same retained observations. It is advisory only: its tuning changes the shadow envelope/comparison and never crosses the actuation boundary. Only the active `AdaptiveGovernorRuntime` evaluation is passed to `PowerFlowController.ApplyAdaptiveGovernorDecisionAsync`.
 
 The Live dashboard therefore keeps two concepts separate:
 
@@ -79,6 +83,12 @@ The configuration reader remains tolerant of fields written by older versions. U
 
 `MachineBaselineRunner` gathers idle and synthetic-load measurements. The synthetic workload runs at 1, 2, 4, 8, and 16 workers to produce a throughput curve for each profile.
 
+The baseline architecture also requires a core-concentration characterization path. It must isolate core availability from EPP, boost mode, Windows plan, and workload shape, then repeat the worker-count curve across machine-relative low/intermediate/full core-availability points. Configured parking floor and observed core residency are separate data: conclusions about parking require actual awake/parked physical/logical-core telemetry during each sample.
+
+The characterization sample model must preserve throughput, package power, effective/per-core frequency, processor-performance percentage, observed awake/parked cores, and reliable temperature telemetry. Reliable voltage/VID telemetry should be captured when available but must remain nullable rather than inferred. Policy and scheduling constraints used for each point must be persisted with the sample.
+
+Analysis produces a machine-specific core-scaling map covering single-thread boost, partial-load concentration, scaling knee, and thermal/power saturation. Deterministic affinity or CPU-set restriction may be used to establish causality during characterization, but it is not automatically a runtime actuation mechanism. Adaptive runtime consumption requires repeatable qualified evidence and should prefer normal Windows parking/scheduling controls.
+
 ## UI
 
 `MainWindow` hosts four sections:
@@ -88,7 +98,9 @@ The configuration reader remains tolerant of fields written by older versions. U
 - Baseline
 - Settings
 
-`PerformanceTimelineControl` renders the Live history. The same runtime state is reused as the window changes between compact, expanded, and full-screen layouts.
+`PerformanceTimelineControl` renders the Live history. The same runtime state is reused as the shell moves through Glance, Compact, Expanded, Workspace, and Full Screen presentations.
+
+`ShellMotionCoordinator` owns automatic physical window motion and drives bounds plus child/material progress from one clock. Transition generations prevent superseded asynchronous transitions from finalizing stale state. Native manual resize events follow a separate coalesced reflow path; `ShellResponsiveDensity` supplies stable density hysteresis and the reflow commits one settled semantic layout rather than cross-fading layouts while the user drags.
 
 The tray is another entry point into the same running process rather than a separate controller or telemetry service.
 

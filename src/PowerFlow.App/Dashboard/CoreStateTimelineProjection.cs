@@ -31,9 +31,10 @@ public static class CoreStateTimelineProjection
     {
         if (history is null || history.Count == 0) return CoreStateTimelineData.Empty;
 
-        var samples = history
+        var richSamples = history
             .Where(sample => sample.At >= windowStart && sample.At <= latest && sample.LogicalProcessors is { Count: > 0 })
-            .OrderBy(sample => sample.At)
+            .OrderBy(sample => sample.At);
+        var samples = SelectRenderSamples(richSamples)
             .Select(sample => Project(sample.At, sample.LogicalProcessors!))
             .Where(sample => sample.TotalCores > 0)
             .ToArray();
@@ -43,6 +44,22 @@ public static class CoreStateTimelineProjection
             : new CoreStateTimelineData(samples, samples.Max(sample => sample.TotalCores));
     }
 
+    private static IEnumerable<ContinuitySample> SelectRenderSamples(IEnumerable<ContinuitySample> source)
+    {
+        const long bucketMilliseconds = 1000;
+        ContinuitySample? pending = null;
+        long? pendingBucket = null;
+        foreach (var sample in source)
+        {
+            var bucket = sample.At.ToUnixTimeMilliseconds() / bucketMilliseconds;
+            if (pendingBucket is not null && bucket != pendingBucket.Value)
+                yield return pending!;
+            pending = sample;
+            pendingBucket = bucket;
+        }
+
+        if (pending is not null) yield return pending;
+    }
     public static CoreStateTimelineSample Project(DateTimeOffset at, IReadOnlyList<LogicalProcessorTelemetry> logicalProcessors)
     {
         ArgumentNullException.ThrowIfNull(logicalProcessors);

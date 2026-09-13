@@ -64,9 +64,9 @@ public sealed class ShellBasicLayoutContractTests
             Assert.DoesNotContain(".Offset =", code, StringComparison.Ordinal);
         }
 
-        Assert.Contains(".Translation =", Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"), StringComparison.Ordinal);
-        Assert.Contains(".Translation =", Read("src", "PowerFlow.App", "Dashboard", "MainWindow.Disclosure.cs"), StringComparison.Ordinal);
-        Assert.Contains(".Translation =", Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml.cs"), StringComparison.Ordinal);
+        Assert.Contains("SetLayoutTranslation", Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs"), StringComparison.Ordinal);
+        Assert.Contains("SetLayoutTranslation", Read("src", "PowerFlow.App", "Dashboard", "MainWindow.Disclosure.cs"), StringComparison.Ordinal);
+        Assert.Contains("SetLayoutTranslation", Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml.cs"), StringComparison.Ordinal);
     }
     private static string MethodBody(string source, string signature)
     {
