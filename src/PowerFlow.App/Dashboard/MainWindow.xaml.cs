@@ -48,7 +48,9 @@ public sealed partial class MainWindow : Window
     private TrayRect? _lastWorkArea;
     private string _currentSection = "flow";
     private DispatcherQueueTimer? _presentationTimer;
-    private bool _suppressResizeModeSync;
+    private TaskCompletionSource? _presentationCompletion;
+    private long _transitionGeneration;
+    private int _resizeModeSyncSuppressionDepth;
     private bool _suppressNavigationSelection;
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
@@ -126,9 +128,10 @@ public sealed partial class MainWindow : Window
 
     public async Task TransitionToAsync(PowerFlowShellState state, ShellActivationMode activation, bool animate)
     {
+        var generation = BeginShellTransition();
         if (state == PowerFlowShellState.Hidden)
         {
-            await HideShellAsync();
+            await HideShellCoreAsync(generation);
             return;
         }
 
@@ -141,18 +144,27 @@ public sealed partial class MainWindow : Window
 
         if (leavingFullScreen)
         {
-            _suppressResizeModeSync = true;
-            AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
-            AppWindow.MoveAndResize(preservedFullScreenBounds);
-            _suppressResizeModeSync = false;
-            if (ShellPresenterTransitionPolicy.RequiresLayoutBarrier(fromState, state))
+            BeginResizeModeSyncSuppression();
+            try
             {
-                await WaitForPresenterLayoutAsync();
+                AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
                 AppWindow.MoveAndResize(preservedFullScreenBounds);
-                await WaitForPresenterLayoutAsync();
+                if (ShellPresenterTransitionPolicy.RequiresLayoutBarrier(fromState, state))
+                {
+                    await WaitForPresenterLayoutAsync();
+                    if (!IsCurrentTransition(generation)) return;
+                    AppWindow.MoveAndResize(preservedFullScreenBounds);
+                    await WaitForPresenterLayoutAsync();
+                    if (!IsCurrentTransition(generation)) return;
+                }
+            }
+            finally
+            {
+                EndResizeModeSyncSuppression();
             }
         }
 
+        if (!IsCurrentTransition(generation)) return;
         _shellState = state;
         _activationMode = activation;
         ApplyActivationMode(activation, state);
@@ -172,24 +184,36 @@ public sealed partial class MainWindow : Window
             Activate();
         }
 
-        await AnimateShellBoundsAsync(start, target, fromState, state, animate);
+        await AnimateShellBoundsAsync(start, target, fromState, state, animate, generation);
+        if (!IsCurrentTransition(generation)) return;
 
         if (state == PowerFlowShellState.FullScreen)
         {
-            _suppressResizeModeSync = true;
-            AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
-            _suppressResizeModeSync = false;
-            await WaitForPresenterLayoutAsync();
+            BeginResizeModeSyncSuppression();
+            try
+            {
+                AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+                await WaitForPresenterLayoutAsync();
+                if (!IsCurrentTransition(generation)) return;
+            }
+            finally
+            {
+                EndResizeModeSyncSuppression();
+            }
         }
 
+        if (!IsCurrentTransition(generation)) return;
         var finalLogical = CurrentLogicalAppWindowSize();
         ApplyShellLayout(state, finalLogical.Width, finalLogical.Height);
         if (activation == ShellActivationMode.PinnedActive) Activate();
     }
-    public async Task HideShellAsync()
+
+    public Task HideShellAsync()
+        => HideShellCoreAsync(BeginShellTransition());
+
+    private async Task HideShellCoreAsync(long generation)
     {
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
+        if (!IsCurrentTransition(generation)) return;
         if (!_shellVisible)
         {
             _shellState = PowerFlowShellState.Hidden;
@@ -200,14 +224,14 @@ public sealed partial class MainWindow : Window
         var fromState = _shellState;
         var start = CurrentBounds();
         var target = ResolveTargetBounds(PowerFlowShellState.Hidden);
-        await AnimateShellBoundsAsync(start, target, fromState, PowerFlowShellState.Hidden, animate: true);
+        await AnimateShellBoundsAsync(start, target, fromState, PowerFlowShellState.Hidden, animate: true, generation);
+        if (!IsCurrentTransition(generation)) return;
         ShowWindow(_hwnd, SwHide);
         _shellVisible = false;
         _shellState = PowerFlowShellState.Hidden;
         GlanceTapTarget.Visibility = Visibility.Collapsed;
         ReleaseDashboardVisibility();
     }
-
     public TrayRect ShellBounds
     {
         get
@@ -251,7 +275,7 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if ((!args.DidSizeChange && !args.DidPresenterChange) || _suppressResizeModeSync || !_shellVisible) return;
+        if ((!args.DidSizeChange && !args.DidPresenterChange) || IsResizeModeSyncSuppressed || !_shellVisible) return;
         var logical = CurrentLogicalAppWindowSize();
         if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen && !IsFullScreenPresenter())
             _layoutDensity = ShellResponsiveDensity.Resolve(logical, _layoutDensity);
@@ -411,10 +435,9 @@ public sealed partial class MainWindow : Window
         return new RectInt32(p.X, p.Y, Math.Max(1, s.Width), Math.Max(1, s.Height));
     }
 
-    private Task AnimateShellBoundsAsync(RectInt32 start, RectInt32 target, PowerFlowShellState fromState, PowerFlowShellState toState, bool animate)
+    private async Task AnimateShellBoundsAsync(RectInt32 start, RectInt32 target, PowerFlowShellState fromState, PowerFlowShellState toState, bool animate, long generation)
     {
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
+        if (!IsCurrentTransition(generation)) return;
         var reducedMotion = !animate || !ShouldAnimatePresentation();
         var travel = Math.Sqrt(Math.Pow(target.Width - start.Width, 2) + Math.Pow(target.Height - start.Height, 2));
         var duration = ShellMotionPolicy.DurationForTravel(fromState, toState, reducedMotion, travel);
@@ -425,14 +448,21 @@ public sealed partial class MainWindow : Window
 
         if (duration == TimeSpan.Zero || start.Equals(target))
         {
-            _suppressResizeModeSync = true;
-            AppWindow.MoveAndResize(target);
-            _suppressResizeModeSync = false;
+            BeginResizeModeSyncSuppression();
+            try
+            {
+                AppWindow.MoveAndResize(target);
+            }
+            finally
+            {
+                EndResizeModeSyncSuppression();
+            }
+            if (!IsCurrentTransition(generation)) return;
             var targetLogical = LogicalSize(target);
             ApplyShellLayout(toState, targetLogical.Width, targetLogical.Height);
             ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: true);
             ResetSemanticMorphPresentation(toProfile);
-            return Task.CompletedTask;
+            return;
         }
 
         PrepareShellTransition(fromProfile, toProfile);
@@ -440,36 +470,52 @@ public sealed partial class MainWindow : Window
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var timer = _dispatcher.CreateTimer();
         _presentationTimer = timer;
+        _presentationCompletion = tcs;
         timer.Interval = TimeSpan.FromMilliseconds(16);
-        _suppressResizeModeSync = true;
+        BeginResizeModeSyncSuppression();
         timer.Tick += Tick;
         timer.Start();
-        return tcs.Task;
+        try
+        {
+            await tcs.Task;
+        }
+        finally
+        {
+            timer.Stop();
+            timer.Tick -= Tick;
+            stopwatch.Stop();
+            if (ReferenceEquals(_presentationTimer, timer)) _presentationTimer = null;
+            if (ReferenceEquals(_presentationCompletion, tcs)) _presentationCompletion = null;
+            EndResizeModeSyncSuppression();
+        }
+
+        if (!IsCurrentTransition(generation)) return;
+        AppWindow.MoveAndResize(target);
+        ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: false);
+        var finalLogical = LogicalSize(target);
+        ApplyShellLayout(toState, finalLogical.Width, finalLogical.Height);
+        ResetSemanticMorphPresentation(toProfile);
 
         void Tick(DispatcherQueueTimer sender, object args)
         {
+            if (!IsCurrentTransition(generation))
+            {
+                sender.Stop();
+                tcs.TrySetResult();
+                return;
+            }
+
             var t = Math.Clamp(stopwatch.Elapsed.TotalMilliseconds / duration.TotalMilliseconds, 0d, 1d);
             var eased = ShellMotionPolicy.Ease(fromState, toState, t);
             var rect = ShellTransitionGeometry.Interpolate(start, target, eased);
             AppWindow.MoveAndResize(rect);
             ApplyShellGeometryMorph(fromProfile, toProfile, eased);
             ApplyShellTransitionFrame(fromProfile, toProfile, eased, reducedMotion: false);
-
             if (t < 1d) return;
             sender.Stop();
-            sender.Tick -= Tick;
-            stopwatch.Stop();
-            AppWindow.MoveAndResize(target);
-            _presentationTimer = null;
-            _suppressResizeModeSync = false;
-            ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: false);
-            var finalLogical = LogicalSize(target);
-            ApplyShellLayout(toState, finalLogical.Width, finalLogical.Height);
-            ResetSemanticMorphPresentation(toProfile);
             tcs.TrySetResult();
         }
     }
-
     private void PrepareShellTransition(ShellPresentationProfile from, ShellPresentationProfile to)
     {
         if (to.Navigation == NavigationPresentation.Rail)
@@ -596,6 +642,29 @@ public sealed partial class MainWindow : Window
         presenter.SetBorderAndTitleBar(!glance, !glance);
     }
 
+    private long BeginShellTransition()
+    {
+        var generation = ++_transitionGeneration;
+        CancelPresentationAnimation();
+        return generation;
+    }
+
+    private bool IsCurrentTransition(long generation)
+        => !_closed && generation == _transitionGeneration;
+
+    private void CancelPresentationAnimation()
+    {
+        var timer = _presentationTimer;
+        _presentationTimer = null;
+        timer?.Stop();
+        var completion = _presentationCompletion;
+        _presentationCompletion = null;
+        completion?.TrySetResult();
+    }
+
+    private bool IsResizeModeSyncSuppressed => _resizeModeSyncSuppressionDepth > 0;
+    private void BeginResizeModeSyncSuppression() => _resizeModeSyncSuppressionDepth++;
+    private void EndResizeModeSyncSuppression() => _resizeModeSyncSuppressionDepth = Math.Max(0, _resizeModeSyncSuppressionDepth - 1);
     private async Task WaitForPresenterLayoutAsync()
     {
         await DispatcherTurnAsync();
@@ -872,8 +941,8 @@ public sealed partial class MainWindow : Window
         CpuProfilePanel.Detach();
         if (_closed) return;
         _closed = true;
-        _presentationTimer?.Stop();
-        _presentationTimer = null;
+        _transitionGeneration++;
+        CancelPresentationAnimation();
         AppWindow.Closing -= OnAppWindowClosing;
         AppWindow.Changed -= OnAppWindowChanged;
         _controller.SnapshotChanged -= OnSnapshotChanged;

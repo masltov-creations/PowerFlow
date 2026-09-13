@@ -35,9 +35,11 @@ public static class DemandPressureModel
         // Summed over all logical processors, then divided by logical count, it gives machine demand
         // on a full-machine nominal-capacity scale.
         var usedCapacityUnits = valid.Sum(thread =>
-            thread.UtilizationPercent is double utility && double.IsFinite(utility) && utility > 0
+            thread.ProcessorUtilityPercent is double utility && double.IsFinite(utility) && utility > 0
                 ? Math.Max(0d, utility)
-                : 0d);
+                : thread.UtilizationPercent is double utilization && double.IsFinite(utilization) && utilization > 0
+                    ? Math.Max(0d, utilization)
+                    : 0d);
         var demand = Math.Clamp(usedCapacityUnits / valid.Length, 0d, 100d);
 
         // Available compute capacity is the sum of each unparked logical processor's current

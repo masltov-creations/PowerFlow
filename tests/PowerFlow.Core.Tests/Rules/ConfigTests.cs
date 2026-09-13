@@ -28,6 +28,9 @@ public sealed class ConfigTests
         Assert.Equal(12d, c.QuietThresholdPercent);
         Assert.Equal(TimeSpan.FromSeconds(25), c.QuietWindow);
         Assert.Equal(TimeSpan.FromSeconds(8), c.PostGameCooldown);
+        Assert.Equal(500, c.TelemetryVisibleIntervalMs);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), c.EffectiveTelemetryVisibleInterval);
+        Assert.Equal(5000, c.TelemetryBackgroundIntervalMs);
         Assert.Empty(c.AppRules);
         Assert.Null(c.PowerSaverPlanId);
         Assert.Null(c.BalancedPlanId);

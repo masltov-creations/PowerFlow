@@ -51,6 +51,17 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("CPU performance overlays package power", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Timeline_CoalescesTelemetryUpdatesAndCachesCoreProjectionWork()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        Assert.Contains("IsCoreTimelineRelevant", code, StringComparison.Ordinal);
+        Assert.Contains("_coreProjectionDirty", code, StringComparison.Ordinal);
+        Assert.Contains("RefreshCoreTimelines();", code, StringComparison.Ordinal);
+        Assert.Contains("_observations.SequenceEqual(incoming)", code, StringComparison.Ordinal);
+        Assert.Contains("if (projectionChanged || envelopeChanged) RequestRedraw();", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateLiveLabels();\n        Redraw();", code.Replace("\r\n", "\n"), StringComparison.Ordinal);
+    }
     private static string Read(params string[] parts)
     {
         var dir = AppContext.BaseDirectory;

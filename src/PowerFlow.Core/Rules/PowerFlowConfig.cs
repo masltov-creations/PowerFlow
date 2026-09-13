@@ -22,7 +22,7 @@ public sealed record PowerFlowConfig(
     bool AdaptiveActuationEnabled = true,
     bool GraduatedCoreActuationEnabled = false,
     AdaptiveGovernorSettings? AdaptiveGovernor = null,
-    int TelemetryVisibleIntervalMs = 1000,
+    int TelemetryVisibleIntervalMs = 500,
     int TelemetryBackgroundIntervalMs = 5000,
     IReadOnlyList<ServicePolicyRule>? ServiceRules = null,
     IReadOnlyList<CpuCapabilityProfile>? CpuCapabilityProfiles = null,

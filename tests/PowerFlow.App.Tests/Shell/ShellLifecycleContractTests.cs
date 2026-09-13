@@ -30,6 +30,17 @@ public sealed class ShellLifecycleContractTests
         Assert.Contains("x:Name=\"GlanceTapTarget\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void MainWindow_CoalescesSupersededWindowTransitionsAndScopesResizeSyncSuppression()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
+        Assert.Contains("BeginShellTransition", code, StringComparison.Ordinal);
+        Assert.Contains("CancelPresentationAnimation", code, StringComparison.Ordinal);
+        Assert.Contains("_presentationCompletion", code, StringComparison.Ordinal);
+        Assert.Contains("IsCurrentTransition", code, StringComparison.Ordinal);
+        Assert.Contains("_resizeModeSyncSuppressionDepth", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("_suppressResizeModeSync", code, StringComparison.Ordinal);
+    }
     private static string Read(params string[] parts) => File.ReadAllText(Path.Combine(new[] { RepoRoot() }.Concat(parts).ToArray()));
 
     private static string RepoRoot()

@@ -69,6 +69,20 @@ public sealed class DemandPressureTelemetryTests
         Assert.Equal("QUEUE", result.Driver);
     }
 
+    [Fact]
+    public void Project_UsesProcessorUtilityForDemandWhenBusyTimeDiffers()
+    {
+        var telemetry = new DashboardTelemetry(null, null, DateTimeOffset.UtcNow,
+            LogicalProcessors: new[]
+            {
+                new LogicalProcessorTelemetry(0, 0, false, UtilizationPercent: 25, FrequencyMhz: 4000, PercentOfMaximumFrequency: 100, ProcessorPerformancePercent: 130, ProcessorUtilityPercent: 65),
+                new LogicalProcessorTelemetry(1, 0, false, UtilizationPercent: 25, FrequencyMhz: 4000, PercentOfMaximumFrequency: 100, ProcessorPerformancePercent: 130, ProcessorUtilityPercent: 65)
+            }, ProcessorQueueLength: 0);
+
+        var result = Assert.IsType<DemandPressureTelemetry>(DemandPressureModel.Project(telemetry));
+        Assert.Equal(65, result.DemandPercent, 3);
+        Assert.Equal(130, result.AvailableCapacityPercent, 3);
+    }
     private static LogicalProcessorTelemetry Thread(int logical, int core, bool parked, double utility, double frequencyPercent)
         => new(logical, core, parked, utility, 4000, frequencyPercent);
 }

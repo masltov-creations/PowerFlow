@@ -60,6 +60,31 @@ public sealed class CoreStateTimelineProjectionTests
         Assert.Equal(1, data.TotalCores);
     }
 
+    [Fact]
+    public void Build_RendersAtMostOneLatestCoreSlicePerSecondWithoutDroppingLatestBucket()
+    {
+        var at = DateTimeOffset.Parse("2026-09-10T20:00:02Z");
+        var logical = new[] { new LogicalProcessorTelemetry(0, 0, false, 30) };
+        var history = new[]
+        {
+            Sample(at.AddSeconds(-2.00), logical),
+            Sample(at.AddSeconds(-1.75), logical),
+            Sample(at.AddSeconds(-1.50), logical),
+            Sample(at.AddSeconds(-1.25), logical),
+            Sample(at.AddSeconds(-1.00), logical),
+            Sample(at.AddSeconds(-0.75), logical),
+            Sample(at.AddSeconds(-0.50), logical),
+            Sample(at.AddSeconds(-0.25), logical),
+            Sample(at, logical)
+        };
+
+        var data = CoreStateTimelineProjection.Build(history, at.AddSeconds(-3), at);
+
+        Assert.Equal(3, data.Samples.Count);
+        Assert.Equal(at.AddSeconds(-1.25), data.Samples[0].At);
+        Assert.Equal(at.AddSeconds(-0.25), data.Samples[1].At);
+        Assert.Equal(at, data.Samples[2].At);
+    }
     private static ContinuitySample Sample(DateTimeOffset at, IReadOnlyList<LogicalProcessorTelemetry>? logical) =>
         new(at, 10, 40, 2000, PowerState.Balanced, "test", false, null, 0, null, 1, 1, logical);
 }

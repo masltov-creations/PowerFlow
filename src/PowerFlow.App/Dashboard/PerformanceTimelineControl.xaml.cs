@@ -54,6 +54,9 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
     private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
     private GraduatedCapacityTimelineData _capacityTimeline = GraduatedCapacityTimelineData.Empty;
+    private bool _coreProjectionDirty = true;
+    private int _coreHistoryRelevantSampleCount;
+    private DateTimeOffset? _coreHistoryLatestRelevantAt;
     private GraduatedCoreActuatorStatus? _coreActuatorStatus;
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
 
@@ -144,12 +147,27 @@ public sealed partial class PerformanceTimelineControl : UserControl
 
     public void SetCoreThreadHistory(IReadOnlyList<ContinuitySample>? history)
     {
-        _coreThreadHistory = history?.ToArray() ?? Array.Empty<ContinuitySample>();
-        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        UpdateCoreStateLabel();
+        var source = history ?? Array.Empty<ContinuitySample>();
+        var relevantCount = 0;
+        DateTimeOffset? latestRelevantAt = null;
+        foreach (var sample in source)
+        {
+            if (!IsCoreTimelineRelevant(sample)) continue;
+            relevantCount++;
+            if (latestRelevantAt is null || sample.At > latestRelevantAt.Value) latestRelevantAt = sample.At;
+        }
+
+        if (relevantCount == _coreHistoryRelevantSampleCount && latestRelevantAt == _coreHistoryLatestRelevantAt) return;
+
+        _coreThreadHistory = source.ToArray();
+        _coreHistoryRelevantSampleCount = relevantCount;
+        _coreHistoryLatestRelevantAt = latestRelevantAt;
+        _coreProjectionDirty = true;
         RequestRedraw();
     }
+
+    private static bool IsCoreTimelineRelevant(ContinuitySample sample)
+        => sample.LogicalProcessors is { Count: > 0 } || sample.DemandPressure is not null;
 
     public void SetProcessorPolicySnapshot(ProcessorPolicySnapshot? snapshot)
     {
@@ -213,16 +231,26 @@ public sealed partial class PerformanceTimelineControl : UserControl
         double windowSeconds = 60,
         PerformanceTimelineMode mode = PerformanceTimelineMode.Stacked)
     {
-        _observations = observations?.ToArray() ?? Array.Empty<OperatingObservation>();
-        _envelope = envelope ?? DefaultEnvelope;
-        _windowSeconds = Math.Max(1, windowSeconds);
-        _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
-        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
-        WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
-        WindowStartLabel.Text = $"-{_windowSeconds:0}s";
-        UpdateLiveLabels();
-        Redraw();
+        var incoming = observations ?? Array.Empty<OperatingObservation>();
+        var normalizedWindow = Math.Max(1, windowSeconds);
+        var observationsChanged = _observations.Count != incoming.Count || !_observations.SequenceEqual(incoming);
+        var projectionChanged = observationsChanged || Math.Abs(_windowSeconds - normalizedWindow) > double.Epsilon || _data.Mode != mode;
+        var nextEnvelope = envelope ?? DefaultEnvelope;
+        var envelopeChanged = !Equals(_envelope, nextEnvelope);
+
+        _envelope = nextEnvelope;
+        _windowSeconds = normalizedWindow;
+        if (projectionChanged)
+        {
+            _observations = incoming.ToArray();
+            _data = PerformanceTimelineProjection.Build(_observations, _windowSeconds, mode);
+            _coreProjectionDirty = true;
+            WindowLabel.Text = mode == PerformanceTimelineMode.NormalizedOverlay ? $"{_windowSeconds:0} SEC · NORMALIZED" : $"{_windowSeconds:0} SEC";
+            WindowStartLabel.Text = $"-{_windowSeconds:0}s";
+            UpdateLiveLabels();
+        }
+
+        if (projectionChanged || envelopeChanged) RequestRedraw();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e) => RequestRedraw();
@@ -240,8 +268,18 @@ public sealed partial class PerformanceTimelineControl : UserControl
         Redraw();
     }
 
+    private void RefreshCoreTimelines()
+    {
+        if (!_coreProjectionDirty) return;
+        _coreStateTimeline = CoreStateTimelineProjection.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _capacityTimeline = GraduatedCapacityEntitlementModel.Build(_coreThreadHistory, _data.WindowStart, _data.Latest);
+        _coreProjectionDirty = false;
+        UpdateCoreStateLabel();
+    }
+
     private void Redraw()
     {
+        RefreshCoreTimelines();
         var width = GridLayer.ActualWidth;
         var height = GridLayer.ActualHeight;
         if (width < 80 || height < 80) return;
