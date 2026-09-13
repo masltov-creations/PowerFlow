@@ -191,4 +191,18 @@ public sealed class VisualCoherenceContractTests
             dir = Directory.GetParent(dir)?.FullName ?? throw new DirectoryNotFoundException();
         return File.ReadAllText(Path.Combine(new[] { dir }.Concat(parts).ToArray()));
     }
+    [Fact]
+    public void CompactHeader_SeparatesIdentityAndModeStripAcrossRows()
+    {
+        var xaml = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml");
+        var layout = Read("src", "PowerFlow.App", "Dashboard", "PowerFlowShellLayout.cs");
+        var timeline = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+
+        Assert.Contains("x:Name=\"CompactHeader\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition Height=\"Auto\"/>", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CompactModeStrip\" Grid.Row=\"1\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("new ShellGeometry(0, 10, 8, 74, 82)", layout, StringComparison.Ordinal);
+        Assert.Contains("_resizeRedrawTimer.Stop()", timeline, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(16)", timeline, StringComparison.Ordinal);
+    }
 }

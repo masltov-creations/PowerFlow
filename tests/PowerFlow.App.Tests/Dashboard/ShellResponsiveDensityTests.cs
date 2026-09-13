@@ -56,34 +56,16 @@ public sealed class ShellResponsiveDensityTests
     }
 
     [Fact]
-    public void ResizeMorphProgress_IsContinuousAcrossTheDensityHysteresisBoundary()
-    {
-        Assert.Equal(0d, ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(760, 440)), 3);
-        Assert.Equal(2d / 3d, ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(860, 520)), 3);
-        Assert.Equal(5d / 6d, ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(880, 540)), 3);
-        Assert.Equal(1d, ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(900, 560)), 3);
-        Assert.True(ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(861, 521)) > ShellResponsiveDensity.MorphProgress(new ShellLogicalSize(860, 520)));
-    }
-
-    [Fact]
-    public void MainWindowResizeHandler_BlendsCompactAndExpandedPresentationsInsteadOfSnappingAtDensityFlip()
+    public void MainWindowResizeHandler_UsesOneStableSemanticDensityPerResizeFrame()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
 
-        Assert.Contains("ApplyResponsiveResizeMorph", code, StringComparison.Ordinal);
-        Assert.Contains("ShellResponsiveDensity.MorphProgress", code, StringComparison.Ordinal);
-        Assert.Contains("ShellDensity.Compact", code, StringComparison.Ordinal);
-        Assert.Contains("ShellDensity.Expanded", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellGeometryMorph(compactProfile, expandedProfile", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellTransitionFrame(compactProfile, expandedProfile", code, StringComparison.Ordinal);
-    }
-    [Fact]
-    public void ResizeMorph_AllowsNavigationRailToCollapseContinuouslyToZeroWidth()
-    {
-        var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
-
-        Assert.Contains("var paneWidth = Math.Max(0d, geometry.NavigationWidth)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("Math.Max(NavigationRail.CompactPaneLength, geometry.NavigationWidth)", code, StringComparison.Ordinal);
+        Assert.Contains("QueueResizeReflow", code, StringComparison.Ordinal);
+        Assert.Contains("ShellResponsiveDensity.Resolve", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout(_shellState, width, height)", code, StringComparison.Ordinal);
+        Assert.Contains("ResetSemanticMorphPresentation(stableProfile)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyResponsiveResizeMorph", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellResponsiveDensity.MorphProgress", code, StringComparison.Ordinal);
     }
     private static string Read(params string[] parts)
     {

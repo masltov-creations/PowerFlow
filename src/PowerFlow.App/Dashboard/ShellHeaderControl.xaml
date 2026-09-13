@@ -14,26 +14,38 @@
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="CompactHeader" Visibility="Collapsed" ColumnSpacing="9" VerticalAlignment="Center">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Image x:Name="CompactBrandIcon" Source="ms-appx:///Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform" PointerPressed="OnDragSurfacePointerPressed"/>
-            <StackPanel x:Name="CompactBrandText" Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center" PointerPressed="OnDragSurfacePointerPressed">
-                <TextBlock Text="Power" FontSize="17" FontWeight="SemiBold"/>
-                <TextBlock Text="Flow" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
-            </StackPanel>
-            <dash:PowerModeStripControl x:Name="CompactModeStrip" Grid.Column="2" HorizontalAlignment="Right" ModeRequested="OnModeRequested"/>
-            <Border Grid.Column="3" Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
-                <TextBlock Text="{Binding StateLabel}" FontSize="11" FontWeight="SemiBold"/>
-            </Border>
-            <Button x:Name="CompactNavigationButton" Grid.Column="4" MinWidth="32" MinHeight="34" AutomationProperties.Name="PowerFlow menu" Margin="4,0,0,0" Padding="8,4" ToolTipService.ToolTip="PowerFlow menu">
-                <FontIcon Glyph="&#xE712;" FontSize="14"/>
-                <Button.Flyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <MenuFlyoutItem Text="WORKLOADS" Click="OnRulesClicked"/>
-                        <MenuFlyoutItem Text="SETTINGS" Click="OnSettingsClicked"/>
-                    </MenuFlyout>
-                </Button.Flyout>
-            </Button>
+        <Grid x:Name="CompactHeader" Visibility="Collapsed" RowSpacing="5" VerticalAlignment="Center">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image x:Name="CompactBrandIcon" Source="ms-appx:///Assets/PowerFlow.png" Width="26" Height="26" Stretch="Uniform" PointerPressed="OnDragSurfacePointerPressed"/>
+                <StackPanel x:Name="CompactBrandText" Grid.Column="1" Orientation="Horizontal" Spacing="0" VerticalAlignment="Center" PointerPressed="OnDragSurfacePointerPressed">
+                    <TextBlock Text="Power" FontSize="17" FontWeight="SemiBold"/>
+                    <TextBlock Text="Flow" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowAccentBrush}"/>
+                </StackPanel>
+                <Border Grid.Column="3" Padding="6,2" CornerRadius="7" Background="{ThemeResource PowerFlowSubtleBrush}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StateLabel}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="150"/>
+                </Border>
+                <Button x:Name="CompactNavigationButton" Grid.Column="4" MinWidth="32" MinHeight="34" AutomationProperties.Name="PowerFlow menu" Margin="4,0,0,0" Padding="8,3" ToolTipService.ToolTip="PowerFlow menu">
+                    <FontIcon Glyph="&#xE712;" FontSize="14"/>
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="WORKLOADS" Click="OnRulesClicked"/>
+                            <MenuFlyoutItem Text="SETTINGS" Click="OnSettingsClicked"/>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+            <dash:PowerModeStripControl x:Name="CompactModeStrip" Grid.Row="1" HorizontalAlignment="Right" ModeRequested="OnModeRequested"/>
         </Grid>
 
         <Grid x:Name="SystemHeader" Visibility="Collapsed" ColumnSpacing="10" VerticalAlignment="Center">

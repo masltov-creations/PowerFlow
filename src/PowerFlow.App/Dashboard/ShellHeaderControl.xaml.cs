@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 
 namespace PowerFlow.App.Dashboard;
 
@@ -98,16 +99,26 @@ public sealed partial class ShellHeaderControl : UserControl
             layer.Visibility = Visibility.Collapsed;
             layer.Opacity = 1d;
             layer.IsHitTestVisible = false;
-            ElementCompositionPreview.GetElementVisual(layer).Offset = Vector3.Zero;
+            SetLayoutTranslation(layer, 0, 0);
         }
         source.Visibility = Visibility.Visible;
         target.Visibility = Visibility.Visible;
         source.Opacity = 1d - t;
         target.Opacity = t;
-        ElementCompositionPreview.GetElementVisual(source).Offset = new Vector3(0, -travel * (float)t, 0);
-        ElementCompositionPreview.GetElementVisual(target).Offset = new Vector3(0, travel * (float)(1d - t), 0);
+        SetLayoutTranslation(source, 0, -travel * t);
+        SetLayoutTranslation(target, 0, travel * (1d - t));
     }
 
+    private static void SetLayoutTranslation(UIElement element, double x, double y)
+    {
+        if (element.RenderTransform is not TranslateTransform transform)
+        {
+            transform = new TranslateTransform();
+            element.RenderTransform = transform;
+        }
+        transform.X = x;
+        transform.Y = y;
+    }
     private void ResetLayers(HeaderPresentation selected)
     {
         var chosen = Layer(selected);
@@ -116,7 +127,7 @@ public sealed partial class ShellHeaderControl : UserControl
             layer.Visibility = ReferenceEquals(layer, chosen) ? Visibility.Visible : Visibility.Collapsed;
             layer.Opacity = 1d;
             layer.IsHitTestVisible = ReferenceEquals(layer, chosen);
-            ElementCompositionPreview.GetElementVisual(layer).Offset = Vector3.Zero;
+            SetLayoutTranslation(layer, 0, 0);
         }
     }
 

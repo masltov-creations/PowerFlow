@@ -85,4 +85,14 @@ public sealed class PerformanceTimelineContractTests
         Assert.Contains("RectangleGeometry", code, StringComparison.Ordinal);
         Assert.Contains("ShapePreservingCurve.Build", code, StringComparison.Ordinal);
         Assert.Contains("_plotWidth * 10d / Math.Max(1d, _windowSeconds)", code, StringComparison.Ordinal);
-    }}
+    }    [Fact]
+    public void Timeline_ClipsAndRepositionsTransientVisualsAcrossResize()
+    {
+        var code = Read("src", "PowerFlow.App", "Dashboard", "PerformanceTimelineControl.xaml.cs");
+        Assert.Contains("TimelinePlotHost.Clip = new RectangleGeometry", code, StringComparison.Ordinal);
+        Assert.Contains("e.NewSize.Width", code, StringComparison.Ordinal);
+        Assert.Contains("if (_draggingPolicyHandle is null) HideCursor()", code, StringComparison.Ordinal);
+        Assert.Contains("RedrawLinkedHover();", code, StringComparison.Ordinal);
+        Assert.Contains("_resizeRedrawTimer.Stop()", code, StringComparison.Ordinal);
+    }
+}

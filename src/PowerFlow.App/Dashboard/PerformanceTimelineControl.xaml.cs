@@ -50,6 +50,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
     private bool _reducedMotion;
     private readonly Dictionary<UIElement, Storyboard> _transientAnimations = [];
     private bool _redrawQueued;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _resizeRedrawTimer;
     private bool _presentationApplied;
     private IReadOnlyList<ContinuitySample> _coreThreadHistory = Array.Empty<ContinuitySample>();
     private CoreStateTimelineData _coreStateTimeline = CoreStateTimelineData.Empty;
@@ -206,6 +207,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
             ? []
             : observationIndices.Where(index => index >= 0 && index < _observations.Count).ToHashSet();
         RedrawSelection();
+        RedrawLinkedHover();
     }
     public void SetHoveredObservationIndices(IEnumerable<int>? observationIndices)
     {
@@ -253,8 +255,26 @@ public sealed partial class PerformanceTimelineControl : UserControl
         if (projectionChanged || envelopeChanged) RequestRedraw();
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) => RequestRedraw();
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        TimelinePlotHost.Clip = new RectangleGeometry
+        {
+            Rect = new Rect(0, 0, Math.Max(0, e.NewSize.Width), Math.Max(0, e.NewSize.Height))
+        };
+        if (_draggingPolicyHandle is null) HideCursor();
+        _resizeRedrawTimer ??= CreateResizeRedrawTimer();
+        _resizeRedrawTimer.Stop();
+        _resizeRedrawTimer.Start();
+    }
 
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer CreateResizeRedrawTimer()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(16);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => RequestRedraw();
+        return timer;
+    }
     private void RequestRedraw()
     {
         if (_redrawQueued) return;
@@ -331,6 +351,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         RedrawPolicy();
         DrawDecisionEvents(height);
         RedrawSelection();
+        RedrawLinkedHover();
     }
 
     private void UpdateTracePath(int laneIndex, TimelineLaneProjection lane, double top, double height, Brush stroke)

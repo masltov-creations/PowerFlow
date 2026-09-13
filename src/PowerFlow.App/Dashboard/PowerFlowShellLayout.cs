@@ -52,7 +52,7 @@ public static class PowerFlowShellLayout
         HeaderPresentation.Compact,
         TimelinePresentation.Compact,
         GovernorControlPresentation.Bias,
-        new ShellGeometry(0, 10, 8, 42, 82));
+        new ShellGeometry(0, 10, 8, 74, 82));
 
     private static ShellPresentationProfile Expanded(int width, int height, PowerFlowShellState state, bool fullDensity)
     {
