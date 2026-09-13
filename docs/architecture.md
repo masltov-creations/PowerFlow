@@ -79,6 +79,12 @@ The configuration reader remains tolerant of fields written by older versions. U
 
 `MachineBaselineRunner` gathers idle and synthetic-load measurements. The synthetic workload runs at 1, 2, 4, 8, and 16 workers to produce a throughput curve for each profile.
 
+The baseline architecture also requires a core-concentration characterization path. It must isolate core availability from EPP, boost mode, Windows plan, and workload shape, then repeat the worker-count curve across machine-relative low/intermediate/full core-availability points. Configured parking floor and observed core residency are separate data: conclusions about parking require actual awake/parked physical/logical-core telemetry during each sample.
+
+The characterization sample model must preserve throughput, package power, effective/per-core frequency, processor-performance percentage, observed awake/parked cores, and reliable temperature telemetry. Reliable voltage/VID telemetry should be captured when available but must remain nullable rather than inferred. Policy and scheduling constraints used for each point must be persisted with the sample.
+
+Analysis produces a machine-specific core-scaling map covering single-thread boost, partial-load concentration, scaling knee, and thermal/power saturation. Deterministic affinity or CPU-set restriction may be used to establish causality during characterization, but it is not automatically a runtime actuation mechanism. Adaptive runtime consumption requires repeatable qualified evidence and should prefer normal Windows parking/scheduling controls.
+
 ## UI
 
 `MainWindow` hosts four sections:

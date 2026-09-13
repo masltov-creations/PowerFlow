@@ -76,6 +76,29 @@ For each leg, PowerFlow records the applied policy, idle package power when avai
 
 The result view overlays the profiles so differences in idle power, throughput, efficiency, and the throughput knee are easy to compare. The recommendation favors profiles that reach near-maximum throughput without paying unnecessary idle-power cost.
 
+### Core-concentration characterization
+
+Baseline must also be able to determine whether concentrating work onto fewer awake cores improves useful performance because of boost, voltage, power, or thermal headroom. This is a controlled characterization test, not an inference from the normal profile comparison.
+
+For this test, PowerFlow holds the Windows plan, EPP, boost policy, workload kernel, and other processor-policy variables constant while varying the amount of CPU capacity made available to the workload. The tested core-availability points are derived from the machine's physical-core count and must include low, intermediate, and full-core cases; they must not assume a fixed CPU topology. The same 1, 2, 4, 8, and 16 worker points are used where the machine has enough logical processors.
+
+Each point must record:
+
+- measured throughput and throughput per watt
+- package power when available
+- actual awake and parked physical/logical cores, not only the configured parking floor
+- effective/per-core frequency or the best reliable equivalent
+- processor-performance percentage
+- CPU temperature when a reliable source is available
+- VID/Vcore or another voltage indicator only when a reliable source is available
+- the exact power and scheduling policy used for the sample
+
+The analysis must separately identify single-thread boost behavior, partial-load/core-concentration behavior, the scaling knee, and any thermal or power-pressure point where waking additional cores stops improving throughput. A configured minimum-core parking percentage is not evidence that those cores actually remained parked, so observed residency is required for conclusions about parking.
+
+If deterministic affinity or CPU-set constraints are needed to prove the hardware effect, they may be used for characterization only. Runtime PowerFlow policy should prefer normal Windows scheduling and parking controls unless separately qualified evidence shows that a stronger constraint is safe and useful.
+
+The learned result is a machine-specific core-scaling map: for each measured workload width, PowerFlow can identify the smallest awake-core range that preserves or improves useful throughput, along with its power and thermal cost. Auto may consume this map only after the result is repeatable and qualified; a single run must not become a hard runtime rule.
+
 Before the run, PowerFlow records the active Windows plan and processor policy. That state is restored after completion, cancellation, or failure.
 
 ## Settings
