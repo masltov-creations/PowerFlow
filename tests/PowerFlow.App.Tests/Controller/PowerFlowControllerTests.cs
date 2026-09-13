@@ -299,6 +299,9 @@ public sealed class PowerFlowControllerTests
         await f.Controller.StartAsync();
         f.Plans.Activations.Clear();
 
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
+        f.Clock.UtcNow = T0.Add(config.CpuPromotionWindow);
         await f.Controller.ApplyAdaptiveGovernorDecisionAsync(BoostDecision(EnvelopeConfidence.High), BoostEntitlement(), "compute.exe");
         await f.Controller.DrainAsync();
 
@@ -328,6 +331,172 @@ public sealed class PowerFlowControllerTests
         await f.Controller.StopAsync();
     }
 
+    [Fact]
+    public async Task AdaptiveGovernorDecision_OscillatingEcoAndEfficientDoesNotChatterWindowsPlans()
+    {
+        var config = PowerFlowConfig.Default with { AdaptiveActuationEnabled = true };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        for (var i = 0; i < 8; i++)
+        {
+            f.Clock.UtcNow = T0.AddSeconds(i * 2);
+            var zone = i % 2 == 0 ? EnvelopeZone.Efficient : EnvelopeZone.Eco;
+            await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(zone), BoostEntitlement(), "oscillating.exe");
+            await f.Controller.DrainAsync();
+        }
+
+        Assert.Empty(f.Plans.Activations);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_SustainedDemandPromotesOnlyAfterPromotionWindow()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            CpuPromotionWindow = TimeSpan.FromSeconds(4)
+        };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+        f.Clock.UtcNow = T0.AddSeconds(2);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+        Assert.Empty(f.Plans.Activations);
+
+        f.Clock.UtcNow = T0.AddSeconds(4);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(new[] { PowerPlanIds.Balanced }, f.Plans.Activations);
+        Assert.Equal(PowerState.Balanced, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_SustainedEcoRequiresQuietWindowAndMinimumBalancedResidency()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            QuietWindow = TimeSpan.FromSeconds(25)
+        };
+        var f = new Fixture(PowerPlanIds.Balanced, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        f.Clock.UtcNow = T0.AddSeconds(25);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        f.Clock.UtcNow = T0.AddSeconds(59);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        await f.Controller.DrainAsync();
+        Assert.Empty(f.Plans.Activations);
+
+        f.Clock.UtcNow = T0.AddSeconds(60);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(new[] { PowerPlanIds.PowerSaver }, f.Plans.Activations);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_ReturnToCurrentPlanCancelsPendingDemotion()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            QuietWindow = TimeSpan.FromSeconds(25)
+        };
+        var f = new Fixture(PowerPlanIds.Balanced, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        f.Clock.UtcNow = T0.AddSeconds(30);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "interactive.exe");
+        f.Clock.UtcNow = T0.AddSeconds(60);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        f.Clock.UtcNow = T0.AddSeconds(84);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Empty(f.Plans.Activations);
+
+        f.Clock.UtcNow = T0.AddSeconds(85);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Eco), BoostEntitlement(), "idle.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Equal(new[] { PowerPlanIds.PowerSaver }, f.Plans.Activations);
+        await f.Controller.StopAsync();
+    }
+
+    [Fact]
+    public async Task AdaptiveGovernorDecision_ManualAuthorityCancelsPendingQualificationAge()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            CpuPromotionWindow = TimeSpan.FromSeconds(4)
+        };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+
+        f.Clock.UtcNow = T0.AddSeconds(2);
+        await f.Controller.SetManualStateAsync(PowerState.PowerSaver);
+        await f.Controller.ReleaseManualLatchAsync();
+
+        f.Clock.UtcNow = T0.AddSeconds(20);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Empty(f.Plans.Activations);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+    [Fact]
+    public async Task AdaptiveGovernorDecision_IneligibleSampleCancelsPendingQualificationAge()
+    {
+        var config = PowerFlowConfig.Default with
+        {
+            AdaptiveActuationEnabled = true,
+            CpuPromotionWindow = TimeSpan.FromSeconds(4)
+        };
+        var f = new Fixture(PowerPlanIds.PowerSaver, config: config);
+        await f.Controller.StartAsync();
+        f.Plans.Activations.Clear();
+
+        f.Clock.UtcNow = T0;
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+
+        f.Clock.UtcNow = T0.AddSeconds(2);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient, EnvelopeConfidence.Low), BoostEntitlement(), "compute.exe");
+
+        f.Clock.UtcNow = T0.AddSeconds(4);
+        await f.Controller.ApplyAdaptiveGovernorDecisionAsync(ZoneDecision(EnvelopeZone.Efficient), BoostEntitlement(), "compute.exe");
+        await f.Controller.DrainAsync();
+
+        Assert.Empty(f.Plans.Activations);
+        Assert.Equal(PowerState.PowerSaver, f.Controller.Snapshot.State);
+        await f.Controller.StopAsync();
+    }
+    private static GovernorDecision ZoneDecision(EnvelopeZone zone, EnvelopeConfidence confidence = EnvelopeConfidence.High) =>
+        new(zone, zone, EnvelopeDecisionKind.None, 0, null, $"test {zone}", confidence);
     private static GovernorDecision BoostDecision(EnvelopeConfidence confidence) =>
         new(EnvelopeZone.Boost, EnvelopeZone.Boost, EnvelopeDecisionKind.Lease, 1, T0.AddSeconds(12), "qualified boost lease", confidence);
 

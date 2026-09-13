@@ -9,6 +9,7 @@ namespace PowerFlow.App.Controller;
 
 public sealed class PowerFlowController : IAsyncDisposable
 {
+    private static readonly TimeSpan AdaptiveMinimumBalancedResidency = TimeSpan.FromSeconds(60);
     private PowerFlowConfig _config;
     private readonly IPowerPlanController _plans;
     private readonly IActivitySource _activity;
@@ -27,6 +28,9 @@ public sealed class PowerFlowController : IAsyncDisposable
     private CancellationTokenSource? _samplingCts;
     private CancellationTokenSource? _cooldownCts;
     private PowerState _currentState;
+    private PowerState? _adaptivePendingTarget;
+    private DateTimeOffset? _adaptivePendingSince;
+    private DateTimeOffset _stateEnteredAt;
     private string? _activeGameKey;
     private bool _started;
 
@@ -47,6 +51,7 @@ public sealed class PowerFlowController : IAsyncDisposable
         _tickFactory = tickFactory;
         _delay = delay;
         _clock = clock;
+        _stateEnteredAt = clock.UtcNow;
         _planObserver = planObserver;
         _engine = new PowerPolicyEngine(new PolicyConfig(
             config.RestingState,
@@ -78,6 +83,8 @@ public sealed class PowerFlowController : IAsyncDisposable
         var active = await _plans.GetActiveAsync(cancellationToken);
         _currentState = MapPlan(active.Id) ?? _config.RestingState;
         _engine.SynchronizeObservedState(_currentState);
+        _stateEnteredAt = _clock.UtcNow;
+        ResetAdaptiveTransition();
         Publish(_currentState, $"Observed active Windows plan: {active.Name}", false, null, 0, null, null);
 
         if (_planObserver is not null)
@@ -130,6 +137,7 @@ public sealed class PowerFlowController : IAsyncDisposable
     public Task UpdatePolicyConfigAsync(PowerFlowConfig config) => EnqueueAsync(() =>
     {
         _config = config;
+        ResetAdaptiveTransition();
         _engine.Reconfigure(new PolicyConfig(
             config.RestingState,
             config.CpuPromotionThresholdPercent,
@@ -150,12 +158,14 @@ public sealed class PowerFlowController : IAsyncDisposable
     {
         StopSampling();
         CancelCooldown();
+        ResetAdaptiveTransition();
         var decision = _engine.Evaluate(new ManualStateRequested(_clock.UtcNow, state));
         await ApplyDecisionAsync(decision, "Manual override");
         if (!Snapshot.IsLatched && !_games.IsLatched) StartSampling();
     });
     public Task ReleaseManualLatchAsync() => EnqueueAsync(async () =>
     {
+        ResetAdaptiveTransition();
         var decision = _engine.Evaluate(new ManualStateReleased(_clock.UtcNow));
         await ApplyDecisionAsync(decision, "Manual override released");
         if (!_games.IsLatched) StartSampling();
@@ -182,8 +192,18 @@ public sealed class PowerFlowController : IAsyncDisposable
             entitlement);
 
         if (!actuation.Eligible || actuation.TargetState is not PowerState target)
+        {
+            ResetAdaptiveTransition();
             return;
+        }
 
+        if (!ShouldApplyAdaptiveTarget(target, _clock.UtcNow, out var smoothingReason))
+        {
+            Publish(_currentState, smoothingReason, false, null, Snapshot.CpuPercent, trigger ?? Snapshot.TriggerApplication, Snapshot.CooldownRemaining);
+            return;
+        }
+
+        ResetAdaptiveTransition();
         await ActivateDirectAsync(
             target,
             $"Adaptive governor: {actuation.Reason}",
@@ -219,8 +239,10 @@ public sealed class PowerFlowController : IAsyncDisposable
 
             StopSampling();
             CancelCooldown();
+            ResetAdaptiveTransition();
             var from = _currentState;
             _currentState = state;
+            _stateEnteredAt = _clock.UtcNow;
             AddHistory(from, state, "External Windows power plan change", true);
             var decision = _engine.Evaluate(new ManualStateRequested(_clock.UtcNow, state));
 
@@ -240,6 +262,7 @@ public sealed class PowerFlowController : IAsyncDisposable
         {
             StopSampling();
             CancelCooldown();
+            ResetAdaptiveTransition();
             var decision = _engine.Evaluate(new GameStarted(_clock.UtcNow, _activeGameKey));
             await ApplyDecisionAsync(decision, e.Process.ExecutablePath);
         });
@@ -256,6 +279,7 @@ public sealed class PowerFlowController : IAsyncDisposable
         _activeGameKey = null;
         _ = EnqueueAsync(async () =>
         {
+            ResetAdaptiveTransition();
             var decision = _engine.Evaluate(new GameExited(_clock.UtcNow, key, true));
             await ApplyDecisionAsync(decision, Snapshot.TriggerApplication);
             if (!decision.IsLatched && decision.Target == PowerState.HighPerformance)
@@ -364,6 +388,8 @@ public sealed class PowerFlowController : IAsyncDisposable
             }
             var from = _currentState;
             _currentState = decision.Target;
+            _stateEnteredAt = _clock.UtcNow;
+            ResetAdaptiveTransition();
             AddHistory(from, _currentState, decision.Reason, true);
         }
 
@@ -383,6 +409,8 @@ public sealed class PowerFlowController : IAsyncDisposable
             }
             var from = _currentState;
             _currentState = target;
+            _stateEnteredAt = _clock.UtcNow;
+            ResetAdaptiveTransition();
             _engine.SynchronizeObservedState(target);
             AddHistory(from, target, reason, true);
         }
@@ -404,6 +432,56 @@ public sealed class PowerFlowController : IAsyncDisposable
         _ = task.ContinueWith(_ => { lock (_backgroundLock) _backgroundTasks.Remove(task); }, TaskScheduler.Default);
     }
 
+    private bool ShouldApplyAdaptiveTarget(PowerState target, DateTimeOffset now, out string reason)
+    {
+        if (target == _currentState)
+        {
+            ResetAdaptiveTransition();
+            reason = $"Adaptive governor stable in {_currentState}; no Windows plan transition required.";
+            return false;
+        }
+
+        if (_adaptivePendingTarget != target || _adaptivePendingSince is null)
+        {
+            _adaptivePendingTarget = target;
+            _adaptivePendingSince = now;
+        }
+
+        var qualifiedFor = now - _adaptivePendingSince.Value;
+        if (_currentState == PowerState.PowerSaver && target == PowerState.Balanced)
+        {
+            if (qualifiedFor < _config.CpuPromotionWindow)
+            {
+                reason = $"Adaptive governor qualifying Balanced for {_config.CpuPromotionWindow.TotalSeconds:0.#}s; sustained demand has held {Math.Max(0, qualifiedFor.TotalSeconds):0.#}s.";
+                return false;
+            }
+
+            reason = "Adaptive governor sustained demand qualified Balanced.";
+            return true;
+        }
+
+        if (_currentState == PowerState.Balanced && target == PowerState.PowerSaver)
+        {
+            var residency = now - _stateEnteredAt;
+            if (qualifiedFor < _config.QuietWindow || residency < AdaptiveMinimumBalancedResidency)
+            {
+                reason = $"Adaptive governor holding Balanced; Eco must remain qualified for {_config.QuietWindow.TotalSeconds:0.#}s and Balanced residency must reach {AdaptiveMinimumBalancedResidency.TotalSeconds:0}s.";
+                return false;
+            }
+
+            reason = "Adaptive governor sustained quiet qualified Power Saver after minimum Balanced residency.";
+            return true;
+        }
+
+        reason = $"Adaptive governor qualified transition {_currentState} -> {target}.";
+        return true;
+    }
+
+    private void ResetAdaptiveTransition()
+    {
+        _adaptivePendingTarget = null;
+        _adaptivePendingSince = null;
+    }
     private Guid ResolvePlan(PowerState state) => state switch
     {
         PowerState.PowerSaver => _config.PowerSaverPlanId ?? PowerPlanIds.PowerSaver,
