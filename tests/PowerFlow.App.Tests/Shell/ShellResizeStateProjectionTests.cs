@@ -7,7 +7,7 @@ public sealed class ShellResizeStateProjectionTests
 {
     [Fact]
     public void ClampMinimum_StopsAtHoverTooltipSize()
-        => Assert.Equal(new ShellLogicalSize(320, 176), ShellResizeStateProjection.ClampMinimum(new ShellLogicalSize(180, 90)));
+        => Assert.Equal(new ShellLogicalSize(320, 219), ShellResizeStateProjection.ClampMinimum(new ShellLogicalSize(180, 90)));
 
     [Fact]
     public void Compact_ShrinksIntoHoverAndHoverRequiresEnoughRoomToReturnToCompact()

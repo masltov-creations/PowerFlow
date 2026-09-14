@@ -13,7 +13,7 @@ public sealed class ProgressivePresentationContractTests
 
         foreach (var name in new[] { "Hidden", "Glance", "Compact", "Expanded", "FullScreen" })
             Assert.Contains(name, state, StringComparison.Ordinal);
-        Assert.Contains("(320, 176)", geometry, StringComparison.Ordinal);
+        Assert.Contains("ShellResizeStateProjection.MinimumHeight", geometry, StringComparison.Ordinal);
         Assert.Contains("(760, 440)", geometry, StringComparison.Ordinal);
         Assert.Contains("(1280, 800)", geometry, StringComparison.Ordinal);
         foreach (var presentation in new[] { "TimelinePresentation.Glance", "TimelinePresentation.Compact", "TimelinePresentation.Expanded", "TimelinePresentation.Full" })

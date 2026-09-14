@@ -15,7 +15,7 @@ public sealed class ShellTransitionGeometryTests
         var target = ShellTransitionGeometry.TargetBounds(tray, work, new RectInt32(0, 0, 1, 1), PowerFlowShellState.Glance);
 
         Assert.Equal(320, target.Width);
-        Assert.Equal(176, target.Height);
+        Assert.Equal(219, target.Height);
         Assert.True(target.X >= work.Left && target.X + target.Width <= work.Right);
         Assert.True(target.Y + target.Height <= tray.Top);
     }

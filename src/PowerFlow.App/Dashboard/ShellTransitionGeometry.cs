@@ -23,7 +23,7 @@ public static class ShellTransitionGeometry
 
         var logical = target switch
         {
-            PowerFlowShellState.Glance => new ShellLogicalSize(320, 176),
+            PowerFlowShellState.Glance => new ShellLogicalSize(ShellResizeStateProjection.MinimumWidth, ShellResizeStateProjection.MinimumHeight),
             PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
             PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
             PowerFlowShellState.Workspace => new ShellLogicalSize(1360, 860),

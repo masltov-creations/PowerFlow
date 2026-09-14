@@ -3,7 +3,7 @@ namespace PowerFlow.App.Dashboard;
 public static class ShellResizeStateProjection
 {
     public const int MinimumWidth = 320;
-    public const int MinimumHeight = 176;
+    public const int MinimumHeight = 219;
     public const int EnterCompactWidth = 520;
     public const int EnterCompactHeight = 300;
     public const int ExitCompactWidth = 480;

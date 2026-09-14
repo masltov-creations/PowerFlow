@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
 using PowerFlow.App.Telemetry;
@@ -65,7 +66,10 @@ public sealed partial class MainWindow : Window
     private bool _headerDragActive;
     private PointNative _headerDragPointerOrigin;
     private PointInt32 _headerDragWindowOrigin;
-    private DispatcherQueueTimer? _headerDragTimer;    private bool _suppressNavigationSelection;
+    private DispatcherQueueTimer? _headerDragTimer;
+    private bool _hoverSurfaceDragArmed;
+    private uint _hoverSurfacePointerId;
+    private bool _suppressNavigationSelection;
     private readonly IProcessorPolicyController _processorPolicyController = new WindowsProcessorPolicyController();
     private ProcessorPolicySnapshot? _processorPolicySnapshot;
     private DateTimeOffset _nextProcessorPolicyReadAt;
@@ -128,9 +132,9 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += OnAppWindowClosing;
         AppWindow.Changed += OnAppWindowChanged;
         Closed += OnClosed;
-        var initialSize = ShellCoordinateProjection.ToPhysicalSize(320, 176, CurrentRasterizationScale());
+        var initialSize = ShellCoordinateProjection.ToPhysicalSize(ShellResizeStateProjection.MinimumWidth, ShellResizeStateProjection.MinimumHeight, CurrentRasterizationScale());
         AppWindow.Resize(new SizeInt32(initialSize.Width, initialSize.Height));
-        ApplyShellLayout(PowerFlowShellState.Hidden, 320, 176);
+        ApplyShellLayout(PowerFlowShellState.Hidden, ShellResizeStateProjection.MinimumWidth, ShellResizeStateProjection.MinimumHeight);
         try { SystemBackdrop = new MicaBackdrop(); } catch { }
         SelectSection("flow");
     }
@@ -493,13 +497,14 @@ public sealed partial class MainWindow : Window
         }
         var scale = CurrentRasterizationScale();
         var current = CurrentBounds();
-        if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work)
+        if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work
+            && !(state == PowerFlowShellState.Glance && _activationMode == ShellActivationMode.PinnedActive && _shellVisible))
             return ShellTransitionGeometry.TargetBounds(tray, work, current, state, scale);
 
         if (state == PowerFlowShellState.Hidden) return new RectInt32(current.X, current.Y, 1, 1);
         var logical = state switch
         {
-            PowerFlowShellState.Glance => new ShellLogicalSize(320, 176),
+            PowerFlowShellState.Glance => new ShellLogicalSize(ShellResizeStateProjection.MinimumWidth, ShellResizeStateProjection.MinimumHeight),
             PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
             PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
             PowerFlowShellState.Workspace => new ShellLogicalSize(1360, 860),
@@ -1032,6 +1037,56 @@ public sealed partial class MainWindow : Window
         SelectSection(section);
     }
 
+    private void OnHoverSurfacePointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_shellVisible || _shellState != PowerFlowShellState.Glance || _activationMode != ShellActivationMode.PinnedActive) return;
+        if (!e.GetCurrentPoint(GlanceTapTarget).Properties.IsLeftButtonPressed) return;
+        if (!GetCursorPos(out _headerDragPointerOrigin)) return;
+        _headerDragWindowOrigin = AppWindow.Position;
+        _hoverSurfacePointerId = e.Pointer.PointerId;
+        _hoverSurfaceDragArmed = true;
+    }
+
+    private void OnHoverSurfacePointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_hoverSurfaceDragArmed || e.Pointer.PointerId != _hoverSurfacePointerId) return;
+        if (!e.GetCurrentPoint(GlanceTapTarget).Properties.IsLeftButtonPressed)
+        {
+            CancelHoverSurfaceDrag();
+            return;
+        }
+        if (!GetCursorPos(out var pointer)) return;
+        var deltaX = pointer.X - _headerDragPointerOrigin.X;
+        var deltaY = pointer.Y - _headerDragPointerOrigin.Y;
+        if (Math.Abs(deltaX) < 3 && Math.Abs(deltaY) < 3) return;
+        if (!_headerDragActive)
+        {
+            _headerDragActive = true;
+            GlanceTapTarget.CapturePointer(e.Pointer);
+            EnsureHeaderDragTimer();
+            _headerDragTimer!.Start();
+        }
+        e.Handled = true;
+    }
+
+    private void OnHoverSurfacePointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_hoverSurfaceDragArmed || e.Pointer.PointerId != _hoverSurfacePointerId) return;
+        var moved = _headerDragActive;
+        if (_headerDragActive) GlanceTapTarget.ReleasePointerCapture(e.Pointer);
+        CancelHoverSurfaceDrag();
+        if (moved) e.Handled = true;
+    }
+
+    private void OnHoverSurfacePointerCanceled(object sender, PointerRoutedEventArgs e) => CancelHoverSurfaceDrag();
+    private void OnHoverSurfacePointerCaptureLost(object sender, PointerRoutedEventArgs e) => CancelHoverSurfaceDrag();
+
+    private void CancelHoverSurfaceDrag()
+    {
+        _hoverSurfaceDragArmed = false;
+        _headerDragActive = false;
+        _headerDragTimer?.Stop();
+    }
     private void OnHeaderDragStarted(object? sender, EventArgs e)
     {
         _headerDragActive = false;

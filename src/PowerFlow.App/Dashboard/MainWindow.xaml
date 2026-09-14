@@ -115,7 +115,7 @@
                     <dash:CpuCapabilityProfileControl x:Name="CpuProfilePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
-                    <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" AutomationProperties.Name="Open PowerFlow dashboard"/>
+                    <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" PointerPressed="OnHoverSurfacePointerPressed" PointerMoved="OnHoverSurfacePointerMoved" PointerReleased="OnHoverSurfacePointerReleased" PointerCanceled="OnHoverSurfacePointerCanceled" PointerCaptureLost="OnHoverSurfacePointerCaptureLost" AutomationProperties.Name="Open PowerFlow dashboard"/>
                                     </Grid>
                 </Grid>
             </NavigationView>
