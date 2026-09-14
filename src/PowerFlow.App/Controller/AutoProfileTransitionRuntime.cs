@@ -10,16 +10,18 @@ public sealed record AutoProfileTransitionDecision(
 
 public sealed class AutoProfileTransitionRuntime
 {
-    private static readonly TimeSpan RapidReentryGuard = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan StrongBounceWindow = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan BounceWindow = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan StableLowerModeWindow = TimeSpan.FromSeconds(60);
-    private const int MaxResidencyMultiplier = 4;
+    private const int MaxResidencyMultiplier = 8;
 
     private readonly Dictionary<PowerFlowOperatingMode, int> _residencyMultipliers = new();
     private PowerFlowOperatingMode? _trackedMode;
     private DateTimeOffset _enteredAt;
     private PowerFlowOperatingMode? _pendingPromotionMode;
     private DateTimeOffset? _pendingPromotionSince;
+    private PowerFlowOperatingMode? _pendingDownshiftMode;
+    private DateTimeOffset? _pendingDownshiftSince;
     private PowerFlowOperatingMode? _lastDownshiftFrom;
     private PowerFlowOperatingMode? _lastDownshiftTo;
     private DateTimeOffset? _lastDownshiftAt;
@@ -28,8 +30,10 @@ public sealed class AutoProfileTransitionRuntime
         EnvelopeZone effectiveZone,
         PowerState controllerState,
         PowerFlowOperatingProfile? currentProfile,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        TimeSpan downshiftQualification)
     {
+        if (downshiftQualification < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(downshiftQualification));
         var desired = AlignWithControllerState(PowerFlowOperatingProfiles.ForAutoZone(effectiveZone), controllerState);
         Synchronize(currentProfile, now);
         RelaxBackoffAfterStableLowerMode(currentProfile, now);
@@ -40,6 +44,7 @@ public sealed class AutoProfileTransitionRuntime
         if (desired.Mode == currentProfile.Mode)
         {
             ClearPendingPromotion();
+            ClearPendingDownshift();
             return new(currentProfile, false, $"Auto remains in {currentProfile.Mode}.");
         }
 
@@ -47,13 +52,7 @@ public sealed class AutoProfileTransitionRuntime
         var desiredRank = Rank(desired.Mode);
         if (desiredRank > currentRank)
         {
-            if (IsRapidReentry(currentProfile.Mode, desired.Mode, now, out var reentryElapsed) && reentryElapsed < RapidReentryGuard)
-            {
-                ClearPendingPromotion();
-                return new(currentProfile, false,
-                    $"Auto holds {currentProfile.Mode} through the {RapidReentryGuard.TotalSeconds:0}s re-entry guard after a recent downshift; {reentryElapsed.TotalSeconds:0.#}s elapsed.");
-            }
-
+            ClearPendingDownshift();
             if (_pendingPromotionMode != desired.Mode || _pendingPromotionSince is null)
             {
                 _pendingPromotionMode = desired.Mode;
@@ -73,21 +72,33 @@ public sealed class AutoProfileTransitionRuntime
 
         ClearPendingPromotion();
         if (currentProfile.WindowsState != controllerState)
-            return new(desired, true, $"Windows state changed to {controllerState}; align processor profile to {desired.Mode}.");
-
-        var multiplier = ResidencyMultiplier(currentProfile.Mode);
-        var minimumResidency = TimeSpan.FromSeconds(Math.Max(0d, currentProfile.MinimumResidencySeconds) * multiplier);
-        var residency = now - _enteredAt;
-        if (residency < minimumResidency)
         {
-            return new(currentProfile, false,
-                $"Auto holds {currentProfile.Mode} through its {minimumResidency.TotalSeconds:0}s anti-flap residency; {Math.Max(0d, residency.TotalSeconds):0.#}s elapsed.");
+            ClearPendingDownshift();
+            return new(desired, true, $"Windows state changed to {controllerState}; align processor profile to {desired.Mode}.");
         }
 
         var next = desiredRank < currentRank - 1
             ? PowerFlowOperatingProfiles.For((PowerFlowOperatingMode)(currentRank - 1))
             : desired;
-        return new(next, true, $"Auto downshift from {currentProfile.Mode} to {next.Mode} after stable residency.");
+        if (_pendingDownshiftMode != next.Mode || _pendingDownshiftSince is null)
+        {
+            _pendingDownshiftMode = next.Mode;
+            _pendingDownshiftSince = now;
+        }
+
+        var multiplier = ResidencyMultiplier(currentProfile.Mode);
+        var minimumResidency = TimeSpan.FromSeconds(Math.Max(0d, currentProfile.MinimumResidencySeconds) * multiplier);
+        var scaledQualificationTicks = Math.Min(TimeSpan.MaxValue.Ticks, downshiftQualification.Ticks * (double)multiplier);
+        var requiredDownshiftQualification = TimeSpan.FromTicks((long)Math.Round(scaledQualificationTicks, MidpointRounding.AwayFromZero));
+        var residency = now - _enteredAt;
+        var downshiftElapsed = now - _pendingDownshiftSince.Value;
+        if (residency < minimumResidency || downshiftElapsed < requiredDownshiftQualification)
+        {
+            return new(currentProfile, false,
+                $"Auto holds {currentProfile.Mode}; residency {Math.Max(0d, residency.TotalSeconds):0.#}/{minimumResidency.TotalSeconds:0}s and lower-demand qualification {Math.Max(0d, downshiftElapsed.TotalSeconds):0.#}/{requiredDownshiftQualification.TotalSeconds:0.#}s.");
+        }
+
+        return new(next, true, $"Auto downshift from {currentProfile.Mode} to {next.Mode} after sustained lower demand and stable residency.");
     }
 
     public void Commit(PowerFlowOperatingProfile profile, DateTimeOffset now)
@@ -108,14 +119,18 @@ public sealed class AutoProfileTransitionRuntime
                 && _lastDownshiftAt is DateTimeOffset downshiftAt
                 && now - downshiftAt <= BounceWindow)
             {
+                var rebound = now - downshiftAt;
                 var current = ResidencyMultiplier(profile.Mode);
-                _residencyMultipliers[profile.Mode] = Math.Min(MaxResidencyMultiplier, current * 2);
+                _residencyMultipliers[profile.Mode] = rebound <= StrongBounceWindow
+                    ? MaxResidencyMultiplier
+                    : Math.Min(MaxResidencyMultiplier, current * 2);
             }
         }
 
         _trackedMode = profile.Mode;
         _enteredAt = now;
         ClearPendingPromotion();
+        ClearPendingDownshift();
     }
 
     public void Reset()
@@ -127,6 +142,7 @@ public sealed class AutoProfileTransitionRuntime
         _lastDownshiftTo = null;
         _lastDownshiftAt = null;
         ClearPendingPromotion();
+        ClearPendingDownshift();
     }
 
     private void Synchronize(PowerFlowOperatingProfile? currentProfile, DateTimeOffset now)
@@ -140,17 +156,7 @@ public sealed class AutoProfileTransitionRuntime
         _trackedMode = currentProfile.Mode;
         _enteredAt = now;
         ClearPendingPromotion();
-    }
-
-    private bool IsRapidReentry(PowerFlowOperatingMode current, PowerFlowOperatingMode desired, DateTimeOffset now, out TimeSpan elapsed)
-    {
-        if (_lastDownshiftFrom == desired && _lastDownshiftTo == current && _lastDownshiftAt is DateTimeOffset at)
-        {
-            elapsed = now - at;
-            return elapsed <= BounceWindow;
-        }
-        elapsed = TimeSpan.MaxValue;
-        return false;
+        ClearPendingDownshift();
     }
 
     private void RelaxBackoffAfterStableLowerMode(PowerFlowOperatingProfile? currentProfile, DateTimeOffset now)
@@ -184,5 +190,11 @@ public sealed class AutoProfileTransitionRuntime
     {
         _pendingPromotionMode = null;
         _pendingPromotionSince = null;
+    }
+
+    private void ClearPendingDownshift()
+    {
+        _pendingDownshiftMode = null;
+        _pendingDownshiftSince = null;
     }
 }

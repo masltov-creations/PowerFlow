@@ -221,7 +221,8 @@ public partial class App : Application
                 actuation.EffectiveZone,
                 controllerSnapshot.State,
                 _powerModeProfileRuntime.CurrentProfile,
-                controllerSnapshot.At);
+                controllerSnapshot.At,
+                _config.QuietWindow);
             if (transition.ShouldApply)
             {
                 var status = _powerModeProfileRuntime.Apply(transition.Profile, liveWritesEnabled: !_previewMode);
