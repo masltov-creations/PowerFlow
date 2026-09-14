@@ -79,6 +79,26 @@ public sealed class ShellTransitionGeometryTests
     }
 
     [Fact]
+    public void PinnedTargetBounds_HoverToCompact_GrowsInPlaceAndClampsAtScreenEdge()
+    {
+        var work = new TrayRect(0, 0, 1920, 1040);
+        var hover = new RectInt32(1579, 20, 320, 219);
+        var target = ShellTransitionGeometry.PinnedTargetBounds(work, hover, PowerFlowShellState.Compact);
+
+        Assert.Equal(new RectInt32(1160, 0, 760, 440), target);
+    }
+
+    [Fact]
+    public void PinnedTargetBounds_HoverToCompact_PreservesCenterWhenThereIsRoom()
+    {
+        var work = new TrayRect(0, 0, 1920, 1040);
+        var hover = new RectInt32(800, 400, 320, 219);
+        var target = ShellTransitionGeometry.PinnedTargetBounds(work, hover, PowerFlowShellState.Compact);
+
+        Assert.InRange(Math.Abs((target.X + target.Width / 2) - (hover.X + hover.Width / 2)), 0, 1);
+        Assert.InRange(Math.Abs((target.Y + target.Height / 2) - (hover.Y + hover.Height / 2)), 0, 1);
+    }
+    [Fact]
     public void TargetBounds_Workspace_Uses1360x860WhenWorkAreaAllowsAndPreservesPinnedCenter()
     {
         var tray = new TrayRect(1800, 1030, 1840, 1070);

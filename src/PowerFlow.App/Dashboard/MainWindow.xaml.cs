@@ -497,8 +497,10 @@ public sealed partial class MainWindow : Window
         }
         var scale = CurrentRasterizationScale();
         var current = CurrentBounds();
-        if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work
-            && !(state == PowerFlowShellState.Glance && _activationMode == ShellActivationMode.PinnedActive && _shellVisible))
+        if (_activationMode == ShellActivationMode.PinnedActive && _shellVisible && ResolvePinnedWorkArea() is { } pinnedWork)
+            return ShellTransitionGeometry.PinnedTargetBounds(pinnedWork, current, state, scale);
+
+        if (_lastTrayAnchor is { } tray && _lastWorkArea is { } work)
             return ShellTransitionGeometry.TargetBounds(tray, work, current, state, scale);
 
         if (state == PowerFlowShellState.Hidden) return new RectInt32(current.X, current.Y, 1, 1);
@@ -514,6 +516,17 @@ public sealed partial class MainWindow : Window
         var x = current.X + current.Width / 2 - physical.Width / 2;
         var y = current.Y + current.Height / 2 - physical.Height / 2;
         return new RectInt32(x, y, physical.Width, physical.Height);
+    }
+    private TrayRect? ResolvePinnedWorkArea()
+    {
+        if (_lastWorkArea is { } remembered) return remembered;
+        try
+        {
+            var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest);
+            var work = display.WorkArea;
+            return new TrayRect(work.X, work.Y, work.X + work.Width, work.Y + work.Height);
+        }
+        catch { return null; }
     }
     private double CurrentRasterizationScale()
     {

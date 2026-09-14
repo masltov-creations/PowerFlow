@@ -63,6 +63,8 @@ public sealed class ShellLifecycleContractTests
         Assert.Contains("PowerFlowShellState.Hidden or PowerFlowShellState.FullScreen", window, StringComparison.Ordinal);
         Assert.DoesNotContain("PowerFlowShellState.Hidden or PowerFlowShellState.Glance or PowerFlowShellState.FullScreen", window, StringComparison.Ordinal);
         Assert.Contains("_activationMode != ShellActivationMode.PinnedActive", window, StringComparison.Ordinal);
+        Assert.Contains("ShellTransitionGeometry.PinnedTargetBounds", window, StringComparison.Ordinal);
+        Assert.Contains("ResolvePinnedWorkArea", window, StringComparison.Ordinal);
         var mainXaml = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         Assert.Contains("PointerPressed=\"OnHoverSurfacePointerPressed\"", mainXaml, StringComparison.Ordinal);
         Assert.Contains("GlanceTapTarget.CapturePointer", window, StringComparison.Ordinal);

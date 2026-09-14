@@ -47,6 +47,32 @@ public static class ShellTransitionGeometry
         return new RectInt32(xClamped, yClamped, width, height);
     }
 
+    public static RectInt32 PinnedTargetBounds(TrayRect workArea, RectInt32 current, PowerFlowShellState target, double rasterizationScale = 1d)
+    {
+        if (target == PowerFlowShellState.FullScreen)
+            return new RectInt32(workArea.Left, workArea.Top, workArea.Width, workArea.Height);
+
+        var logical = target switch
+        {
+            PowerFlowShellState.Glance => new ShellLogicalSize(ShellResizeStateProjection.MinimumWidth, ShellResizeStateProjection.MinimumHeight),
+            PowerFlowShellState.Compact => new ShellLogicalSize(760, 440),
+            PowerFlowShellState.Expanded => new ShellLogicalSize(1280, 800),
+            PowerFlowShellState.Workspace => new ShellLogicalSize(1360, 860),
+            _ => ShellCoordinateProjection.ToLogicalSize(Math.Max(1, current.Width), Math.Max(1, current.Height), rasterizationScale)
+        };
+        var requested = ShellCoordinateProjection.ToPhysicalSize(logical.Width, logical.Height, rasterizationScale);
+        var width = Math.Min(requested.Width, Math.Max(1, workArea.Width));
+        var height = Math.Min(requested.Height, Math.Max(1, workArea.Height));
+        var desiredX = current.X + current.Width / 2 - width / 2;
+        var desiredY = current.Y + current.Height / 2 - height / 2;
+        var maxX = workArea.Right - width;
+        var maxY = workArea.Bottom - height;
+        return new RectInt32(
+            Math.Clamp(desiredX, workArea.Left, Math.Max(workArea.Left, maxX)),
+            Math.Clamp(desiredY, workArea.Top, Math.Max(workArea.Top, maxY)),
+            width,
+            height);
+    }
     public static RectInt32 TraySeedBounds(TrayRect tray, TrayRect workArea, int width, int height)
     {
         var seedWidth = Math.Min(Math.Max(1, width), Math.Max(1, workArea.Width));
