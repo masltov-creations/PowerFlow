@@ -32,7 +32,22 @@
                             <Grid x:Name="HeaderContentRow" Grid.Row="1" ColumnSpacing="10">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <dash:ShellHeaderControl x:Name="SystemHeaderHost" LiveRequested="OnHeaderLiveRequested" RulesRequested="OnHeaderRulesRequested" BaselineRequested="OnHeaderBaselineRequested" SettingsRequested="OnHeaderSettingsRequested"/>
-                                <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><Button x:Name="CompactButton" MinHeight="34" Content="COMPACT" Visibility="Collapsed" FontSize="11" Padding="10,5" Click="OnCompactClicked"/><Button x:Name="PresentationToggleButton" MinHeight="34" Content="EXPAND" FontSize="11" FontWeight="SemiBold" Padding="12,5" Click="OnPresentationToggleClicked"/></StackPanel>
+                                <StackPanel x:Name="PresentationActions" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <Button x:Name="ViewModeButton" MinHeight="34" MinWidth="92" FontSize="11" FontWeight="SemiBold" Padding="10,5" ToolTipService.ToolTip="Change PowerFlow view">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock x:Name="ViewModeLabel" Text="COMPACT" VerticalAlignment="Center"/>
+                                            <FontIcon Glyph="&#xE70D;" FontSize="11"/>
+                                        </StackPanel>
+                                        <Button.Flyout>
+                                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                <MenuFlyoutItem Text="HOVER" Click="OnHoverViewClicked"/>
+                                                <MenuFlyoutItem Text="COMPACT" Click="OnCompactViewClicked"/>
+                                                <MenuFlyoutItem Text="EXPANDED" Click="OnExpandedViewClicked"/>
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <Button x:Name="PresentationToggleButton" MinHeight="34" Content="WORKSPACE" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold" Padding="10,5" Click="OnPresentationToggleClicked"/>
+                                </StackPanel>
                             </Grid>
                         </Grid>
                     <Grid x:Name="SectionContentHost" Grid.Row="1">
@@ -100,10 +115,11 @@
                     <dash:CpuCapabilityProfileControl x:Name="CpuProfilePanel" Visibility="Collapsed"/>
                     <settings:RulesPage x:Name="RulesPanel" Visibility="Collapsed"/>
                     <settings:SettingsPage x:Name="SettingsPanel" Visibility="Collapsed"/>
+                    <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" AutomationProperties.Name="Open PowerFlow dashboard"/>
                                     </Grid>
                 </Grid>
             </NavigationView>
         </Grid>
-        <Border x:Name="GlanceTapTarget" Visibility="Collapsed" Background="Transparent" Tapped="OnGlanceTapped" AutomationProperties.Name="Open PowerFlow dashboard"/>
+
     </Grid>
 </Window>

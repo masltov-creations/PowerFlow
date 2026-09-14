@@ -311,9 +311,14 @@ public sealed partial class MainWindow : Window
         };
         await TransitionToAsync(next, ShellActivationMode.PinnedActive, animate: true);
     }
-    private async void OnCompactClicked(object sender, RoutedEventArgs e)
+    private async void OnHoverViewClicked(object sender, RoutedEventArgs e)
+        => await TransitionToAsync(PowerFlowShellState.Glance, ShellActivationMode.PinnedActive, animate: true);
+
+    private async void OnCompactViewClicked(object sender, RoutedEventArgs e)
         => await TransitionToAsync(PowerFlowShellState.Compact, ShellActivationMode.PinnedActive, animate: true);
 
+    private async void OnExpandedViewClicked(object sender, RoutedEventArgs e)
+        => await TransitionToAsync(PowerFlowShellState.Expanded, ShellActivationMode.PinnedActive, animate: true);
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if ((!args.DidSizeChange && !args.DidPresenterChange) || IsResizeModeSyncSuppressed || !_shellVisible) return;
@@ -359,16 +364,35 @@ public sealed partial class MainWindow : Window
 
     private void ApplyResizeReflow(int width, int height)
     {
-        var logical = new ShellLogicalSize(width, height);
-        if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen && !IsFullScreenPresenter())
-            _layoutDensity = ShellResponsiveDensity.Resolve(logical, _layoutDensity);
+        var requested = new ShellLogicalSize(width, height);
+        var logical = ShellResizeStateProjection.ClampMinimum(requested);
+        if (logical != requested)
+        {
+            var physical = ShellCoordinateProjection.ToPhysicalSize(logical.Width, logical.Height, CurrentRasterizationScale());
+            BeginResizeModeSyncSuppression();
+            try { AppWindow.Resize(new SizeInt32(physical.Width, physical.Height)); }
+            finally { EndResizeModeSyncSuppression(); }
+        }
 
-        ApplyShellLayout(_shellState, width, height);
-        var stableProfile = PowerFlowShellLayout.Resolve(width, height, _shellState, _currentSection, _layoutDensity);
+        if (!IsFullScreenPresenter())
+        {
+            var resolvedState = ShellResizeStateProjection.Resolve(logical, _shellState);
+            if (resolvedState != _shellState)
+            {
+                _shellState = resolvedState;
+                _layoutDensity = resolvedState == PowerFlowShellState.Expanded ? ShellDensity.Expanded : ShellDensity.Compact;
+            }
+            else if (_shellState is not PowerFlowShellState.Glance and not PowerFlowShellState.FullScreen)
+            {
+                _layoutDensity = ShellResponsiveDensity.Resolve(logical, _layoutDensity);
+            }
+        }
+
+        ApplyShellLayout(_shellState, logical.Width, logical.Height);
+        var stableProfile = PowerFlowShellLayout.Resolve(logical.Width, logical.Height, _shellState, _currentSection, _layoutDensity);
         ResetSemanticMorphPresentation(stableProfile);
         ApplyDisclosureProgress(ShellDisclosurePolicy.Progress(logical, _shellState), settled: true);
     }
-
     private void CancelPendingResizeReflow()
     {
         _resizeReflowScheduled = false;
@@ -388,19 +412,22 @@ public sealed partial class MainWindow : Window
         var glance = state == PowerFlowShellState.Glance;
         var expanded = state is PowerFlowShellState.Workspace or PowerFlowShellState.FullScreen || profile.Navigation == NavigationPresentation.Rail;
         GlanceTapTarget.Visibility = glance && _activationMode == ShellActivationMode.PinnedActive ? Visibility.Visible : Visibility.Collapsed;
-        PresentationActions.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        CompactButton.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        CompactButton.Opacity = 1d;
-        CompactButton.IsHitTestVisible = expanded;
+        var interactiveGlance = glance && _activationMode == ShellActivationMode.PinnedActive;
+        PresentationActions.Visibility = glance && !interactiveGlance ? Visibility.Collapsed : Visibility.Visible;
+        ViewModeLabel.Text = state switch
+        {
+            PowerFlowShellState.Glance => "HOVER",
+            PowerFlowShellState.Compact => "COMPACT",
+            _ => "EXPANDED"
+        };
+        PresentationToggleButton.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
         PresentationToggleButton.Content = state switch
         {
             PowerFlowShellState.FullScreen => "RESTORE",
             PowerFlowShellState.Workspace => "FULL SCREEN",
-            PowerFlowShellState.Expanded => "WORKSPACE",
-            _ => "EXPAND"
+            _ => "WORKSPACE"
         };
     }
-
     private void ApplyNavigationPresentation(NavigationPresentation presentation, double openWidth)
     {
         NavigationRail.OpenPaneLength = Math.Max(128, openWidth);
@@ -442,9 +469,14 @@ public sealed partial class MainWindow : Window
         SystemHeaderRow.Margin = new Thickness(profile.Geometry.ContentPadding, 0, profile.Geometry.ContentPadding, 0);
         AdaptiveControlRegion.ColumnSpacing = profile.Geometry.Gap;
 
-        SystemHeaderRowDefinition.Height = new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
+        SystemHeaderRowDefinition.Height = profile.Header is HeaderPresentation.Minimal or HeaderPresentation.Compact
+            ? new GridLength(1, GridUnitType.Auto)
+            : new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
         TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
-        AdaptiveControlRowDefinition.Height = new GridLength(ControlBandHeight(profile));
+        TimelineRowDefinition.MinHeight = state == PowerFlowShellState.Glance ? 92d : 156d;
+        AdaptiveControlRowDefinition.Height = profile.GovernorControls == GovernorControlPresentation.Bias
+            ? new GridLength(1, GridUnitType.Auto)
+            : new GridLength(ControlBandHeight(profile));
         AdaptiveControlRegion.Visibility = profile.GovernorControls != GovernorControlPresentation.Summary ? Visibility.Visible : Visibility.Collapsed;
         ApplyDisclosureProgress(ShellDisclosurePolicy.Progress(new ShellLogicalSize(width, height), state), settled: true);
     }

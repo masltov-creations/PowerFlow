@@ -132,10 +132,10 @@ public sealed class VisualCoherenceContractTests
     {
         var main = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml");
         var header = Read("src", "PowerFlow.App", "Dashboard", "ShellHeaderControl.xaml");
-        Assert.Contains("x:Name=\"CompactButton\"", main, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ViewModeButton\"", main, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PresentationToggleButton\"", main, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CompactNavigationButton\"", header, StringComparison.Ordinal);
-        Assert.Matches(new Regex("x:Name=\\\"CompactButton\\\"[^>]*MinHeight=\\\"34\\\""), main);
+        Assert.Matches(new Regex("x:Name=\\\"ViewModeButton\\\"[^>]*MinHeight=\\\"34\\\""), main);
         Assert.Matches(new Regex("x:Name=\\\"PresentationToggleButton\\\"[^>]*MinHeight=\\\"34\\\""), main);
         Assert.Matches(new Regex("x:Name=\\\"CompactNavigationButton\\\"[^>]*MinHeight=\\\"34\\\""), header);
     }

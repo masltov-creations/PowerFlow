@@ -62,7 +62,7 @@ public sealed class ShellResponsiveDensityTests
 
         Assert.Contains("QueueResizeReflow", code, StringComparison.Ordinal);
         Assert.Contains("ShellResponsiveDensity.Resolve", code, StringComparison.Ordinal);
-        Assert.Contains("ApplyShellLayout(_shellState, width, height)", code, StringComparison.Ordinal);
+        Assert.Contains("ApplyShellLayout(_shellState, logical.Width, logical.Height)", code, StringComparison.Ordinal);
         Assert.Contains("ResetSemanticMorphPresentation(stableProfile)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("ApplyResponsiveResizeMorph", code, StringComparison.Ordinal);
         Assert.DoesNotContain("ShellResponsiveDensity.MorphProgress", code, StringComparison.Ordinal);
