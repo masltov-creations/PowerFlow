@@ -6,6 +6,21 @@ PowerFlow watches live Windows telemetry, learns how the machine behaves, and ap
 
 ![PowerFlow Expanded dashboard](docs/assets/powerflow-expanded.png)
 
+## Install PowerFlow
+
+If you just want to **use PowerFlow**, you do not need Visual Studio, the .NET SDK, Git, or a source build.
+
+1. Open the [latest PowerFlow release](https://github.com/masltov-creations/PowerFlow/releases/latest).
+2. Download **`PowerFlow-Setup.exe`**.
+3. Double-click it and choose **Install PowerFlow**. The desktop shortcut is optional; the Start Menu shortcut is always created.
+4. Launch PowerFlow from the Start Menu, the desktop shortcut, or the tray. The installer also registers PowerFlow to start with Windows for your account.
+
+The installer is per-user: it installs to `%LOCALAPPDATA%\Programs\PowerFlow` and does **not** require administrator access. Updating with a newer `PowerFlow-Setup.exe` replaces the program files in place while preserving your settings under `%LOCALAPPDATA%\PowerFlow`.
+
+> **Beta signing note:** the current installer is not code-signed yet, so Windows SmartScreen may show an **Unknown publisher** warning. Download it only from the official PowerFlow Releases page, compare the SHA-256 file published beside the installer if you want an extra integrity check, then use **More info → Run anyway** if Windows prompts.
+
+To uninstall, open **Settings → Apps → Installed apps → PowerFlow → Uninstall**. Uninstall removes the application and shortcuts but preserves your PowerFlow settings by default.
+
 ## Why PowerFlow exists
 
 Windows already has power plans. Modern CPUs already have sophisticated firmware. PowerFlow does not try to replace either one.
@@ -123,18 +138,20 @@ Per-user configuration lives outside the repository:
 %LOCALAPPDATA%\PowerFlow\config.json
 ```
 
-Durable local deployments use versioned releases:
+The normal installer keeps program files separate from user data:
 
 ```text
-%LOCALAPPDATA%\PowerFlow\App\releases\<release-id>\
-%LOCALAPPDATA%\PowerFlow\App\current.txt
+%LOCALAPPDATA%\Programs\PowerFlow\   installed application
+%LOCALAPPDATA%\PowerFlow\            settings and local state
 ```
 
-Start-with-Windows registration is per-user under the standard `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key.
+Start-with-Windows registration is per-user under the standard `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` key. PowerFlow also registers a per-user uninstall entry so it appears in **Settings → Apps → Installed apps**.
 
 PowerFlow requires no credentials or cloud service.
 
-## Build and test
+## Building from source
+
+This section is for contributors and developers. **If you only want to run PowerFlow, use `PowerFlow-Setup.exe` from Releases instead.**
 
 Prerequisites for source builds:
 
@@ -162,21 +179,24 @@ Open the dashboard through the running instance:
 .\src\PowerFlow.App\bin\Release\net8.0-windows10.0.19041.0\win-x64\PowerFlow.App.exe --dashboard
 ```
 
-## Durable local deployment
+## Build the release installer
 
-The repository includes a deployment script that builds a versioned per-user release, gracefully replaces an existing PowerFlow process, verifies startup registration, updates `current.txt`, and keeps a bounded number of releases:
-
-```powershell
-.\scripts\Deploy-PowerFlow.ps1
-```
-
-By default it runs the App and Windows test projects and retains two releases. After an independently completed full test gate, deployment can skip the duplicate test pass:
+Maintainers can build the same self-contained installer used on the Releases page:
 
 ```powershell
-.\scripts\Deploy-PowerFlow.ps1 -SkipTests -KeepReleases 2
+.\tools\install\Build-PowerFlowDistribution.ps1 -Version 0.1.0-beta.5
 ```
 
-The script intentionally refuses ambiguous multi-runtime states and does not force-kill PowerFlow if graceful shutdown fails.
+The builder runs the test suite, builds the Win-x64 app self-contained with its WinUI resources intact, embeds that payload into a self-contained single-file setup executable, verifies the embedded payload, and writes:
+
+```text
+artifacts\installer\release\PowerFlow-Setup.exe
+artifacts\installer\release\PowerFlow-Setup.exe.sha256
+```
+
+`tools\install\Install-PowerFlow.ps1` and `Uninstall-PowerFlow.ps1` are scripted fallback/admin paths for development and validation. They are **not** the recommended end-user installation flow.
+
+The older `scripts\Deploy-PowerFlow.ps1` workflow remains a developer-only versioned deployment tool for local engineering work; it is not the public installer.
 
 ## Repository layout
 
@@ -185,7 +205,8 @@ src/PowerFlow.Core/       Policy, envelope, rules, profiling models
 src/PowerFlow.Windows/    Windows telemetry and power-policy adapters
 src/PowerFlow.App/        WinUI application, controller runtime, tray, dashboard
 tests/                    Core, Windows, and application tests
-scripts/                  Deployment and maintenance scripts
+scripts/                  Developer deployment and maintenance scripts
+tools/                    Public installer and installer build tooling
 docs/product.md           Current product behavior
 docs/architecture.md      Current architecture and system boundaries
 docs/design/              Current focused design notes
