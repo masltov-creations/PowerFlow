@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- reference-host live UI remains blocked unless the user explicitly authorizes that specific acceptance pass.
+- reference host live UI remains blocked unless the user explicitly authorizes that specific acceptance pass.
 - No Qwen or alternate coding lane unless explicitly approved by the user.
 - Do not change the established adaptive governor, calibration, entitlement, persistence, or actuator semantics except where required to expose the approved interaction contract.
 - Every production behavior change uses RED -> GREEN TDD.
@@ -177,5 +177,5 @@
 - [ ] **Step 4: Run full App tests** in Release.
 - [ ] **Step 5: Run exact Release solution build** and require zero errors and no newly introduced warnings.
 - [ ] **Step 6: Run `git diff --check`, duplicate timer/sampler scan, and confirm no `PowerFlow.App` process is running.**
-- [ ] **Step 7: Run headless real-reference-host telemetry probe** and require non-null CPU pressure, package watts, clock, and cores-awake where those sensors are supported.
+- [ ] **Step 7: Run headless real-reference host telemetry probe** and require non-null CPU pressure, package watts, clock, and cores-awake where those sensors are supported.
 - [ ] **Step 8: STOP before live UI.** Ask for a fresh explicit live acceptance authorization. The live pass must repeatedly exercise Glance, Compact, arbitrary manual resize, Expanded, Model, Tune, Full Screen, Restore, hover, direct policy drag, mode changes, and verify no visual artifacts/clipping/state drift.

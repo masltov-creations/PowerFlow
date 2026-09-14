@@ -331,7 +331,7 @@ The desired perception is that the user starts with a tiny live instrument near 
 
 Named Windows power plans are implementation actuators, not the dominant visual abstraction. Saver, Balanced, High Performance, and similar plan names may appear in Expert/Actuator disclosure, but the primary surfaces prioritize machine state, KPI trajectories, learned performance envelope, application pressure, policy decisions, and user-adjustable semantic levers.
 
-## 16. Current Windows Actuator Evidence on reference-host
+## 16. Current Windows Actuator Evidence on reference host
 
 Read-only inspection on the 16-core / 32-thread AMD Ryzen 9 5950X shows why PowerFlow must model behavior rather than plan names.
 
@@ -341,9 +341,9 @@ Therefore Power Saver on this machine is not simply a hard percentage cap. It ch
 
 These observed values are evidence for the design, not universal defaults. PowerFlow must discover the available actuator behavior per machine.
 
-## 17. reference-host UI Safety — HARD OPERATING RULE
+## 17. reference host UI Safety — HARD OPERATING RULE
 
-reference-host is an actively used desktop and gaming machine. Development and validation MUST NOT create visible desktop interference without fresh explicit user authorization for the specific live-UI action.
+reference host is an actively used desktop and gaming machine. Development and validation MUST NOT create visible desktop interference without fresh explicit user authorization for the specific live-UI action.
 
 Without that authorization, executors MUST NOT launch visible PowerFlow windows, use preview/popup-preview/dashboard/fullscreen launch modes, interact with the tray, invoke UI Automation or synthetic input, focus/activate/move/resize/capture a PowerFlow window, or start helpers that can display consoles/dialogs/toasts/prompts.
 
@@ -453,7 +453,7 @@ Hovering an Atlas cell highlights the corresponding Timeline observations and ex
 
 ### 20.9 Telemetry naming and availability
 
-The core-width metric is **CORES AWAKE**. It counts physical CPU cores for which at least one hardware thread is unparked. On reference-host this is derived from `Processor Information(*)\\Parking Status` plus Windows processor-core topology. Hover may disclose logical-thread parking details, but the primary value is physical cores, e.g. `5/16`.
+The core-width metric is **CORES AWAKE**. It counts physical CPU cores for which at least one hardware thread is unparked. On reference host this is derived from `Processor Information(*)\\Parking Status` plus Windows processor-core topology. Hover may disclose logical-thread parking details, but the primary value is physical cores, e.g. `5/16`.
 
 If a visible metric is unavailable, PowerFlow must explicitly say `Unavailable` with a short reason. An unavailable metric cannot silently render as an empty lane, and Atlas cannot offer a dimension that has no usable observations in the selected range.
 
@@ -473,4 +473,4 @@ The visual acceptance pass must explicitly verify:
 - graph-level policy edits change the counterfactual immediately and persist only after Save;
 - Model can be understood without prior knowledge of PowerFlow terminology.
 
-The reference-host UI safety rule in section 17 still applies: live acceptance requires a fresh explicit authorization for that pass.
+The reference host UI safety rule in section 17 still applies: live acceptance requires a fresh explicit authorization for that pass.

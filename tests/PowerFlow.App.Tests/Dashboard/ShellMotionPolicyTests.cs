@@ -27,12 +27,21 @@ public sealed class ShellMotionPolicyTests
 
 
     [Fact]
+    public void DurationForTravel_GivesSizeMorphsEnoughTimeToSettleSmoothly()
+    {
+        var hoverToCompact = ShellMotionPolicy.DurationForTravel(PowerFlowShellState.Glance, PowerFlowShellState.Compact, false, 493d);
+        var compactToExpanded = ShellMotionPolicy.DurationForTravel(PowerFlowShellState.Compact, PowerFlowShellState.Expanded, false, 632d);
+
+        Assert.InRange(hoverToCompact.TotalMilliseconds, 430d, 470d);
+        Assert.InRange(compactToExpanded.TotalMilliseconds, 500d, 540d);
+    }
+    [Fact]
     public void DurationForTravel_ScalesLargeWindowMorphsWithoutBecomingSluggish()
     {
         var medium = ShellMotionPolicy.DurationForTravel(PowerFlowShellState.Compact, PowerFlowShellState.Expanded, false, 640);
         var large = ShellMotionPolicy.DurationForTravel(PowerFlowShellState.FullScreen, PowerFlowShellState.Compact, false, 1325);
         Assert.InRange(medium.TotalMilliseconds, 420, 540);
-        Assert.InRange(large.TotalMilliseconds, 1100, 1300);
+        Assert.InRange(large.TotalMilliseconds, 1000, 1100);
         Assert.True(large > medium);
     }
     [Theory]

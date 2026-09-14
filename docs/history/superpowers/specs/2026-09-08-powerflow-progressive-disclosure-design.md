@@ -20,7 +20,7 @@ The compact view must remain readable. Compactness comes from hierarchy and disc
 
 ## Hard constraints
 
-1. No popup windows, preview launches, cursor movement, UI automation, or other foreground interaction on reference-host during implementation unless the user explicitly requests a live acceptance run.
+1. No popup windows, preview launches, cursor movement, UI automation, or other foreground interaction on reference host during implementation unless the user explicitly requests a live acceptance run.
 2. PowerFlow remains tray-first and single-process by default.
 3. Background overhead is a product gate. Monitoring must not materially erode the power savings PowerFlow creates.
 4. Game latch semantics are unchanged: game detection and process lifecycle dominate; low utilization never demotes a game.
@@ -426,7 +426,7 @@ The redesign is accepted only when all of the following are true:
 9. Hidden AUTO telemetry stays at 5-second rich cadence or slower.
 10. Hidden game/manual latch has zero rich telemetry polling solely for visualization.
 11. Full policy/game/manual semantics remain unchanged.
-12. No implementation-time UI windows or cursor automation are launched on reference-host without explicit user instruction.
+12. No implementation-time UI windows or cursor automation are launched on reference host without explicit user instruction.
 13. Final human acceptance confirms the progressive-disclosure interaction feels coherent and polished.
 
 ## Scope exclusions

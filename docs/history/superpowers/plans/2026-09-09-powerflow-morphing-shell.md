@@ -453,7 +453,7 @@ git commit -m "refactor: retire separate PowerFlow tray window"
 
 Assert README:
 - contains `What PowerFlow is`/equivalent product introduction, `Why PowerFlow`, `Build` or `Install`, `Configuration`, and `AI`/`vibe-coded` note;
-- does **not** contain `reference-host`, `HWND`, `179/179`, `CURRENT candidate`, `CRASH_EVENTS`, or capture mechanics;
+- does **not** contain `reference host`, `HWND`, `179/179`, `CURRENT candidate`, `CRASH_EVENTS`, or capture mechanics;
 - AI note is one short paragraph and mentions test-driven/TDD discipline.
 
 - [ ] **Step 2: Run and verify RED against current README**

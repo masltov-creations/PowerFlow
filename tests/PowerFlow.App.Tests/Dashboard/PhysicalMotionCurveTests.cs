@@ -19,17 +19,37 @@ public sealed class PhysicalMotionCurveTests
     }
 
     [Fact]
-    public void CompliantMaterial_HasOneBoundedOvershootLobe()
+    public void FluidMaterial_UsesMinimumJerkShapeInsteadOfFrontLoadedSnap()
     {
-        var samples = Enumerable.Range(0, 201).Select(i => Sample("Compliant", i / 200d)).ToArray();
-        Assert.InRange(samples.Max(s => s.Progress), 1d, 1.025d);
-        Assert.Equal(1d, samples[^1].Progress, 6);
-        var above = samples.Select(s => s.Progress > 1d + 1e-6).ToArray();
-        var lobes = 0;
-        for (var i = 0; i < above.Length; i++) if (above[i] && (i == 0 || !above[i - 1])) lobes++;
-        Assert.InRange(lobes, 1, 1);
+        var start = Sample("Fluid", .10d);
+        var middle = Sample("Fluid", .50d);
+        var finish = Sample("Fluid", .90d);
+
+        Assert.InRange(start.Progress, .005d, .020d);
+        Assert.InRange(middle.Progress, .49d, .51d);
+        Assert.InRange(finish.Progress, .98d, .995d);
+        Assert.True(start.Velocity < middle.Velocity);
+        Assert.True(finish.Velocity < middle.Velocity);
     }
 
+    [Fact]
+    public void CompliantChildMotion_IsMonotonicAndDoesNotOvershootLayout()
+    {
+        var samples = Enumerable.Range(0, 201).Select(i => Sample("Compliant", i / 200d)).ToArray();
+        for (var i = 1; i < samples.Length; i++)
+            Assert.True(samples[i].Progress + 1e-9 >= samples[i - 1].Progress, $"Compliant reversed at {i}");
+        Assert.All(samples, sample => Assert.InRange(sample.Progress, 0d, 1d));
+        Assert.Equal(1d, samples[^1].Progress, 6);
+    }
+    [Fact]
+    public void CompliantMaterial_TrailsFluidWithoutRubberBandOvershoot()
+    {
+        var fluid = Sample("Fluid", .50d);
+        var compliant = Sample("Compliant", .50d);
+        Assert.InRange(compliant.Progress, .35d, .49d);
+        Assert.True(compliant.Progress < fluid.Progress);
+        Assert.InRange(compliant.Progress, 0d, 1d);
+    }
     [Fact]
     public void FluidMaterial_SquashStretchStaysWithinThreePercent()
     {

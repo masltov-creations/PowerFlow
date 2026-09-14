@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Do not launch PowerFlow, preview windows, tray popups, UI Automation, cursor movement, or any visible UI on reference-host during implementation/automated verification.
+- Do not launch PowerFlow, preview windows, tray popups, UI Automation, cursor movement, or any visible UI on reference host during implementation/automated verification.
 - Existing policy, manual latch, game latch, and plan activation semantics must remain unchanged.
 - Hidden AUTO rich telemetry cadence is 5 seconds.
 - Any visible PowerFlow visual surface raises rich telemetry cadence to 1 second.
@@ -140,7 +140,7 @@
 
 **Files:**
 - Modify tests/docs only if defects are discovered.
-- Do not launch PowerFlow UI on reference-host.
+- Do not launch PowerFlow UI on reference host.
 
 - [x] Run all Core/Windows/App tests from scratch.
 - [x] Run full solution build and require 0 warnings/0 errors.
@@ -154,7 +154,7 @@
 
 ## Headless qualification evidence — 2026-09-08
 
-Implementation Tasks 1–8 completed without launching PowerFlow UI, preview, tray popup, cursor automation, or UI Automation on reference-host.
+Implementation Tasks 1–8 completed without launching PowerFlow UI, preview, tray popup, cursor automation, or UI Automation on reference host.
 
 Final clean-slate gate (`c6ea64e9-8cbf-43f5-9f1f-48b7aede6074`):
 
@@ -171,10 +171,10 @@ Final clean-slate gate (`c6ea64e9-8cbf-43f5-9f1f-48b7aede6074`):
 - Telemetry-layer disk write paths: 0.
 - `PowerFlow.App` process count before and after headless gate: 0.
 
-Human visual acceptance and subsequent real runtime/performance/game qualification remain intentionally unexecuted because UI interaction on reference-host was explicitly prohibited during implementation.
+Human visual acceptance and subsequent real runtime/performance/game qualification remain intentionally unexecuted because UI interaction on reference host was explicitly prohibited during implementation.
 ## Human acceptance gate (not executed automatically)
 
-Only after the headless gate is green and the user explicitly permits UI interaction on reference-host:
+Only after the headless gate is green and the user explicitly permits UI interaction on reference host:
 
 - open the real app once;
 - verify pre-open continuity is visible immediately;

@@ -45,7 +45,7 @@ The eventual actuator should be able to express independent or coordinated targe
 
 The dashboard must distinguish requested entitlement from delivered capacity. It should show both on the common timeline so we can see whether the OS/hardware actually delivered the requested cores/frequency/boost and whether pressure subsequently rose or fell.
 
-Initial implementation remains observation/dry-run only. Do not replace the existing power-plan actuator until the graduated policy has been measured against real workloads and each control surface is verified to be reversible and stable on reference-host.
+Initial implementation remains observation/dry-run only. Do not replace the existing power-plan actuator until the graduated policy has been measured against real workloads and each control surface is verified to be reversible and stable on reference host.
 ### Dry-run graduated control law v1
 
 The observational capacity controller derives a requested entitlement for every rich telemetry sample. It is intentionally inspectable rather than a hidden score:
@@ -60,7 +60,7 @@ The observational capacity controller derives a requested entitlement for every 
 The dashboard overlays requested and delivered capacity as two continuous curves on the core-capacity lane while retaining the physical-core load/parking microtiles. This remains dry-run only.
 ### Windows graduated-actuation control audit
 
-Read-only inspection on reference-host confirms Windows exposes graduated processor controls beneath the three named plans. Current AC endpoints are:
+Read-only inspection on reference host confirms Windows exposes graduated processor controls beneath the three named plans. Current AC endpoints are:
 
 | Control | Power Saver | Balanced | High Performance | Candidate role |
 | --- | ---: | ---: | ---: | --- |
@@ -90,11 +90,11 @@ Initial candidate ownership is:
 - **time to spike / time to release:** PowerFlow qualification/lease/hysteresis plus the Windows increase/decrease timing controls, tested independently before composition.
 
 No live mutation of these controls is part of v1. Each control must have a snapshot/restore path and isolated stability test before adaptive actuation is allowed to write it.
-### Live actuator sandbox calibration — reference-host / Power Saver
+### Live actuator sandbox calibration — reference host / Power Saver
 
 The first reversible live characterization used the compiled `WindowsProcessorPolicyController`, with exact snapshot/readback and `finally` restoration on every run. Baseline values were `CPMINCORES=10` and `PERFEPP=60`.
 
-- EPP-only sweep `60 -> 45 -> 30 -> 60`: delivered capacity stayed about 23-24% and awake frequency stayed about 1746 MHz under the observed workload. This is not sufficient evidence to qualify EPP as an actuator on the current path. reference-host currently reports `PERFAUTONOMOUS=0`; EPP remains HOLD until the performance-state/autonomous path is characterized separately.
+- EPP-only sweep `60 -> 45 -> 30 -> 60`: delivered capacity stayed about 23-24% and awake frequency stayed about 1746 MHz under the observed workload. This is not sufficient evidence to qualify EPP as an actuator on the current path. reference host currently reports `PERFAUTONOMOUS=0`; EPP remains HOLD until the performance-state/autonomous path is characterized separately.
 - Core-floor `10 -> 25 -> 50 -> 10`: 25% remained below the organically awake population; 50% only slightly exceeded it, confirming `CPMINCORES` acts as a floor rather than a delivered-capacity command.
 - Core-floor `10 -> 75 -> 10`: awake logical processors moved 14 -> 24 -> 14, delivered capacity moved 22.3% -> 38.2% -> 22.3%, and capacity saturation moved about 49% -> 31-35% -> 52% under roughly comparable demand. This qualifies core-floor control for the next guarded closed-loop stage.
 
@@ -117,12 +117,12 @@ Hard gates:
 The loop runs from background rich telemetry, not dashboard visibility. The dashboard receives actuator status only for explanation.
 #### Live closed-loop qualification evidence
 
-On reference-host / Power Saver, the guarded runtime was exercised against the real processor-policy API and live delivered-capacity telemetry. Baseline was `CPMINCORES=10`, `EPP=60`. With a fixed 35% requested-capacity target, delivered capacity naturally moved between roughly 31% and 37.5%. The actuator correctly held while delivered capacity was sufficient. When delivered capacity fell to ~31.2%, it applied one bounded `10 -> 25` core-floor step while holding EPP at 60. Three seconds later it planned a further step but the five-second write cooldown blocked it. `StopAndRestore()` then returned the policy to `CPMINCORES=10`, `EPP=60` with readback verification.
+On reference host / Power Saver, the guarded runtime was exercised against the real processor-policy API and live delivered-capacity telemetry. Baseline was `CPMINCORES=10`, `EPP=60`. With a fixed 35% requested-capacity target, delivered capacity naturally moved between roughly 31% and 37.5%. The actuator correctly held while delivered capacity was sufficient. When delivered capacity fell to ~31.2%, it applied one bounded `10 -> 25` core-floor step while holding EPP at 60. Three seconds later it planned a further step but the five-second write cooldown blocked it. `StopAndRestore()` then returned the policy to `CPMINCORES=10`, `EPP=60` with readback verification.
 
 This qualifies the core-floor feedback loop and its first safety envelope. It does not qualify EPP, boost, >75% core-floor writes, or removal of the separate enable gate.
 ## Processor performance telemetry correction
 
-reference-host's `PROCESSOR_POWER_INFORMATION.CurrentMhz`, PDH `Processor Frequency`, and `% of Maximum Frequency` do not provide a useful dynamic performance trace on this CPU: they can remain near 3401 MHz / 100% while core count, package power, and actual boost behavior change materially. The primary dashboard performance signal is therefore Windows PDH `% Processor Performance`.
+reference host's `PROCESSOR_POWER_INFORMATION.CurrentMhz`, PDH `Processor Frequency`, and `% of Maximum Frequency` do not provide a useful dynamic performance trace on this CPU: they can remain near 3401 MHz / 100% while core count, package power, and actual boost behavior change materially. The primary dashboard performance signal is therefore Windows PDH `% Processor Performance`.
 
 - `CPU PERFORMANCE` is plotted as percent of nominal/guaranteed processor performance and may exceed 100% under boost.
 - A GHz-equivalent value may be shown as secondary context (`nominal MHz × Processor Performance / 100`); it is not presented as a literal hardware clock measurement.
@@ -141,7 +141,7 @@ The product modes are operating envelopes, not aliases for three Windows plan na
 | Performance | Balanced | 75% | 10 | Aggressive (2) | High readiness without forcing High Performance's 100% minimum processor state. |
 | Ultra | High Performance | 100% | 10 | Aggressive (2) | Fully pre-armed; all cores ready and High Performance floor semantics accepted. |
 
-Qualification measurements on reference-host under the contemporaneous background workload:
+Qualification measurements on reference host under the contemporaneous background workload:
 
 - Saver/Aggressive baseline: about 127.6% Processor Performance and 82.3 W. With boost disabled: about 99.2% and 46.8 W. This is why Saver explicitly disables boost.
 - Windows Balanced default: about 128.2%, 101.9 W, 16 awake physical cores. PowerFlow Balanced candidate: about 127.6%, 80.7 W, roughly 4 awake cores during the calibration sample.
@@ -195,7 +195,7 @@ PowerFlow now separates two processor-performance meanings instead of mixing the
 - **aggregate CPU speed/readout:** Windows PDH `\Processor Information(_Total)\% Processor Performance` multiplied by the processor nominal/base MHz. This is the Task-Manager-style machine-level speed context shown in tooltips/readouts;
 - **capacity modeling:** per-logical-processor `% Processor Performance`, retained because delivered capacity depends on which logical processors are awake and how much performance each is delivering.
 
-On reference-host, the aggregate counter was observed around 129-130% while the nominal/base value remained 3401 MHz, yielding roughly 4.4 GHz machine-level speed context. `Processor Frequency` and `% of Maximum Frequency` remain flat on this platform and are not used as the primary dynamic speed signal.
+On reference host, the aggregate counter was observed around 129-130% while the nominal/base value remained 3401 MHz, yielding roughly 4.4 GHz machine-level speed context. `Processor Frequency` and `% of Maximum Frequency` remain flat on this platform and are not used as the primary dynamic speed signal.
 
 ### Telemetry cadence controls
 
@@ -214,7 +214,7 @@ The live timeline uses three visual rows while retaining four aligned logical da
 2. Package Power + CPU Performance overlay.
 3. Capacity / Cores.
 
-CPU Performance no longer consumes an entire row on reference-host because it is often near-flat during sustained boost. Power remains the primary scale in the middle row; CPU Performance is a secondary percent overlay with its own labeled focus range and explicit headroom. Both share the same time axis but not the same numeric scale.
+CPU Performance no longer consumes an entire row on reference host because it is often near-flat during sustained boost. Power remains the primary scale in the middle row; CPU Performance is a secondary percent overlay with its own labeled focus range and explicit headroom. Both share the same time axis but not the same numeric scale.
 
 ### Balanced split calibration
 

@@ -6,7 +6,7 @@ Working title: PowerFlow
 
 ## Purpose
 
-PowerFlow is a tray-first Windows power-plan controller inspired by eliosteva/PowerPlanManager, rebuilt as a modern, low-overhead native Windows utility. Its job is to keep reference-host in Power Saver during ordinary use, promote to Balanced under sustained CPU demand, and latch into High Performance for games or explicitly tagged heavy applications.
+PowerFlow is a tray-first Windows power-plan controller inspired by eliosteva/PowerPlanManager, rebuilt as a modern, low-overhead native Windows utility. Its job is to keep reference host in Power Saver during ordinary use, promote to Balanced under sustained CPU demand, and latch into High Performance for games or explicitly tagged heavy applications.
 
 The utility must save more power than it consumes. Background overhead is therefore a product requirement, not an optimization to defer.
 
@@ -80,7 +80,7 @@ PowerFlow must be designed around measurable budgets:
 - No permanent WMI query loops. If WMI/ETW/process notifications are used, prefer event subscription over periodic enumeration.
 - Logging is bounded and buffered; no high-frequency disk writes.
 
-Acceptance testing must compare PowerFlow-on versus PowerFlow-off CPU package power and privileged CPU usage on reference-host. The controller is not acceptable if its monitoring materially erodes the power savings it is intended to create.
+Acceptance testing must compare PowerFlow-on versus PowerFlow-off CPU package power and privileged CPU usage on reference host. The controller is not acceptable if its monitoring materially erodes the power savings it is intended to create.
 
 ## Architecture
 
@@ -171,9 +171,9 @@ A higher-priority active condition prevents lower-priority rules from winding th
 - If a game process cannot be confidently followed after launcher handoff, keep the latch for a bounded grace period and surface the uncertainty rather than immediately dropping performance.
 - Configuration writes are atomic with last-known-good fallback.
 
-## reference-host-specific safety constraint
+## reference host-specific safety constraint
 
-Power Saver on reference-host is currently being tested for a possible long-idle hard-freeze. PowerFlow must not be treated as production-ready until the underlying Power Saver stability question is resolved. During development/testing, a configuration flag must allow Balanced to be used as the resting state so utility testing does not repeatedly expose the machine to a known-suspect power state.
+Power Saver on reference host is currently being tested for a possible long-idle hard-freeze. PowerFlow must not be treated as production-ready until the underlying Power Saver stability question is resolved. During development/testing, a configuration flag must allow Balanced to be used as the resting state so utility testing does not repeatedly expose the machine to a known-suspect power state.
 
 PowerFlow is not intended to mask a BIOS/AGESA/C-state stability defect.
 
@@ -206,7 +206,7 @@ Deterministic tests cover:
 - verify no orphan helper processes;
 - verify configuration recovery after simulated corruption.
 
-### Performance tests on reference-host
+### Performance tests on reference host
 Measure against a controller-off baseline:
 - CPU package power;
 - total CPU utilization;

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Power Saver is the normal resting state, but a configuration flag must allow Balanced to be used as the resting state while reference-host's Power Saver hard-freeze investigation remains unresolved.
+- Power Saver is the normal resting state, but a configuration flag must allow Balanced to be used as the resting state while reference host's Power Saver hard-freeze investigation remains unresolved.
 - CPU spikes alone do not promote; CPU demand must persist for a configurable 3-5 second window.
 - Balanced demotion requires a configurable 20-30 second quiet hysteresis window.
 - A recognized game creates a hard High Performance latch that cannot be released by low CPU/GPU utilization.
@@ -27,7 +27,7 @@
 - Configuration writes are atomic and recover from a last-known-good copy.
 - Startup is per-user, minimized to tray, with no console windows or startup popups.
 - Acceptance requires PowerFlow-on versus controller-off measurements for package power, total/privileged CPU, timer/wakeup activity where available, disk writes, and game frame-time impact.
-- Do not declare production-ready until the underlying reference-host Power Saver stability question is resolved.
+- Do not declare production-ready until the underlying reference host Power Saver stability question is resolved.
 
 ## File Structure
 
@@ -223,7 +223,7 @@ Tests cover Power Saver/Balanced/High Performance GUID discovery, absent High Pe
 
 Wrap `PowerEnumerate`, `PowerReadFriendlyName`, `PowerGetActiveScheme`, `PowerSetActiveScheme`, and `LocalFree`. Keep unsafe/native memory management inside this file only.
 
-- [ ] **Step 3: Add a read-only reference-host integration smoke test command**
+- [ ] **Step 3: Add a read-only reference host integration smoke test command**
 
 The integration test lists schemes and confirms the currently active scheme without switching. A separate explicitly-invoked test may switch Balanced -> original active plan -> verify restoration; never leave the test machine on a different plan after completion.
 
@@ -444,7 +444,7 @@ git commit -m "feat: add PowerFlow motion dashboard"
 
 ---
 
-### Task 9: Performance harness, hygiene gates, and reference-host acceptance
+### Task 9: Performance harness, hygiene gates, and reference host acceptance
 
 **Files:**
 - Create: `src/PowerFlow.PerfHarness/PowerFlow.PerfHarness.csproj`
@@ -457,7 +457,7 @@ git commit -m "feat: add PowerFlow motion dashboard"
 
 - [ ] **Step 1: Create controller-off baseline measurement**
 
-Measure reference-host for at least 120 seconds with PowerFlow absent: Energy Meter package watts, total CPU, privileged CPU, PowerFlow process absent, and relevant WmiPrvSE CPU. Record median and p95 rather than one instantaneous sample.
+Measure reference host for at least 120 seconds with PowerFlow absent: Energy Meter package watts, total CPU, privileged CPU, PowerFlow process absent, and relevant WmiPrvSE CPU. Record median and p95 rather than one instantaneous sample.
 
 - [ ] **Step 2: Measure dashboard-closed ordinary mode**
 
@@ -518,11 +518,11 @@ Document tray behavior, three states, game/manual latch semantics, rule creation
 
 - [ ] **Step 3: Record acceptance evidence**
 
-`docs/acceptance/reference-host-acceptance.md` records exact build commit, test totals, overhead baselines/results, game-latch verification, startup/hygiene checks, and explicitly states whether reference-host's separate Power Saver stability issue is resolved or still blocks production use.
+`docs/acceptance/reference-host-acceptance.md` records exact build commit, test totals, overhead baselines/results, game-latch verification, startup/hygiene checks, and explicitly states whether reference host's separate Power Saver stability issue is resolved or still blocks production use.
 
 - [ ] **Step 4: Human approval gate**
 
-Install/run the candidate on reference-host with resting state set to Balanced if Power Saver stability is still unresolved. Present the motion dashboard and tray behavior for human approval. Do not enable auto-start or Power Saver resting mode permanently before approval.
+Install/run the candidate on reference host with resting state set to Balanced if Power Saver stability is still unresolved. Present the motion dashboard and tray behavior for human approval. Do not enable auto-start or Power Saver resting mode permanently before approval.
 
 - [ ] **Step 5: Final hygiene**
 
@@ -537,7 +537,7 @@ git commit -m "docs: record PowerFlow release acceptance"
 
 ## Plan Self-Review
 
-- Spec coverage: all state transitions, precedence, hard Game/Manual latches, low-overhead rules, game lifecycle, plan verification, atomic config, tray-first startup, motion UI, Reduced Motion, failure recovery, reference-host safety, performance/hygiene acceptance, and non-production gate are mapped to tasks.
+- Spec coverage: all state transitions, precedence, hard Game/Manual latches, low-overhead rules, game lifecycle, plan verification, atomic config, tray-first startup, motion UI, Reduced Motion, failure recovery, reference host safety, performance/hygiene acceptance, and non-production gate are mapped to tasks.
 - Placeholder scan: no TBD/TODO/implement-later instructions remain.
 - Type consistency: `PowerState`, `PolicyDecision`, `PowerFlowConfig`, `IPowerPlanController`, `IActivitySource`, `IGameLifecycleMonitor`, `PowerFlowController`, and `ControllerSnapshot` are introduced before downstream use.
 - Scope: one product with separable/testable components; no unrelated fan/RGB/BIOS/power-plan editing work is included.

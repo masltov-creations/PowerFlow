@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **reference-host UI Safety — HARD RULE:** Never launch PowerFlow UI, interact with the tray, use UI Automation, synthesize input, create/focus/activate visible windows, run preview/popup-preview/dashboard/fullscreen modes, or capture screenshots through surfaced UI on reference-host without fresh explicit user authorization for that exact live-UI action. `continue`, `proceed`, `build it`, or prior authorization do not count. All implementation and automated verification in this plan is headless.
+- **reference host UI Safety — HARD RULE:** Never launch PowerFlow UI, interact with the tray, use UI Automation, synthesize input, create/focus/activate visible windows, run preview/popup-preview/dashboard/fullscreen modes, or capture screenshots through surfaced UI on reference host without fresh explicit user authorization for that exact live-UI action. `continue`, `proceed`, `build it`, or prior authorization do not count. All implementation and automated verification in this plan is headless.
 - Preserve the existing single-HWND Hidden -> Glance -> Compact -> Expanded -> Full Screen shell mechanics; this plan changes the instrument inside the shell, not the ownership model.
 - Do not use Qwen.
 - Do not push, merge to master, tag, publish, or rewrite public screenshots without explicit user authorization.
@@ -261,7 +261,7 @@
 
 **Files:**
 - Modify tests only if a genuine stale-contract failure is proven to conflict with the approved spec.
-- Do not create screenshots or launch the app on reference-host without fresh explicit authorization.
+- Do not create screenshots or launch the app on reference host without fresh explicit authorization.
 
 **Interfaces:**
 - Automated qualification is necessary but does not substitute for eventual human visual acceptance.
@@ -272,7 +272,7 @@
 - [ ] **Step 4: Run exact Release build** and require zero errors; record warnings separately and fix only those introduced by this plan.
 - [ ] **Step 5: Run `git diff --check` and source scans** for forbidden sub-11px text, stale primary plan-card hierarchy, duplicate timers/samplers, and visible-launch commands added to scripts/tests.
 - [ ] **Step 6: Verify repository hygiene**: no PowerFlow process was started by this plan, no untracked build artifacts outside ignored bin/obj, worktree state understood.
-- [ ] **Step 7: STOP at the visual gate.** Report that tray-to-full-screen human visual validation remains blocked by the reference-host UI Safety rule until the user explicitly authorizes a specific live-UI pass. Do not infer permission from this plan or from `build it`.
+- [ ] **Step 7: STOP at the visual gate.** Report that tray-to-full-screen human visual validation remains blocked by the reference host UI Safety rule until the user explicitly authorizes a specific live-UI pass. Do not infer permission from this plan or from `build it`.
 ### Task 11: Close live-found adaptive runtime authority gaps
 
 **Why this is now a blocker:** the explicitly authorized live/runtime review proved the shell, but a design-to-code audit immediately afterward found that `PowerFlowController.ApplyAdaptiveGovernorDecisionAsync(...)` has no production caller. The UI can enable adaptive actuation while the learned governor never receives automatic runtime authority. The same audit found that explicit semantic entitlements can still be treated as legacy Performance latches. These violate the approved governor contract and must be corrected before final visual acceptance.

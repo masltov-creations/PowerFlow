@@ -115,7 +115,7 @@ public sealed class TelemetryContinuityRecorderTests
     [Fact]
     public async Task RichSamplePreservesTruthfulCoreAvailability()
     {
-        var source = new FakeTelemetrySource { Next = new DashboardTelemetry(42, 3800, BaseTime.AddSeconds(5), null, "reference-host", null, 24) };
+        var source = new FakeTelemetrySource { Next = new DashboardTelemetry(42, 3800, BaseTime.AddSeconds(5), null, "TEST-HOST", null, 24) };
         var ticks = new FakeTickFactory();
         await using var sut = NewRecorder(source, ticks, capacity: 8);
         sut.UpdateControllerSnapshot(Snapshot(PowerState.Balanced, 35));

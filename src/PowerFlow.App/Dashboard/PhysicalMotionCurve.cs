@@ -25,25 +25,30 @@ public static class PhysicalMotionCurve
 
     private static MotionSample Fluid(double t, double initialVelocity)
     {
-        var (progress, velocity) = CriticalDamped(t, 7.5d);
+        var (progress, velocity) = MinimumJerk(t);
         ApplyMomentum(t, initialVelocity, ref progress, ref velocity);
-        var secondaryScale = 1d + .026d * Math.Sin(2d * Math.PI * t) * Math.Sin(Math.PI * t);
-        return new MotionSample(Math.Clamp(progress, 0d, 1d), velocity, Math.Clamp(secondaryScale, .97d, 1.03d));
+        return new MotionSample(Math.Clamp(progress, 0d, 1d), velocity, 1d);
     }
 
     private static MotionSample Compliant(double t, double initialVelocity)
     {
-        const double dampingRatio = .78d;
-        const double naturalFrequency = 8d;
-        var root = Math.Sqrt(1d - dampingRatio * dampingRatio);
-        var dampedFrequency = naturalFrequency * root;
-        var decay = Math.Exp(-dampingRatio * naturalFrequency * t);
-        var progress = 1d - decay *
-            (Math.Cos(dampedFrequency * t) + dampingRatio / root * Math.Sin(dampedFrequency * t));
-        var velocity = naturalFrequency / root * decay * Math.Sin(dampedFrequency * t);
+        // Let semantic/layout disclosure trail the native window very slightly without rubber-band overshoot.
+        var followT = Math.Clamp(t - .05d * Math.Sin(Math.PI * t), 0d, 1d);
+        var (progress, followVelocity) = MinimumJerk(followT);
+        var followDerivative = 1d - .05d * Math.PI * Math.Cos(Math.PI * t);
+        var velocity = followVelocity * followDerivative;
         ApplyMomentum(t, initialVelocity, ref progress, ref velocity);
-        progress = Math.Clamp(progress, 0d, 1.025d);
-        return new MotionSample(progress, velocity, 1d);
+        return new MotionSample(Math.Clamp(progress, 0d, 1d), velocity, 1d);
+    }
+
+    private static (double Progress, double Velocity) MinimumJerk(double t)
+    {
+        var x = Math.Clamp(t, 0d, 1d);
+        var x2 = x * x;
+        var x3 = x2 * x;
+        var progress = x3 * (10d + x * (-15d + 6d * x));
+        var velocity = 30d * x2 * (1d - x) * (1d - x);
+        return (progress, velocity);
     }
 
     private static (double Progress, double Velocity) CriticalDamped(double t, double omega)

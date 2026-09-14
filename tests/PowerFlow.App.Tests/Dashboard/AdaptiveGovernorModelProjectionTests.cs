@@ -19,7 +19,7 @@ public sealed class AdaptiveGovernorModelProjectionTests
         var vm = new DashboardViewModel();
         vm.Configure(PowerFlowConfig.Default);
         var snapshot = Snapshot(PowerState.Balanced, 40, T0, "render.exe");
-        vm.Update(snapshot, new DashboardTelemetry(48, 4100, T0, null, "reference-host", null, 24));
+        vm.Update(snapshot, new DashboardTelemetry(48, 4100, T0, null, "TEST-HOST", null, 24));
 
         var observation = Assert.Single(vm.OperatingHistory);
         Assert.Null(observation.ActiveCores);
@@ -34,7 +34,7 @@ public sealed class AdaptiveGovernorModelProjectionTests
         vm.Configure(PowerFlowConfig.Default with { AppRules = new[] { rule } });
         var snapshot = Snapshot(PowerState.Balanced, 96, T0, "render.exe");
 
-        vm.Update(snapshot, new DashboardTelemetry(70, 4300, T0, null, "reference-host", null, 24));
+        vm.Update(snapshot, new DashboardTelemetry(70, 4300, T0, null, "TEST-HOST", null, 24));
 
         var observation = Assert.Single(vm.OperatingHistory);
         Assert.Equal(EnvelopeDecisionKind.Brake, observation.Decision);
@@ -56,7 +56,7 @@ public sealed class AdaptiveGovernorModelProjectionTests
             .ToArray();
         var snapshot = Snapshot(PowerState.Balanced, 100, T0.AddSeconds(124), "compute.exe");
 
-        vm.UpdateContinuity(snapshot, continuity, new DashboardTelemetry(72, 4320, T0.AddSeconds(124), null, "reference-host", null, 24));
+        vm.UpdateContinuity(snapshot, continuity, new DashboardTelemetry(72, 4320, T0.AddSeconds(124), null, "TEST-HOST", null, 24));
 
         Assert.Equal(125, vm.OperatingHistory.Count);
         Assert.Contains(vm.OperatingHistory.Take(5), x => x.Decision == EnvelopeDecisionKind.Qualifying);

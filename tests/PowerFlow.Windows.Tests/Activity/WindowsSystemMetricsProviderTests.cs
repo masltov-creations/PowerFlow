@@ -50,7 +50,7 @@ public sealed class WindowsSystemMetricsProviderTests
     {
         var now = DateTimeOffset.UtcNow;
         var logical = new[] { new LogicalProcessorTelemetry(0, 0, false, 22), new LogicalProcessorTelemetry(1, 0, true, 0) };
-        using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(new SystemMetricsSnapshot(42, "reference-host", 7, 16, logical)));
+        using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(new SystemMetricsSnapshot(42, "TEST-HOST", 7, 16, logical)));
 
         var telemetry = source.Read(now);
 
@@ -68,7 +68,7 @@ public sealed class WindowsSystemMetricsProviderTests
             new LogicalProcessorTelemetry(1, 0, false, 20, ProcessorPerformancePercent: 100)
         };
         using var source = new DashboardTelemetrySource(new FakeSystemMetricsProvider(
-            new SystemMetricsSnapshot(42, "reference-host", 1, 1, logical, AggregateProcessorPerformancePercent: 130)));
+            new SystemMetricsSnapshot(42, "TEST-HOST", 1, 1, logical, AggregateProcessorPerformancePercent: 130)));
 
         var telemetry = source.Read(DateTimeOffset.UtcNow);
 

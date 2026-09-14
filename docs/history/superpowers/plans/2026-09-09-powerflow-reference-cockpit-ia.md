@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-09-09-powerflow-morphing-shell-design.md`
 
 ## Global Constraints
-- **reference-host UI Safety — HARD RULE:** No visible PowerFlow UI, tray interaction, UI Automation, focus/activation, synthetic input, preview mode, or other desktop-surfacing action may run on reference-host without fresh explicit user authorization for that specific live-UI action. Default execution is headless only. If a task requires live UI and approval is absent, stop at the headless gate.
+- **reference host UI Safety — HARD RULE:** No visible PowerFlow UI, tray interaction, UI Automation, focus/activation, synthetic input, preview mode, or other desktop-surfacing action may run on reference host without fresh explicit user authorization for that specific live-UI action. Default execution is headless only. If a task requires live UI and approval is absent, stop at the headless gate.
 
 - The supplied dashboard image is the visual and information-architecture reference.
 - Expanded is implemented first; Compact and Glance are derived from the correct Expanded architecture.
@@ -1177,7 +1177,7 @@ Skip this commit if no files changed.
 ---
 
 ### Task 10: Live Same-HWND Acceptance and User Visual Gate
-> **HARD SAFETY GATE:** Task 10 is BLOCKED by the reference-host UI Safety rule unless the user gives fresh, explicit authorization for this specific live-UI validation. Do not interpret general requests such as "continue", "proceed", "finish", or prior UI approval as permission to surface UI. Without that authorization, preserve the built candidate and report that live visual acceptance remains pending.
+> **HARD SAFETY GATE:** Task 10 is BLOCKED by the reference host UI Safety rule unless the user gives fresh, explicit authorization for this specific live-UI validation. Do not interpret general requests such as "continue", "proceed", "finish", or prior UI approval as permission to surface UI. Without that authorization, preserve the built candidate and report that live visual acceptance remains pending.
 
 **Files:**
 - Create/replace only temporary candidate captures under `docs/assets/` after exact candidate build is known.

@@ -1,11 +1,11 @@
-# reference-host acceptance — 2026-09-09
+# reference host acceptance — 2026-09-09
 
 ## Candidate
 
 - Code under test: `84bdc98` — `feat: make PowerFlow shell fluid and fullscreen`
 - Branch: `master`
 - Build: Release x64, unpackaged WinUI 3
-- Machine: reference-host
+- Machine: reference host
 
 ## Automated gate
 

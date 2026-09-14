@@ -29,8 +29,8 @@ public static class ShellMotionPolicy
         var baseline = Duration(from, to, reducedMotion);
         if (reducedMotion || baseline == TimeSpan.Zero) return baseline;
         var travel = Math.Max(0d, pixelTravel);
-        var longTravelExtra = Math.Max(0d, travel - 700d) * 0.90d;
-        var travelMs = Math.Clamp(180d + travel * 0.40d + longTravelExtra, baseline.TotalMilliseconds, 1250d);
+        var longTravelExtra = Math.Max(0d, travel - 700d) * 0.35d;
+        var travelMs = Math.Clamp(230d + travel * 0.45d + longTravelExtra, baseline.TotalMilliseconds, 1100d);
         return TimeSpan.FromMilliseconds(travelMs);
     }
     public static MotionMaterial NativeMaterial(PowerFlowShellState from, PowerFlowShellState to)

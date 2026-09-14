@@ -52,7 +52,7 @@ public sealed class AdaptiveGovernorSharedPolicyTests
             PowerState.PowerSaver, "sample", false, null, 95, 0, null, null,
             history[^1].At, Array.Empty<TransitionRecord>(), 1, 0);
 
-        vm.UpdateContinuity(snapshot, history, new DashboardTelemetry(80, 4400, history[^1].At, null, "reference-host", null, 32));
+        vm.UpdateContinuity(snapshot, history, new DashboardTelemetry(80, 4400, history[^1].At, null, "TEST-HOST", null, 32));
 
         Assert.NotEmpty(vm.OperatingHistory);
         Assert.All(vm.OperatingHistory, observation => Assert.Equal(EnvelopeZone.Efficient, observation.Zone));

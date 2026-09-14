@@ -1,7 +1,7 @@
 # Machine Baseline Comparison Design
 
 ## Goal
-Provide one obvious **BASELINE MACHINE** action that characterizes reference-host across Windows-native and PowerFlow operating modes and turns the evidence into overlaid curves, knee points, idle-cost measurements, and a plain recommendation.
+Provide one obvious **BASELINE MACHINE** action that characterizes reference host across Windows-native and PowerFlow operating modes and turns the evidence into overlaid curves, knee points, idle-cost measurements, and a plain recommendation.
 
 ## Run sequence
 A standard run contains six five-minute legs in this fixed order:

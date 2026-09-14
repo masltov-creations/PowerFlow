@@ -1,4 +1,4 @@
-# reference-host acceptance - 2026-09-11
+# reference host acceptance - 2026-09-11
 
 ## Candidate premise
 
@@ -20,7 +20,7 @@ The App test count is intentionally lower than the pre-reset candidate because t
 
 ## Live seven-profile baseline
 
-A fresh standard seven-profile run completed successfully on reference-host in this order:
+A fresh standard seven-profile run completed successfully on reference host in this order:
 
 1. Windows Saver
 2. Windows Balanced
@@ -56,7 +56,7 @@ This record proves the 2026-09-11 behavior and restoration gates. Older UI scree
 
 ## Current Live UI capture
 
-- Relaunched the qualified Release build on reference-host with --fullscreen on September 11, 2026.
+- Relaunched the qualified Release build on reference host with --fullscreen on September 11, 2026.
 - Confirmed the visible PowerFlow window and allowed more than 60 seconds of live telemetry to accumulate before capture, matching the Live timeline's 60-second window.
 - Refreshed docs/assets/powerflow-fullscreen.png at 1920x1080 from the populated Live view.
 - Screenshot SHA-256: 5d83cb7a2f1f7bd9c690715f86fa01448871539882f72255f904794eebec2f5a.

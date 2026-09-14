@@ -68,11 +68,11 @@ public sealed class DashboardViewModelTests
         var now = DateTimeOffset.UtcNow;
         var snapshot = new ControllerSnapshot(PowerState.Balanced, "test", false, null, 20, 0, null, null, now, [], 0, 0);
 
-        vm.Update(snapshot, new DashboardTelemetry(42, 2200, now, 67.4, "reference-host"));
+        vm.Update(snapshot, new DashboardTelemetry(42, 2200, now, 67.4, "TEST-HOST"));
 
         Assert.Equal(67.4, vm.MemoryPercent);
         Assert.Equal("67%", vm.MemoryLabel);
-        Assert.Equal("reference-host", vm.MachineLabel);
+        Assert.Equal("TEST-HOST", vm.MachineLabel);
     }
 
     [Fact]
