@@ -22,5 +22,8 @@ public sealed class PowerFlowOperatingProfileTests
         Assert.Equal((uint)3, performance.BoostMode);
         Assert.True(efficient.ReadinessFloorPercent < performance.ReadinessFloorPercent);
         Assert.True(performance.ReadinessFloorPercent < PowerFlowOperatingProfiles.Performance.ReadinessFloorPercent);
+        Assert.Equal(60, efficient.MinimumResidencySeconds);
+        Assert.Equal(60, performance.MinimumResidencySeconds);
+        Assert.True(performance.PromotionQualificationSeconds < efficient.PromotionQualificationSeconds);
     }
 }

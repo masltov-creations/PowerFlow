@@ -115,6 +115,26 @@ public sealed class EnvelopeGovernorTests
     }
 
     [Fact]
+    public void Evaluate_DeepDownshiftStepsOneZonePerReleaseWindow()
+    {
+        var governor = new EnvelopeGovernor();
+        var entitlement = BoostEntitlement();
+
+        var promoted = governor.Evaluate(Observation(60, T0), Envelope, entitlement, T0);
+        var firstDip = governor.Evaluate(Observation(10, T0.AddSeconds(1)), Envelope, entitlement, T0.AddSeconds(1));
+        var firstRelease = governor.Evaluate(Observation(10, T0.AddSeconds(11)), Envelope, entitlement, T0.AddSeconds(11));
+        var secondWindow = governor.Evaluate(Observation(10, T0.AddSeconds(12)), Envelope, entitlement, T0.AddSeconds(12));
+        var secondRelease = governor.Evaluate(Observation(10, T0.AddSeconds(22)), Envelope, entitlement, T0.AddSeconds(22));
+
+        Assert.Equal(EnvelopeZone.Responsive, promoted.AllowedZone);
+        Assert.Equal(EnvelopeZone.Eco, firstDip.RequestedZone);
+        Assert.Equal(EnvelopeZone.Responsive, firstDip.AllowedZone);
+        Assert.Equal(EnvelopeZone.Efficient, firstRelease.AllowedZone);
+        Assert.Contains("step down", firstRelease.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(EnvelopeZone.Efficient, secondWindow.AllowedZone);
+        Assert.Equal(EnvelopeZone.Eco, secondRelease.AllowedZone);
+    }
+    [Fact]
     public void Evaluate_ReboundToHeldZoneCancelsPendingDownshiftTimer()
     {
         var governor = new EnvelopeGovernor();

@@ -13,13 +13,14 @@ public sealed record PowerModeProfileStatus(
 public sealed class PowerModeProfileRuntime
 {
     private readonly IProcessorPolicyController _policy;
-    private ProcessorPolicySnapshot? _baseline;
+    private readonly Dictionary<Guid, ProcessorPolicySnapshot> _baselines = new();
 
     public PowerModeProfileRuntime(IProcessorPolicyController? policy = null)
         => _policy = policy ?? new WindowsProcessorPolicyController();
 
     public PowerFlowOperatingProfile? CurrentProfile { get; private set; }
-    public PowerModeProfileStatus Status { get; private set; } = new(null, false, false, "No manual PowerFlow mode profile is active.", null, null);
+    public PowerModeProfileStatus Status { get; private set; } = new(null, false, false, "No PowerFlow mode profile is active.", null, null);
+    public int CapturedSchemeCount => _baselines.Count;
 
     public PowerModeProfileStatus Apply(PowerFlowOperatingProfile profile, bool liveWritesEnabled)
     {
@@ -32,49 +33,77 @@ public sealed class PowerModeProfileRuntime
             return Status;
         }
 
-        var capturedBaseline = false;
-        if (_baseline is null)
-        {
-            _baseline = _policy.CaptureActive();
-            capturedBaseline = true;
-        }
+        var newlyCaptured = new HashSet<Guid>();
+        var activeBefore = _policy.CaptureActive();
+        CaptureBaseline(activeBefore, newlyCaptured);
 
         var result = _policy.Apply(new ProcessorPolicyPatch(
             CoreParkingMinCoresPercent: profile.CoreFloorPercent,
             EnergyPerformancePreferencePercent: profile.EnergyPerformancePreferencePercent,
             ProcessorPerformanceBoostMode: profile.BoostMode));
+        CaptureBaseline(result.Before, newlyCaptured);
+
         if (!result.Success)
         {
-            var message = $"Failed to apply {profile.Mode} profile: {result.Error}";
-            if (capturedBaseline) _baseline = null;
+            foreach (var scheme in newlyCaptured) _baselines.Remove(scheme);
             CurrentProfile = previousProfile;
-            Status = new(profile.Mode, true, false, message, result.Before, result.After);
+            Status = new(profile.Mode, true, false,
+                $"Failed to apply {profile.Mode} profile: {result.Error}",
+                BaselineFor(result.Before.SchemeId), result.After);
             return Status;
         }
 
         CurrentProfile = profile;
         Status = new(profile.Mode, true, true,
-            $"{profile.Mode}: floor {result.After.CoreParkingMinCoresPercent}%, EPP {result.After.EnergyPerformancePreferencePercent}%, boost {result.After.ProcessorPerformanceBoostMode}.",
-            _baseline, result.After);
+            $"{profile.Mode}: floor {result.After.CoreParkingMinCoresPercent}%, EPP {result.After.EnergyPerformancePreferencePercent}%, boost {result.After.ProcessorPerformanceBoostMode}; {_baselines.Count} scheme baseline(s) protected.",
+            BaselineFor(result.After.SchemeId), result.After);
         return Status;
     }
 
-    public PowerModeProfileStatus Restore(string reason = "PowerFlow mode profile baseline restored.")
+    public PowerModeProfileStatus Restore(string reason = "PowerFlow mode profile baselines restored.")
     {
         var profile = CurrentProfile;
-        if (_baseline is null)
+        if (_baselines.Count == 0)
         {
             CurrentProfile = null;
             Status = new(null, false, false, reason, null, null);
             return Status;
         }
 
-        var baseline = _baseline;
-        _baseline = null;
-        CurrentProfile = null;
-        var result = _policy.Restore(baseline);
+        var failures = new List<string>();
+        ProcessorPolicySnapshot? lastBaseline = null;
+        ProcessorPolicySnapshot? lastCurrent = null;
+        foreach (var baseline in _baselines.Values.ToArray())
+        {
+            lastBaseline = baseline;
+            var result = _policy.Restore(baseline);
+            lastCurrent = result.After;
+            if (result.Success)
+                _baselines.Remove(baseline.SchemeId);
+            else
+                failures.Add($"{baseline.SchemeId}: {result.Error ?? "readback mismatch"}");
+        }
+
+        if (failures.Count == 0)
+        {
+            CurrentProfile = null;
+            Status = new(profile?.Mode, true, false, $"{reason} Restored all touched schemes.", lastBaseline, lastCurrent);
+            return Status;
+        }
+
         Status = new(profile?.Mode, true, false,
-            result.Success ? reason : $"Mode profile restore failed: {result.Error}", baseline, result.After);
+            $"Processor policy restore incomplete; {_baselines.Count} scheme(s) still require restore: {string.Join("; ", failures)}",
+            lastBaseline, lastCurrent);
         return Status;
     }
+
+    private void CaptureBaseline(ProcessorPolicySnapshot snapshot, ISet<Guid> newlyCaptured)
+    {
+        if (_baselines.ContainsKey(snapshot.SchemeId)) return;
+        _baselines[snapshot.SchemeId] = snapshot;
+        newlyCaptured.Add(snapshot.SchemeId);
+    }
+
+    private ProcessorPolicySnapshot? BaselineFor(Guid schemeId) =>
+        _baselines.TryGetValue(schemeId, out var baseline) ? baseline : null;
 }

@@ -149,9 +149,15 @@ public sealed class EnvelopeGovernor
                 confidence);
         }
 
-        _heldZone = requested;
+        var released = (int)held - (int)requested > 1
+            ? (EnvelopeZone)((int)held - 1)
+            : requested;
+        _heldZone = released;
         _downshiftSince = null;
-        return Decision(requested, requested, EnvelopeDecisionKind.None, 0, null, $"Lower demand persisted through release hysteresis; settle into {requested}.", confidence);
+        var explanation = released == requested
+            ? $"Lower demand persisted through release hysteresis; settle into {requested}."
+            : $"Lower demand persisted through release hysteresis; step down from {held} to {released}. {requested} must persist through another release interval before a deeper downshift.";
+        return Decision(requested, released, EnvelopeDecisionKind.None, 0, null, explanation, confidence);
     }
 
     private void ResetTransientState()

@@ -42,6 +42,31 @@ public sealed class PowerModeProfileRuntimeTests
         Assert.Equal(initial, fake.Current);
     }
     [Fact]
+    public void Apply_AcrossPowerSchemesCapturesAndRestoresEachSchemeBaseline()
+    {
+        var schemeA = Guid.NewGuid();
+        var schemeB = Guid.NewGuid();
+        var fake = new MultiSchemeFakePolicy(
+            new ProcessorPolicySnapshot(schemeA, 25, 35, 3),
+            new ProcessorPolicySnapshot(schemeB, 10, 60, 0));
+        var sut = new PowerModeProfileRuntime(fake);
+
+        fake.Activate(schemeA);
+        sut.Apply(PowerFlowOperatingProfiles.BalancedPerformance, liveWritesEnabled: true);
+        fake.Activate(schemeB);
+        sut.Apply(PowerFlowOperatingProfiles.Saver, liveWritesEnabled: true);
+
+        Assert.Equal(2, sut.CapturedSchemeCount);
+        Assert.Equal((uint)50, fake.Read(schemeA).CoreParkingMinCoresPercent);
+        Assert.Equal((uint)10, fake.Read(schemeB).CoreParkingMinCoresPercent);
+
+        sut.Restore();
+
+        Assert.Equal(0, sut.CapturedSchemeCount);
+        Assert.Equal(new ProcessorPolicySnapshot(schemeA, 25, 35, 3), fake.Read(schemeA));
+        Assert.Equal(new ProcessorPolicySnapshot(schemeB, 10, 60, 0), fake.Read(schemeB));
+    }
+    [Fact]
     public void Preview_DoesNotWrite()
     {
         var initial = new ProcessorPolicySnapshot(Guid.NewGuid(), 10, 60, 2);
@@ -76,6 +101,41 @@ public sealed class PowerModeProfileRuntimeTests
             var before = Current;
             Current = snapshot;
             return new(true, before, Current);
+        }
+    }
+    private sealed class MultiSchemeFakePolicy : IProcessorPolicyController
+    {
+        private readonly Dictionary<Guid, ProcessorPolicySnapshot> _schemes;
+        private Guid _active;
+
+        public MultiSchemeFakePolicy(params ProcessorPolicySnapshot[] snapshots)
+        {
+            _schemes = snapshots.ToDictionary(snapshot => snapshot.SchemeId);
+            _active = snapshots[0].SchemeId;
+        }
+
+        public void Activate(Guid schemeId) => _active = schemeId;
+        public ProcessorPolicySnapshot Read(Guid schemeId) => _schemes[schemeId];
+        public ProcessorPolicySnapshot CaptureActive() => _schemes[_active];
+
+        public ProcessorPolicyApplyResult Apply(ProcessorPolicyPatch patch)
+        {
+            var before = _schemes[_active];
+            var after = before with
+            {
+                CoreParkingMinCoresPercent = patch.CoreParkingMinCoresPercent ?? before.CoreParkingMinCoresPercent,
+                EnergyPerformancePreferencePercent = patch.EnergyPerformancePreferencePercent ?? before.EnergyPerformancePreferencePercent,
+                ProcessorPerformanceBoostMode = patch.ProcessorPerformanceBoostMode ?? before.ProcessorPerformanceBoostMode
+            };
+            _schemes[_active] = after;
+            return new(true, before, after);
+        }
+
+        public ProcessorPolicyApplyResult Restore(ProcessorPolicySnapshot snapshot)
+        {
+            var before = _schemes[snapshot.SchemeId];
+            _schemes[snapshot.SchemeId] = snapshot;
+            return new(true, before, snapshot);
         }
     }
 }

@@ -37,6 +37,7 @@ public partial class App : Application
     private TensionShadowEvaluation? _latestTensionShadowEvaluation;
     private readonly GraduatedCoreFloorActuatorRuntime _graduatedCoreActuatorRuntime = new();
     private readonly PowerModeProfileRuntime _powerModeProfileRuntime = new();
+    private readonly AutoProfileTransitionRuntime _autoProfileTransitionRuntime = new();
     private MachineBaselineSessionRuntime? _machineBaselineSession;
     private DispatcherQueue? _dispatcher;
     private MainWindow? _shellWindow;
@@ -215,11 +216,17 @@ public partial class App : Application
             if (!actuation.Eligible) return;
 
             await _controller.ApplyAdaptiveGovernorDecisionAsync(evaluation.Decision, evaluation.Entitlement, evaluation.Actor);
-            var profile = PowerFlowOperatingProfiles.ForAutoZone(actuation.EffectiveZone);
-            if (_powerModeProfileRuntime.CurrentProfile?.Mode != profile.Mode)
+            var controllerSnapshot = _controller.Snapshot;
+            var transition = _autoProfileTransitionRuntime.Evaluate(
+                actuation.EffectiveZone,
+                controllerSnapshot.State,
+                _powerModeProfileRuntime.CurrentProfile,
+                controllerSnapshot.At);
+            if (transition.ShouldApply)
             {
-                var status = _powerModeProfileRuntime.Apply(profile, liveWritesEnabled: !_previewMode);
+                var status = _powerModeProfileRuntime.Apply(transition.Profile, liveWritesEnabled: !_previewMode);
                 if (!status.Applied && status.LiveWritesEnabled) throw new InvalidOperationException(status.Message);
+                _autoProfileTransitionRuntime.Commit(transition.Profile, controllerSnapshot.At);
             }
             _tray?.Update(_controller.Snapshot, null);
         }
@@ -389,6 +396,7 @@ public partial class App : Application
     private async Task ApplyOperatingModeAsync(PowerModeSelection selection)
     {
         if (_controller is null || _shuttingDown) return;
+        _autoProfileTransitionRuntime.Reset();
         _powerModeProfileRuntime.Restore("Previous manual PowerFlow mode profile restored.");
         if (selection == PowerModeSelection.Auto)
         {
@@ -421,6 +429,7 @@ public partial class App : Application
         if (_controller is not null) await _controller.UpdatePolicyConfigAsync(updated);
         var graduatedWasEnabled = _config.GraduatedCoreActuationEnabled;
         _config = updated;
+        _autoProfileTransitionRuntime.Reset();
         _telemetryRecorder?.UpdateCadence(updated.EffectiveTelemetryVisibleInterval, updated.EffectiveTelemetryBackgroundInterval);
         if (graduatedWasEnabled && !updated.GraduatedCoreActuationEnabled)
             _graduatedCoreActuatorRuntime.StopAndRestore("Graduated core-floor actuation disabled; baseline restored.");
@@ -443,7 +452,8 @@ public partial class App : Application
                 await _controller.StopAsync();
             }
             _graduatedCoreActuatorRuntime.StopAndRestore("Application shutdown restored the graduated core-floor baseline.");
-            _powerModeProfileRuntime.Restore("Application shutdown restored the manual PowerFlow mode profile baseline.");
+            _autoProfileTransitionRuntime.Reset();
+            _powerModeProfileRuntime.Restore("Application shutdown restored all PowerFlow processor-policy baselines.");
             if (_telemetryRecorder is not null)
             {
                 _telemetryRecorder.ContinuityChanged -= OnTelemetryContinuityChanged;
