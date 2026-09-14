@@ -10,8 +10,8 @@ PowerFlow watches live Windows telemetry, learns how the machine behaves, and ap
 
 If you just want to **use PowerFlow**, you do not need Visual Studio, the .NET SDK, Git, or a source build.
 
-1. Open the [latest PowerFlow release](https://github.com/masltov-creations/PowerFlow/releases/latest).
-2. Download **`PowerFlow-Setup.exe`**.
+1. Open the [PowerFlow Releases page](https://github.com/masltov-creations/PowerFlow/releases).
+2. In the newest release, download **`PowerFlow-Setup.exe`**.
 3. Double-click it and choose **Install PowerFlow**. The desktop shortcut is optional; the Start Menu shortcut is always created.
 4. Launch PowerFlow from the Start Menu, the desktop shortcut, or the tray. The installer also registers PowerFlow to start with Windows for your account.
 
