@@ -27,13 +27,19 @@
 
 **Files:** `tools/install/*`, `tools/PowerFlow.Setup/*`, `README.md`, `tests/PowerFlow.App.Tests/Startup/InstallLayoutContractTests.cs`.
 
-- [ ] Verify the WinUI PRI/XBF regression contract and corrected payload.
-- [ ] Build Setup and run embedded-payload verification.
-- [ ] Run migration install, shortcut launch, running-copy upgrade, uninstall preserving user data, and reinstall acceptance.
-- [ ] Run full tests, Release build, whitespace/privacy gates.
-- [ ] Publish `PowerFlow-Setup.exe` and `.sha256` as a GitHub Release and verify remote hash/README.
-- [ ] Commit/push release evidence before Task 1.
+- [x] Verify the WinUI PRI/XBF regression contract and corrected payload.
+- [x] Build Setup and run embedded-payload verification.
+- [x] Run migration install, shortcut launch, running-copy upgrade, uninstall preserving user data, and reinstall acceptance.
+- [x] Run full tests, Release build, whitespace/privacy gates.
+- [x] Publish `PowerFlow-Setup.exe` and `.sha256` as a GitHub Release and verify remote hash/README.
+- [x] Commit/push release evidence before Task 1.
 
+**Task 0 release evidence (2026-09-14):**
+- Release tag: `v0.1.0-beta.5` at `da06a38633ad10875df4a588ea8e939e4c19953a`.
+- Public release: `https://github.com/masltov-creations/PowerFlow/releases/tag/v0.1.0-beta.5`.
+- Frozen installer SHA-256: `0297CCE424C2B72AB3D27D2CD199CFA504DB85A7892592FF1B04E0BC0B092923`.
+- Qualification: 626/626 tests passed on the tag tree; Release build was clean; install/update/uninstall/reinstall acceptance passed; payload contains no PDBs or first-party local build paths.
+- Public verification: downloaded GitHub EXE hash and published `.sha256` both matched the frozen installer hash.
 ### Task 1: Shared presentation contracts
 
 **Create:** `src/PowerFlow.App/Visualization/PresentationSnapshot.cs`, `SignalQuality.cs`, `VisualizationSelection.cs`, `PresentationSnapshotProjector.cs`.
