@@ -1036,7 +1036,7 @@ public sealed partial class MainWindow : Window
     {
         _headerDragActive = false;
         if (!_shellVisible || _activationMode != ShellActivationMode.PinnedActive) return;
-        if (_shellState is PowerFlowShellState.Hidden or PowerFlowShellState.Glance or PowerFlowShellState.FullScreen) return;
+        if (_shellState is PowerFlowShellState.Hidden or PowerFlowShellState.FullScreen) return;
         if (!GetCursorPos(out _headerDragPointerOrigin)) return;
         _headerDragWindowOrigin = AppWindow.Position;
         _headerDragActive = true;

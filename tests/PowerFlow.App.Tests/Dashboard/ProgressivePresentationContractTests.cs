@@ -50,6 +50,9 @@ public sealed class ProgressivePresentationContractTests
         Assert.Contains("SetPresentation", code, StringComparison.Ordinal);
         Assert.Contains("TimelinePresentation.Glance", code, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GlanceSummary\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceCoreValue\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GlanceCoreFill\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("UpdateGlanceCoreMeter", code, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"LaneLabelColumn\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", code, StringComparison.Ordinal);
     }

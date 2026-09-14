@@ -28,7 +28,17 @@
                     </StackPanel>
                     <TextBlock Grid.Column="1" x:Name="WindowLabel" Text="60 SEC" FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" VerticalAlignment="Center"/>
                 </Grid>
-                <TextBlock x:Name="GlanceSummary" Visibility="Collapsed" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <Grid x:Name="GlanceSummaryHost" Visibility="Collapsed" ColumnSpacing="8" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="GlanceSummary" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="GlanceCoreValue" Text="CORES -/-" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource PowerFlowTextSecondaryBrush}" HorizontalAlignment="Right"/>
+                        <Grid Width="54" Height="5" HorizontalAlignment="Right">
+                            <Border CornerRadius="3" Background="{ThemeResource PowerFlowSubtleBrush}"/>
+                            <Border x:Name="GlanceCoreFill" Width="0" HorizontalAlignment="Left" CornerRadius="3" Background="{ThemeResource PowerFlowAccentBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
             </Grid>
 
             <Grid Grid.Row="1" ColumnSpacing="8">

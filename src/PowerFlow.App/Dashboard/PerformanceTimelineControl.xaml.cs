@@ -78,10 +78,10 @@ public sealed partial class PerformanceTimelineControl : UserControl
         ApplyPresentationMetrics(PresentationMetrics.For(presentation));
         var glance = presentation == TimelinePresentation.Glance;
         TimelineHeader.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
+        GlanceSummaryHost.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
         LaneLabels.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
         TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-        TimelineHeader.Opacity = GlanceSummary.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
+        TimelineHeader.Opacity = GlanceSummaryHost.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
         RequestRedraw();
     }
 
@@ -105,17 +105,17 @@ public sealed partial class PerformanceTimelineControl : UserControl
         var toGlance = to == TimelinePresentation.Glance;
         if (fromGlance != toGlance)
         {
-            TimelineHeader.Visibility = GlanceSummary.Visibility = LaneLabels.Visibility = TimelineFooter.Visibility = Visibility.Visible;
+            TimelineHeader.Visibility = GlanceSummaryHost.Visibility = LaneLabels.Visibility = TimelineFooter.Visibility = Visibility.Visible;
             var detail = toGlance ? 1d - t : t;
             TimelineHeader.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = detail;
-            GlanceSummary.Opacity = 1d - detail;
+            GlanceSummaryHost.Opacity = 1d - detail;
         }
         else
         {
             var glance = fromGlance && toGlance;
             TimelineHeader.Visibility = LaneLabels.Visibility = TimelineFooter.Visibility = glance ? Visibility.Collapsed : Visibility.Visible;
-            GlanceSummary.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
-            TimelineHeader.Opacity = GlanceSummary.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
+            GlanceSummaryHost.Visibility = glance ? Visibility.Visible : Visibility.Collapsed;
+            TimelineHeader.Opacity = GlanceSummaryHost.Opacity = LaneLabels.Opacity = TimelineFooter.Opacity = 1d;
         }
         RequestRedraw();
     }
@@ -1024,6 +1024,7 @@ public sealed partial class PerformanceTimelineControl : UserControl
         if (current is null)
         {
             CpuValueText.Text = PowerValueText.Text = ClockValueText.Text = CoresValueText.Text = "-";
+            UpdateGlanceCoreMeter(null, null);
             EnvelopeBadgeText.Text = "LEARNING";
             GlanceSummary.Text = "LEARNING - waiting for telemetry";
             return;
@@ -1042,11 +1043,12 @@ public sealed partial class PerformanceTimelineControl : UserControl
         CoresValueText.Text = current.ActiveCores is int active
             ? current.TotalCores is int total ? $"{active}/{total} awake" : $"{active} awake"
             : current.TotalCores is int knownTotal ? $"-/{knownTotal} awake" : "-";
+        UpdateGlanceCoreMeter(current.ActiveCores, current.TotalCores);
         UpdateCoreStateLabel();
         var actor = ShortActor(latest.Actor);
         var actorPart = string.IsNullOrWhiteSpace(actor) ? string.Empty : $" - {actor}";
         var decisionPart = latest.Decision == EnvelopeDecisionKind.None ? string.Empty : $" - {latest.Decision.ToString().ToUpperInvariant()}";
-        GlanceSummary.Text = $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - {PowerValueText.Text} - {ClockValueText.Text} - {CoresValueText.Text}{actorPart}{decisionPart}";
+        GlanceSummary.Text = $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - {PowerValueText.Text} - {ClockValueText.Text}{actorPart}{decisionPart}";
         EnvelopeBadgeText.Text = latest.Decision switch
         {
             EnvelopeDecisionKind.Brake => $"MODEL ZONE {latest.Zone.ToString().ToUpperInvariant()} - BRAKING",
@@ -1056,6 +1058,17 @@ public sealed partial class PerformanceTimelineControl : UserControl
         };
     }
 
+    private void UpdateGlanceCoreMeter(int? activeCores, int? totalCores)
+    {
+        GlanceCoreValue.Text = activeCores is int active
+            ? totalCores is int total && total > 0 ? $"CORES {active}/{total}" : $"CORES {active}"
+            : totalCores is int knownTotal && knownTotal > 0 ? $"CORES -/{knownTotal}" : "CORES -/-";
+
+        var ratio = activeCores is int awake && totalCores is int available && available > 0
+            ? Math.Clamp(awake / (double)available, 0d, 1d)
+            : 0d;
+        GlanceCoreFill.Width = 54d * ratio;
+    }
     private void UpdateCoreStateLabel()
     {
         var latest = _coreStateTimeline.Samples.LastOrDefault();

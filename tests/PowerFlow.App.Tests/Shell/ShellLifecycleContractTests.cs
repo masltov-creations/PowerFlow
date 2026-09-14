@@ -60,7 +60,9 @@ public sealed class ShellLifecycleContractTests
         Assert.Contains("_headerDragWindowOrigin", window, StringComparison.Ordinal);
         Assert.DoesNotContain("WmNcButtonDown", window, StringComparison.Ordinal);
         Assert.DoesNotContain("ReleaseCapture();", window, StringComparison.Ordinal);
-        Assert.Contains("PowerFlowShellState.Glance or PowerFlowShellState.FullScreen", window, StringComparison.Ordinal);
+        Assert.Contains("PowerFlowShellState.Hidden or PowerFlowShellState.FullScreen", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("PowerFlowShellState.Hidden or PowerFlowShellState.Glance or PowerFlowShellState.FullScreen", window, StringComparison.Ordinal);
+        Assert.Contains("_activationMode != ShellActivationMode.PinnedActive", window, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CompactBrandText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SystemStateDragSurface\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotMatch("CompactNavigationButton[^>]*PointerPressed", xaml);
