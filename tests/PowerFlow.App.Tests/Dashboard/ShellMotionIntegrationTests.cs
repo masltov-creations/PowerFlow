@@ -85,7 +85,7 @@ public sealed class ShellMotionIntegrationTests
     }
 
     [Fact]
-    public void OneMotionFrame_DrivesBoundsSemanticMorphAndMaterialResponse()
+    public void OneMotionFrame_DrivesBoundsSemanticMorphAndDisclosureWithoutPerFrameCompositorScale()
     {
         var code = Read("src", "PowerFlow.App", "Dashboard", "MainWindow.xaml.cs");
         var render = MethodBody(code, "private void OnShellMotionTick");
@@ -96,7 +96,10 @@ public sealed class ShellMotionIntegrationTests
         Assert.Contains("frame.Bounds", apply, StringComparison.Ordinal);
         Assert.Contains("frame.Sample.Progress", apply, StringComparison.Ordinal);
         Assert.Contains("frame.ChildSample.Progress", apply, StringComparison.Ordinal);
-        Assert.Contains("ApplyMaterialResponse(frame.Sample, frame.ChildSample)", apply, StringComparison.Ordinal);
+        Assert.Contains("ApplyDisclosureProgress", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyMaterialResponse", apply, StringComparison.Ordinal);
+        Assert.DoesNotContain("SectionHost.Scale", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("controlsVisual.Scale", code, StringComparison.Ordinal);
     }
 
     [Fact]

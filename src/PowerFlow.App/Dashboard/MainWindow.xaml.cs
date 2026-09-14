@@ -1,7 +1,5 @@
-using System.Numerics;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -531,7 +529,6 @@ public sealed partial class MainWindow : Window
             ApplyShellLayout(toState, targetLogical.Width, targetLogical.Height);
             ApplyShellTransitionFrame(fromProfile, toProfile, 1d, reducedMotion: true);
             ResetSemanticMorphPresentation(toProfile);
-            ResetMaterialResponse();
             return Task.CompletedTask;
         }
 
@@ -601,7 +598,6 @@ public sealed partial class MainWindow : Window
         if (!IsCurrentTransition(_motionGeneration))
         {
             StopShellMotionClock(completeAwaiter: true);
-            ResetMaterialResponse();
             return;
         }
         AppWindow.MoveAndResize(frame.Bounds);
@@ -609,7 +605,7 @@ public sealed partial class MainWindow : Window
         ApplyShellTransitionFrame(_motionFromProfile, _motionToProfile, frame.ChildSample.Progress, reducedMotion: false);
         var disclosure = Lerp(_motionFromDisclosure, _motionToDisclosure, Math.Clamp(frame.ChildSample.Progress, 0d, 1d));
         ApplyDisclosureProgress(disclosure, settled: false);
-        ApplyMaterialResponse(frame.Sample, frame.ChildSample);
+        // Keep material response in the motion model only. Per-frame WinUI Scale mutation here can native-fail-fast CoreMessaging during AppWindow motion.
         if (!frame.IsComplete) return;
 
         StopShellMotionClock();
@@ -618,30 +614,11 @@ public sealed partial class MainWindow : Window
         ApplyShellLayout(_motionToState, finalLogical.Width, finalLogical.Height);
         ResetSemanticMorphPresentation(_motionToProfile);
         ApplyDisclosureProgress(_motionToDisclosure, settled: true);
-        ResetMaterialResponse();
         var completion = _motionCompletion;
         _motionCompletion = null;
         completion?.TrySetResult();
     }
 
-    private void ApplyMaterialResponse(MotionSample shellSample, MotionSample childSample)
-    {
-        var shellScaleX = (float)Math.Clamp(shellSample.SecondaryScale, .97d, 1.03d);
-        var shellScaleY = (float)Math.Clamp(2d - shellSample.SecondaryScale, .97d, 1.03d);
-        SectionHost.CenterPoint = new Vector3((float)(SectionHost.ActualWidth / 2d), (float)(SectionHost.ActualHeight / 2d), 0f);
-        SectionHost.Scale = new Vector3(shellScaleX, shellScaleY, 1f);
-
-        var controlsVisual = ElementCompositionPreview.GetElementVisual(AdaptiveControlRegion);
-        var compliance = (float)(1d + Math.Clamp(childSample.Progress - 1d, 0d, .025d) * .35d);
-        controlsVisual.CenterPoint = new Vector3((float)(AdaptiveControlRegion.ActualWidth / 2d), (float)(AdaptiveControlRegion.ActualHeight / 2d), 0f);
-        controlsVisual.Scale = new Vector3(compliance, compliance, 1f);
-    }
-
-    private void ResetMaterialResponse()
-    {
-        ElementCompositionPreview.GetElementVisual(SectionHost).Scale = Vector3.One;
-        ElementCompositionPreview.GetElementVisual(AdaptiveControlRegion).Scale = Vector3.One;
-    }
 
     private void PrepareShellTransition(ShellPresentationProfile from, ShellPresentationProfile to)
     {
