@@ -3,7 +3,7 @@ using PowerFlow.Core.Envelope;
 
 namespace PowerFlow.Core.Rules;
 
-public enum AppRuleMode { Balanced, Performance }
+public enum AppRuleMode { Balanced, Performance, Ultra }
 public enum AppImportance { Low, Normal, High }
 
 public sealed record AppRule(
@@ -15,17 +15,21 @@ public sealed record AppRule(
     AppImportance? Importance = null)
 {
     [JsonIgnore]
-    public AppImportance EffectiveImportance => Entitlement is not null
-        ? InferImportance(Entitlement)
-        : Importance ?? (Mode == AppRuleMode.Balanced ? AppImportance.Low : AppImportance.Normal);
+    public AppImportance EffectiveImportance => Mode == AppRuleMode.Ultra
+        ? AppImportance.High
+        : Entitlement is not null
+            ? InferImportance(Entitlement)
+            : Importance ?? (Mode == AppRuleMode.Balanced ? AppImportance.Low : AppImportance.Normal);
 
     [JsonIgnore]
-    public PerformanceEntitlement EffectiveEntitlement => Entitlement
-        ?? (Importance is AppImportance importance
-            ? EntitlementFor(importance, FollowChildren)
-            : Mode == AppRuleMode.Performance
-                ? PerformanceEntitlement.LegacyPerformance with { FollowChildren = FollowChildren }
-                : PerformanceEntitlement.LegacyBalanced with { FollowChildren = FollowChildren });
+    public PerformanceEntitlement EffectiveEntitlement => Mode == AppRuleMode.Ultra
+        ? EntitlementFor(AppImportance.High, FollowChildren)
+        : Entitlement
+            ?? (Importance is AppImportance importance
+                ? EntitlementFor(importance, FollowChildren)
+                : Mode == AppRuleMode.Performance
+                    ? PerformanceEntitlement.LegacyPerformance with { FollowChildren = FollowChildren }
+                    : PerformanceEntitlement.LegacyBalanced with { FollowChildren = FollowChildren });
 
     public static PerformanceEntitlement EntitlementFor(AppImportance importance, bool followChildren = true) => importance switch
     {

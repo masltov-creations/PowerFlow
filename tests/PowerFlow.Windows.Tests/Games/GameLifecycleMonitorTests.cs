@@ -27,6 +27,21 @@ public sealed class GameLifecycleMonitorTests
     }
 
     [Fact]
+    public void ExplicitUltraRule_LatchesLikeAForcedGamePolicy()
+    {
+        var source = new FakeSource();
+        var factory = new FakeHandleFactory();
+        var sut = new GameLifecycleMonitor(source, factory);
+        sut.UpdateRules([new AppRule(@"C:\Games\PUBG\TslGame.exe", (AppRuleMode)2, "PUBG", FollowChildren: true)]);
+        sut.Start();
+
+        source.Raise(new ProcessStartEvent(42, 1, @"C:\Games\PUBG\TslGame.exe", T0));
+
+        Assert.True(sut.IsLatched);
+        Assert.Equal(1, sut.TrackedCount);
+        Assert.False(source.IsRunning);
+    }
+    [Fact]
     public void ExplicitSemanticEntitlement_DoesNotBecomeLegacyPerformanceLatch()
     {
         var source = new FakeSource();

@@ -33,6 +33,15 @@ public sealed class AppRuleImportanceTests
     }
 
     [Fact]
+    public void Ultra_mode_is_named_and_maps_to_fast_boost_semantics()
+    {
+        var ultraMode = (AppRuleMode)2;
+        Assert.Equal("Ultra", ultraMode.ToString());
+        var rule = new AppRule("game.exe", ultraMode);
+        Assert.Equal(AppImportance.High, rule.EffectiveImportance);
+        Assert.Equal(EnvelopeZone.Boost, rule.EffectiveEntitlement.MaximumZone);
+    }
+    [Fact]
     public void Explicit_custom_entitlement_remains_authoritative()
     {
         var custom = new PerformanceEntitlement(EnvelopeZone.Responsive, TimeSpan.FromSeconds(7), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(3), false);

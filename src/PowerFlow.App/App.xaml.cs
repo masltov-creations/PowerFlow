@@ -46,6 +46,7 @@ public partial class App : Application
     private StartupRegistration? _startupRegistration;
     private bool _shuttingDown;
     private bool _previewMode;
+    private bool _appTriggeredUltraProfileActive;
 
     public App() => InitializeComponent();
 
@@ -172,6 +173,7 @@ public partial class App : Application
     private void OnSnapshotChanged(object? sender, ControllerSnapshot snapshot)
     {
         _telemetryRecorder?.UpdateControllerSnapshot(snapshot);
+        UpdateAppTriggeredUltraProfile(snapshot);
         if (_telemetryRecorder is not null)
         {
             var shadowEvaluation = _tensionShadowRuntime.Evaluate(snapshot, _telemetryRecorder.History, _config, _config.EffectiveGovernorTensionPercent);
@@ -185,6 +187,33 @@ public partial class App : Application
         _dispatcher?.TryEnqueue(() => _tray?.Update(snapshot, _powerModeProfileRuntime.CurrentProfile?.Mode));
     }
 
+    private void UpdateAppTriggeredUltraProfile(ControllerSnapshot snapshot)
+    {
+        var shouldUseUltra = snapshot.State == PowerState.HighPerformance
+            && snapshot.IsLatched
+            && string.Equals(snapshot.LatchType, "Game", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(snapshot.TriggerApplication)
+            && _config.AppRules.Any(rule => rule.Mode == AppRuleMode.Ultra && AppRuleMatches(rule.ExecutablePath, snapshot.TriggerApplication!));
+
+        if (shouldUseUltra)
+        {
+            if (_appTriggeredUltraProfileActive) return;
+            var status = _powerModeProfileRuntime.Apply(PowerFlowOperatingProfiles.Ultra, liveWritesEnabled: !_previewMode);
+            _appTriggeredUltraProfileActive = !status.LiveWritesEnabled || status.Applied;
+            return;
+        }
+
+        if (!_appTriggeredUltraProfileActive) return;
+        _powerModeProfileRuntime.Restore("App-triggered ULTRA ended; processor policy baselines restored.");
+        _appTriggeredUltraProfileActive = false;
+    }
+
+    private static bool AppRuleMatches(string rulePath, string actor)
+    {
+        if (string.Equals(rulePath, actor, StringComparison.OrdinalIgnoreCase)) return true;
+        try { return string.Equals(Path.GetFileName(rulePath), Path.GetFileName(actor), StringComparison.OrdinalIgnoreCase); }
+        catch { return false; }
+    }
     private void OnTelemetryContinuityChanged(object? sender, EventArgs e)
     {
         if (_telemetryRecorder is null || _shuttingDown) return;

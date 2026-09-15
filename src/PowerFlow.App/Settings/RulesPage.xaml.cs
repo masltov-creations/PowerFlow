@@ -21,8 +21,10 @@ public sealed partial class RulesPage : Page
     {
         public string DisplayName => Rule.DisplayName ?? Path.GetFileNameWithoutExtension(Rule.ExecutablePath);
         public string ExecutablePath => Rule.ExecutablePath;
-        public string ImportanceLabel => Rule.EffectiveImportance.ToString().ToUpperInvariant();
-        public string PolicyLabel => Rule.EffectiveImportance switch
+        public string ImportanceLabel => Rule.Mode == AppRuleMode.Ultra ? "ULTRA" : Rule.EffectiveImportance.ToString().ToUpperInvariant();
+        public string PolicyLabel => Rule.Mode == AppRuleMode.Ultra
+            ? "Forces ULTRA while this app is active; restores the prior Auto behavior when it exits"
+            : Rule.EffectiveImportance switch
         {
             AppImportance.Low => "Efficiency-biased · cannot promote Auto into Boost by itself",
             AppImportance.High => "Latency-sensitive · shorter qualification for Boost",
@@ -94,7 +96,7 @@ public sealed partial class RulesPage : Page
         }
 
         var deferral = args.GetDeferral();
-        try { await AddOrReplaceRuleAsync(selected.ExecutablePath, selected.DisplayName, ImportanceFromIndex(NewAppImportanceBox.SelectedIndex)); }
+        try { await AddOrReplaceRuleAsync(selected.ExecutablePath, selected.DisplayName, NewAppImportanceBox.SelectedIndex); }
         finally { deferral.Complete(); }
     }
 
@@ -102,7 +104,7 @@ public sealed partial class RulesPage : Page
     {
         if ((sender as FrameworkElement)?.Tag is not AppRule selected) return;
         _editingRule = selected;
-        AppImportanceBox.SelectedIndex = IndexFor(selected.EffectiveImportance);
+        AppImportanceBox.SelectedIndex = IndexFor(selected);
         ImportanceAppText.Text = selected.DisplayName ?? Path.GetFileNameWithoutExtension(selected.ExecutablePath);
         ImportanceDialog.XamlRoot = XamlRoot;
         await ImportanceDialog.ShowAsync();
@@ -114,12 +116,11 @@ public sealed partial class RulesPage : Page
         var deferral = args.GetDeferral();
         try
         {
-            var importance = ImportanceFromIndex(AppImportanceBox.SelectedIndex);
-            var legacyMode = importance == AppImportance.Low ? AppRuleMode.Balanced : AppRuleMode.Performance;
-            var updated = selected with { Mode = legacyMode, Entitlement = null, Importance = importance };
+            var selectionIndex = AppImportanceBox.SelectedIndex;
+            var updated = RuleForSelection(selected.ExecutablePath, selected.DisplayName, selected.FollowChildren, selectionIndex);
             var rules = _config.AppRules.Select(rule => string.Equals(rule.ExecutablePath, selected.ExecutablePath, StringComparison.OrdinalIgnoreCase) ? updated : rule).ToArray();
             await ApplyAsync(_config with { AppRules = rules });
-            StatusText.Text = $"Saved {ImportanceAppText.Text}: {importance}.";
+            StatusText.Text = $"Saved {ImportanceAppText.Text}: {(selectionIndex == 3 ? "ULTRA" : ImportanceFromIndex(selectionIndex).ToString())}.";
         }
         finally { _editingRule = null; deferral.Complete(); }
     }
@@ -132,21 +133,30 @@ public sealed partial class RulesPage : Page
         StatusText.Text = "Rule removed.";
     }
 
-    private async Task AddOrReplaceRuleAsync(string path, string displayName, AppImportance importance)
+    private async Task AddOrReplaceRuleAsync(string path, string displayName, int selectionIndex)
     {
         var rules = _config.AppRules.Where(x => !string.Equals(x.ExecutablePath, path, StringComparison.OrdinalIgnoreCase)).ToList();
-        var legacyMode = importance == AppImportance.Low ? AppRuleMode.Balanced : AppRuleMode.Performance;
-        rules.Add(new AppRule(path, legacyMode, displayName, FollowChildren: true, Entitlement: null, Importance: importance));
+        rules.Add(RuleForSelection(path, displayName, followChildren: true, selectionIndex));
         await ApplyAsync(_config with { AppRules = rules });
-        StatusText.Text = $"Saved {displayName}: {importance}.";
+        StatusText.Text = $"Saved {displayName}: {(selectionIndex == 3 ? "ULTRA" : ImportanceFromIndex(selectionIndex).ToString())}.";
     }
 
+    private static AppRule RuleForSelection(string path, string? displayName, bool followChildren, int selectionIndex)
+    {
+        if (selectionIndex == 3)
+            return new AppRule(path, AppRuleMode.Ultra, displayName, followChildren, Entitlement: null, Importance: null);
+        var importance = ImportanceFromIndex(selectionIndex);
+        var legacyMode = importance == AppImportance.Low ? AppRuleMode.Balanced : AppRuleMode.Performance;
+        return new AppRule(path, legacyMode, displayName, followChildren, Entitlement: null, Importance: importance);
+    }
     private static AppImportance ImportanceFromIndex(int index) => index switch
     {
         0 => AppImportance.Low,
         2 => AppImportance.High,
         _ => AppImportance.Normal
     };
+
+    private static int IndexFor(AppRule rule) => rule.Mode == AppRuleMode.Ultra ? 3 : IndexFor(rule.EffectiveImportance);
 
     private static int IndexFor(AppImportance importance) => importance switch
     {

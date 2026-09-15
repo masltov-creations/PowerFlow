@@ -24,6 +24,7 @@
             <Border CornerRadius="8" Background="#146EA8FF" BorderBrush="#356EA8FF" BorderThickness="1" Padding="8,4"><TextBlock Text="LOW · EFFICIENCY ONLY" FontSize="11"/></Border>
             <Border CornerRadius="8" Background="#14D88CFF" BorderBrush="#35D88CFF" BorderThickness="1" Padding="8,4"><TextBlock Text="NORMAL · QUALIFIED BOOST" FontSize="11"/></Border>
             <Border CornerRadius="8" Background="#18FF9A45" BorderBrush="#40FF9A45" BorderThickness="1" Padding="8,4"><TextBlock Text="HIGH · FAST BOOST" FontSize="11"/></Border>
+            <Border CornerRadius="8" Background="{ThemeResource PowerFlowSubtleBrush}" BorderBrush="{ThemeResource PowerFlowCardBorderBrush}" BorderThickness="1" Padding="8,4"><TextBlock Text="ULTRA · FORCE WHILE ACTIVE" FontSize="11"/></Border>
         </StackPanel>
 
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -62,7 +63,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <TextBox x:Name="AppSearchBox" PlaceholderText="Search running apps" TextChanged="OnAppSearchChanged"/>
                     <ComboBox x:Name="NewAppImportanceBox" Grid.Column="1" SelectedIndex="1" AutomationProperties.Name="New app importance">
-                        <ComboBoxItem Content="Low"/><ComboBoxItem Content="Normal"/><ComboBoxItem Content="High"/>
+                        <ComboBoxItem Content="Low"/><ComboBoxItem Content="Normal"/><ComboBoxItem Content="High"/><ComboBoxItem Content="Ultra"/>
                     </ComboBox>
                     <Button Grid.Column="2" Content="Browse…" Click="OnBrowseExecutable" Padding="10,4"/>
                 </Grid>
@@ -88,8 +89,9 @@
                     <ComboBoxItem Content="LOW · efficiency only"/>
                     <ComboBoxItem Content="NORMAL · qualified boost"/>
                     <ComboBoxItem Content="HIGH · fast boost"/>
+                    <ComboBoxItem Content="ULTRA · force while active"/>
                 </ComboBox>
-                <TextBlock Text="Low cannot promote Auto into Boost by itself. Normal can earn Boost after sustained demand. High can earn it faster for latency-sensitive work." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
+                <TextBlock Text="Low cannot promote Auto into Boost by itself. Normal can earn Boost after sustained demand. High can earn it faster. ULTRA forces the full Ultra profile only while the app is active." FontSize="11" Foreground="{ThemeResource PowerFlowTextMutedBrush}" TextWrapping="Wrap"/>
             </StackPanel>
         </ContentDialog>
     </Grid>

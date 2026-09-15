@@ -24,7 +24,7 @@ public sealed class AppEntitlementPresentationTests
     }
 
     [Fact]
-    public void RulesSurface_ExposesOnlyLowNormalHighImportance()
+    public void RulesSurface_ExposesAdaptiveImportancePlusExplicitUltra()
     {
         var xaml = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml");
         var code = Read("src", "PowerFlow.App", "Settings", "RulesPage.xaml.cs");
@@ -33,7 +33,9 @@ public sealed class AppEntitlementPresentationTests
         Assert.Contains("LOW · EFFICIENCY ONLY", xaml, StringComparison.Ordinal);
         Assert.Contains("NORMAL · QUALIFIED BOOST", xaml, StringComparison.Ordinal);
         Assert.Contains("HIGH · FAST BOOST", xaml, StringComparison.Ordinal);
-        Assert.Contains("Importance = importance", code, StringComparison.Ordinal);
+        Assert.Contains("ULTRA", xaml, StringComparison.Ordinal);
+        Assert.Contains("AppRuleMode.Ultra", code, StringComparison.Ordinal);
+        Assert.Contains("RuleForSelection", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MaximumZoneBox", xaml + code, StringComparison.Ordinal);
         Assert.DoesNotContain("QualificationSecondsBox", xaml + code, StringComparison.Ordinal);
         Assert.DoesNotContain("LeaseSecondsBox", xaml + code, StringComparison.Ordinal);
