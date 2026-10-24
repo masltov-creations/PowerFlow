@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using PowerFlow.App.Controller;
+using PowerFlow.App.Dashboard.HarmonicRing;
 using PowerFlow.App.Telemetry;
 using PowerFlow.App.Tray;
 using PowerFlow.Core.Envelope;
@@ -40,6 +41,7 @@ public sealed partial class MainWindow : Window
     private bool _closed;
     private bool _shellVisible;
     private double _graphWindowSeconds = 60;
+    private bool _harmonicRingEnabled;
     private PowerFlowShellState _shellState = PowerFlowShellState.Hidden;
     private PowerModeSelection _manualModeSelection = PowerModeSelection.Auto;
     private ShellDensity _layoutDensity = ShellDensity.Compact;
@@ -404,6 +406,16 @@ public sealed partial class MainWindow : Window
         _resizeReflowTimer?.Stop();
     }
 
+    private void OnHarmonicRingToggled(object sender, RoutedEventArgs e)
+    {
+        _harmonicRingEnabled = HarmonicRingToggle.IsChecked == true;
+        HarmonicRingView.Visibility = _harmonicRingEnabled ? Visibility.Visible : Visibility.Collapsed;
+        PerformanceTimeline.Visibility = _harmonicRingEnabled ? Visibility.Collapsed : Visibility.Visible;
+        var size = CurrentLogicalAppWindowSize();
+        ApplyShellLayout(_shellState, size.Width, size.Height);
+        ApplyVisualState(_controller.Snapshot);
+    }
+
     private void ApplyShellLayout(PowerFlowShellState state, int width, int height)
     {
         var profile = PowerFlowShellLayout.Resolve(width, height, state, _currentSection, _layoutDensity);
@@ -477,7 +489,10 @@ public sealed partial class MainWindow : Window
             ? new GridLength(1, GridUnitType.Auto)
             : new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
         TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
-        TimelineRowDefinition.MinHeight = state == PowerFlowShellState.Glance ? 92d : 156d;
+        TimelineRowDefinition.MinHeight = state == PowerFlowShellState.Glance
+            ? (_harmonicRingEnabled ? 165d : 92d) : 156d;
+        StatusFooter.Visibility = _harmonicRingEnabled && state == PowerFlowShellState.Glance
+            ? Visibility.Collapsed : Visibility.Visible;
         AdaptiveControlRowDefinition.Height = profile.GovernorControls == GovernorControlPresentation.Bias
             ? new GridLength(1, GridUnitType.Auto)
             : new GridLength(ControlBandHeight(profile));
@@ -884,13 +899,16 @@ public sealed partial class MainWindow : Window
         var shadowPolicy = GovernorTensionPolicy.Resolve(configuredTension, learningModel.Envelope, modelEntitlement);
         var shadowEvaluation = _tensionShadowProvider?.Invoke();
 
-        PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
-        PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
-        PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
-        PerformanceTimeline.SetCoreActuatorStatus(_coreActuatorStatusProvider?.Invoke());
-        PerformanceTimeline.SetPolicyContext(learningModel.Envelope, modelEntitlement, EnvelopeTuning.Learned);
-        PerformanceTimeline.SetShadowPolicyContext(shadowPolicy.EffectiveEnvelope);
-        PerformanceTimeline.SetTuneMode(false);
+        if (!_harmonicRingEnabled)
+        {
+            PerformanceTimeline.Apply(ViewModel.OperatingHistory, learningModel.Envelope, _graphWindowSeconds);
+            PerformanceTimeline.SetCoreThreadHistory(_recorder.History);
+            PerformanceTimeline.SetProcessorPolicySnapshot(ReadProcessorPolicySnapshot());
+            PerformanceTimeline.SetCoreActuatorStatus(_coreActuatorStatusProvider?.Invoke());
+            PerformanceTimeline.SetPolicyContext(learningModel.Envelope, modelEntitlement, EnvelopeTuning.Learned);
+            PerformanceTimeline.SetShadowPolicyContext(shadowPolicy.EffectiveEnvelope);
+            PerformanceTimeline.SetTuneMode(false);
+        }
 
         ModelConfidenceText.Text = learningModel.Confidence == EnvelopeConfidence.Low
             ? "LEARNING"
@@ -900,6 +918,13 @@ public sealed partial class MainWindow : Window
         SelectedActorNameText.Text = string.IsNullOrWhiteSpace(actor) ? "SYSTEM / NO DOMINANT ACTOR" : actor;
         var manualAuthority = snapshot.IsLatched && string.Equals(snapshot.LatchType, "Manual", StringComparison.OrdinalIgnoreCase);
         var currentProfile = _currentProfileProvider?.Invoke();
+        if (_harmonicRingEnabled)
+        {
+            // Project existing retained observations only. The ring owns no telemetry timer.
+            HarmonicRingView.UpdateSnapshot(HarmonicRingProjection.Build(
+                ViewModel.OperatingHistory, DateTimeOffset.UtcNow,
+                confirmedAppliedProfile: currentProfile?.ToString()));
+        }
         var baseline = _config.EffectiveMachineBaselineRuns.OrderByDescending(run => run.CapturedAt).FirstOrDefault();
         var comparison = GovernorComparisonProjection.Create(ViewModel.LatestGovernorDecision, currentProfile, manualAuthority, shadowEvaluation, baseline);
 
