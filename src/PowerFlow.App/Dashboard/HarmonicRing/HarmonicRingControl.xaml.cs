@@ -121,8 +121,8 @@ public sealed partial class HarmonicRingControl : UserControl
         {
             var tick = _coreTicks[i];
             tick.Fill = i < active
-                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 210, 242))
-                : new SolidColorBrush(Windows.UI.Color.FromArgb(110, 99, 121, 145));
+                ? new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 38, 210, 242))
+                : new SolidColorBrush(global::Windows.UI.Color.FromArgb(110, 99, 121, 145));
             Canvas.SetLeft(tick, centers[i].X - 2);
             Canvas.SetTop(tick, centers[i].Y - 2);
         }

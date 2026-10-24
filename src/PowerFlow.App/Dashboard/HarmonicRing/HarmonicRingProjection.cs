@@ -17,10 +17,16 @@ public enum RingPressureTrend
     Ebbing
 }
 
-public sealed record RingReading(double? Value, DateTimeOffset? ObservedAt, RingReadingQuality Quality)
+public sealed record RingReading(
+    double? Value,
+    DateTimeOffset? ObservedAt,
+    RingReadingQuality Quality,
+    string Unit = "",
+    TimeSpan? Age = null)
 {
     public static RingReading Missing { get; } = new(null, null, RingReadingQuality.Missing);
-    public bool IsCurrent => Quality == RingReadingQuality.Current && Value is double;
+    public bool IsAvailable => Quality != RingReadingQuality.Missing && Value is double;
+    public bool IsCurrent => Quality == RingReadingQuality.Current && IsAvailable;
 }
 
 public readonly record struct RingWavePoint(
@@ -41,8 +47,12 @@ public sealed record HarmonicRingSnapshot(
     RingReading AwakeCores,
     RingReading TotalCores,
     IReadOnlyList<RingWavePoint> PressureHistory,
+    EnvelopeZone? ModelZone,
     string? ConfirmedAppliedProfile)
 {
+    public string? ConfirmedAppliedAuthority { get; init; }
+    /// <summary>Stable timestamp stamp for this projected snapshot.</summary>
+    public long Sequence => Now.UtcDateTime.Ticks;
     public bool HasCurrentPressure => Pressure.IsCurrent;
 }
 
@@ -54,9 +64,14 @@ public sealed record HarmonicRingSnapshot(
 public static class HarmonicRingProjection
 {
     public const int DefaultMaximumPoints = 96;
+    public const int MaximumAllowedPoints = 128;
     public static readonly TimeSpan DefaultWindow = TimeSpan.FromSeconds(60);
     public static readonly TimeSpan DefaultFreshness = TimeSpan.FromSeconds(8);
     public static readonly TimeSpan DefaultMaximumGap = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan TrendWindow = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan TrendMinimumSpan = TimeSpan.FromSeconds(3);
+    public const int TrendMinimumSamples = 3;
+    public const double TrendDeadbandPercent = 5d;
 
     public static HarmonicRingSnapshot Build(
         IReadOnlyList<OperatingObservation> history,
@@ -64,56 +79,65 @@ public static class HarmonicRingProjection
         string? confirmedAppliedProfile = null,
         TimeSpan? window = null,
         TimeSpan? freshness = null,
-        int maximumPoints = DefaultMaximumPoints)
+        int maximumPoints = DefaultMaximumPoints,
+        string? confirmedAppliedAuthority = null)
     {
         ArgumentNullException.ThrowIfNull(history);
-        if (maximumPoints < 4) throw new ArgumentOutOfRangeException(nameof(maximumPoints));
+        if (maximumPoints is < 4 or > MaximumAllowedPoints)
+            throw new ArgumentOutOfRangeException(nameof(maximumPoints));
 
         var visibleWindow = window ?? DefaultWindow;
         var freshWithin = freshness ?? DefaultFreshness;
         if (visibleWindow <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(window));
         if (freshWithin < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(freshness));
 
-        // Exclude future observations rather than presenting an invalid negative age as fresh.
-        // Deduplicate equal timestamps deterministically while retaining the latest supplied item.
+        // Exclude future observations. A timestamp can appear more than once after merging
+        // retained streams, so use a value-based tie-break instead of input order.
         var ordered = history
             .Where(item => item.At <= now)
-            .Select((item, index) => (item, index))
-            .OrderBy(entry => entry.item.At)
-            .ThenBy(entry => entry.index)
-            .GroupBy(entry => entry.item.At)
-            .Select(group => group.Last().item)
+            .OrderBy(item => item.At)
+            .ThenBy(item => item.At.Offset.Ticks)
+            .ThenBy(item => item.CpuPressurePercent)
+            .ThenBy(item => item.PackageWatts)
+            .ThenBy(item => item.EffectiveClockMhz)
+            .ThenBy(item => item.ActiveCores)
+            .ThenBy(item => item.TotalCores)
+            .ThenBy(item => item.ProcessorPerformancePercent)
+            .ThenBy(item => item.Zone)
+            .ThenBy(item => item.Actor, StringComparer.Ordinal)
+            .ThenBy(item => item.Decision)
+            .GroupBy(item => item.At)
+            .Select(group => group.Last())
             .ToArray();
 
         var latest = ordered.LastOrDefault();
-        RingReading From(OperatingObservation? sample, Func<OperatingObservation, double?> select)
+        RingReading From(OperatingObservation? sample, Func<OperatingObservation, double?> select, string unit)
         {
-            if (sample is null) return RingReading.Missing;
+            if (sample is null) return new RingReading(null, null, RingReadingQuality.Missing, unit);
             var value = select(sample);
             if (value is not double finite || !double.IsFinite(finite) || finite < 0)
-                return RingReading.Missing;
+                return new RingReading(null, null, RingReadingQuality.Missing, unit);
             var age = now - sample.At;
             return new RingReading(value, sample.At,
-                age <= freshWithin ? RingReadingQuality.Current : RingReadingQuality.Stale);
+                age <= freshWithin ? RingReadingQuality.Current : RingReadingQuality.Stale,
+                unit,
+                age);
         }
 
-        OperatingObservation? MostRecent(Func<OperatingObservation, bool> present)
-            => ordered.LastOrDefault(present);
+        RingReading MostRecent(Func<OperatingObservation, double?> select, string unit)
+            => From(ordered.LastOrDefault(sample =>
+                select(sample) is double value && double.IsFinite(value) && value >= 0), select, unit);
 
-        var pressure = From(latest, sample => sample.CpuPressurePercent);
-        var watts = From(MostRecent(sample => sample.PackageWatts is double),
-            sample => sample.PackageWatts);
-        var clock = From(MostRecent(sample => sample.EffectiveClockMhz is double),
-            sample => sample.EffectiveClockMhz);
-        var awake = From(MostRecent(sample => sample.ActiveCores is int),
-            sample => sample.ActiveCores);
-        var total = From(MostRecent(sample => sample.TotalCores is int),
-            sample => sample.TotalCores);
+        var pressure = From(latest, sample => sample.CpuPressurePercent, "pressure %");
+        var watts = MostRecent(sample => sample.PackageWatts, "W");
+        var clock = MostRecent(sample => sample.EffectiveClockMhz, "MHz");
+        var awake = MostRecent(sample => sample.ActiveCores, "cores");
+        var total = MostRecent(sample => sample.TotalCores, "cores");
 
         var start = now - visibleWindow;
         var withinWindow = ordered.Where(item => item.At >= start).ToArray();
         var wave = BuildWave(withinWindow, start, visibleWindow, maximumPoints);
-        var trend = pressure.IsCurrent ? ComputeTrend(withinWindow, now) : RingPressureTrend.Unknown;
+        var trend = pressure.IsCurrent ? ComputeTrend(ordered, now) : RingPressureTrend.Unknown;
 
         return new HarmonicRingSnapshot(
             now,
@@ -121,30 +145,42 @@ public static class HarmonicRingProjection
             visibleWindow,
             pressure,
             trend,
-            RingReading.Missing, // pressure is not independent CPU usage
+            new RingReading(null, null, RingReadingQuality.Missing, "CPU busy %"),
             watts,
             clock,
             awake,
             total,
             wave,
-            string.IsNullOrWhiteSpace(confirmedAppliedProfile) ? null : confirmedAppliedProfile);
+            latest?.Zone,
+            string.IsNullOrWhiteSpace(confirmedAppliedProfile) ? null : confirmedAppliedProfile)
+        {
+            ConfirmedAppliedAuthority = string.IsNullOrWhiteSpace(confirmedAppliedAuthority)
+                ? null
+                : confirmedAppliedAuthority
+        };
     }
 
     private static RingPressureTrend ComputeTrend(
-        IReadOnlyList<OperatingObservation> visible,
+        IReadOnlyList<OperatingObservation> ordered,
         DateTimeOffset now)
     {
-        var recent = visible.Where(item => item.At >= now.AddSeconds(-10)).ToArray();
-        if (recent.Length < 3) return RingPressureTrend.Unknown;
-        if ((recent[^1].At - recent[0].At).TotalSeconds < 3)
+        var recent = ordered.Where(item => item.At >= now - TrendWindow).ToArray();
+        if (recent.Length == 0) return RingPressureTrend.Unknown;
+
+        var segmentStart = recent.Length - 1;
+        while (segmentStart > 0 && recent[segmentStart].At - recent[segmentStart - 1].At <= DefaultMaximumGap)
+            segmentStart--;
+        var continuous = recent[segmentStart..];
+        if (continuous.Length < TrendMinimumSamples) return RingPressureTrend.Unknown;
+        if (continuous[^1].At - continuous[0].At < TrendMinimumSpan)
             return RingPressureTrend.Unknown;
 
         // Averaging each endpoint pair limits one-sample noise while preserving sustained change.
-        var early = (recent[0].CpuPressurePercent + recent[1].CpuPressurePercent) / 2d;
-        var late = (recent[^2].CpuPressurePercent + recent[^1].CpuPressurePercent) / 2d;
+        var early = (continuous[0].CpuPressurePercent + continuous[1].CpuPressurePercent) / 2d;
+        var late = (continuous[^2].CpuPressurePercent + continuous[^1].CpuPressurePercent) / 2d;
         var delta = late - early;
-        if (delta >= 5d) return RingPressureTrend.Building;
-        if (delta <= -5d) return RingPressureTrend.Ebbing;
+        if (delta >= TrendDeadbandPercent) return RingPressureTrend.Building;
+        if (delta <= -TrendDeadbandPercent) return RingPressureTrend.Ebbing;
         return RingPressureTrend.Steady;
     }
 
@@ -207,6 +243,6 @@ public static class HarmonicRingProjection
                 previousSegment is null || previousSegment != item.Segment));
             previousSegment = item.Segment;
         }
-        return points;
+        return Array.AsReadOnly(points.ToArray());
     }
 }

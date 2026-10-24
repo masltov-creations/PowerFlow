@@ -489,8 +489,8 @@ public sealed partial class MainWindow : Window
             ? new GridLength(1, GridUnitType.Auto)
             : new GridLength(Math.Max(0, profile.Geometry.HeaderHeight));
         TimelineRowDefinition.Height = new GridLength(1, GridUnitType.Star);
-        TimelineRowDefinition.MinHeight = state == PowerFlowShellState.Glance
-            ? (_harmonicRingEnabled ? 165d : 92d) : 156d;
+        TimelineRowDefinition.MinHeight = state == PowerFlowShellState.Glance ? 92d : 156d;
+        if (_harmonicRingEnabled && state == PowerFlowShellState.Glance) TimelineRowDefinition.MinHeight = 165d;
         StatusFooter.Visibility = _harmonicRingEnabled && state == PowerFlowShellState.Glance
             ? Visibility.Collapsed : Visibility.Visible;
         AdaptiveControlRowDefinition.Height = profile.GovernorControls == GovernorControlPresentation.Bias
